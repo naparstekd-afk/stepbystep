@@ -1094,7 +1094,8 @@ function clearGroup(){ groupedView=null; render(); }
 // ---------- toggle / move / delete ----------
 function toggleTask(tid){
   const r=findTaskAnywhere(tid); if(!r)return;
-  r.task.status=nextSt(r.task.status); save(); render();
+  // Cocher = Fait directement ; recocher = À faire. (Le statut « En cours » reste dispo dans l'éditeur.)
+  r.task.status = (r.task.status==='done') ? 'todo' : 'done'; save(); render();
 }
 function delTask(tid){
   const r=findTaskAnywhere(tid); if(!r)return;
