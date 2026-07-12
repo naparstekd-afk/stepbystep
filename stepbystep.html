@@ -382,7 +382,7 @@ function mkTask(text=''){
   return {id:uid(),text,responsible:'',status:'todo',duration:0,dependsOn:[],subtasks:[],notes:'',date:'',
     budget:{amount:0,theme:'Divers'},
     material:{type:'buy',note:'',lines:[]},
-    recurring:false,reminders:[30],debrief:''};   // debrief : note post-événement (bien / pas bien / à améliorer)
+    recurring:false,reminders:[30],debrief:'',priority:'normale'};   // debrief : note post-événement ; priority : haute/normale/basse
 }
 function mkEvent(name=''){ return {id:uid(),name,date:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
 function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',recurring:false,events:[]}; }
@@ -679,6 +679,8 @@ function render(){
   else if(nav.view==='settings') renderSettings(main);
   else if(nav.view==='agenda') renderAgenda(main);
   else if(nav.view==='publics') renderPublics(main);
+  else if(nav.view==='tsedaka') renderTsedaka(main);
+  else if(nav.view==='annonces') renderAnnonces(main);
   if(main) main.scrollTop=_sc;
   renderOverlay();
 }
@@ -896,6 +898,18 @@ function renderEvent(c){
   const hasDeb=!!(ev.report)||flattenTasks(ev.tasks).some(t=>t.debrief);
   html+=`<div style="margin-bottom:10px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">${ev.date?`<span data-act="openDatePicker('event')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(ev.date)} · 🕎 ${hebrewDate(ev.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('event')">📅 + Ajouter une date</button>`}<button class="btn btn-soft btn-sm" data-act="openDebrief()">📝 Débrief${hasDeb?' <span style="color:var(--green)">✓</span>':''}</button></div>`;
   html+=`<div style="margin-bottom:12px;display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span style="font-size:13px;color:var(--ink-soft);white-space:nowrap">🎯 Public :</span><select class="select" style="flex:1;min-width:150px" onchange="setEventPublic(this.value)"><option value="">— Non défini —</option>${(D.publics||[]).map(p=>`<option value="${esc(p)}" ${ev.public===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__new">＋ Nouveau public…</option></select>${ev.public?`<button class="mini-btn" data-act="openPublics()" title="Gérer les publics">⚙️</button>`:''}</div>`;
+  const an=ev.announce||{};
+  html+=`<div class="card" style="padding:12px 13px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-weight:600;font-size:13.5px">📢 Annonce de Chabbat</span>
+      <button class="btn ${an.on?'btn-primary':'btn-soft'} btn-sm" data-act="evAnnToggle()">${an.on?'✓ Activée':'Activer'}</button></div>
+    ${an.on?`<div class="row2" style="margin-top:10px;gap:8px">
+      <div class="field" style="margin:0"><label class="field-label">Nb de Chabbats avant</label><input class="input" type="number" min="1" value="${an.weeks||1}" onchange="evAnnSet('weeks',parseInt(this.value)||1)"></div>
+      <div class="field" style="margin:0"><label class="field-label">Version</label><div class="toggle-group"><button class="toggle-opt ${!an.long?'active':''}" data-act="evAnnSet('long',false)">Courte</button><button class="toggle-opt ${an.long?'active':''}" data-act="evAnnSet('long',true)">Longue</button></div></div>
+    </div>
+    <div class="field" style="margin:8px 0 0"><label class="field-label">Texte personnalisé (sinon auto)</label><textarea class="textarea" style="min-height:60px" onchange="evAnnSet('text',this.value)" placeholder="Ex. Inscriptions ouvertes ! Places limitées.">${esc(an.text||'')}</textarea></div>
+    <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:13px"><input type="checkbox" ${an.duringInscr?'checked':''} onchange="evAnnSet('duringInscr',this.checked)"> Uniquement pendant les inscriptions</label>
+    <div class="hint" style="margin-top:6px">S'annonce sur les ${an.weeks||1} Chabbat(s) avant le ${ev.date?civilDate(ev.date):'(mets une date)'}, puis s'arrête automatiquement.</div>`:''}
+  </div>`;
 
   if(tot){
     html+=`<div class="phead"><div class="phead-row"><span class="phead-pct">${pct}%</span><span class="phead-label">avancement</span>
@@ -1039,6 +1053,7 @@ function taskHTML(t,ev,idx,total,reorder){
   const _mlines=(m.lines||[]);
   const matShow=(_mlines.length||m.note);
   let tags='';
+  if(t.priority==='haute') tags+=`<span class="tag" style="background:#FBEAE8;color:#C0453F">🔴 Prioritaire</span>`;
   if(t.responsible) tags+=`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`;
   if(t.budget&&t.budget.amount) tags+=`<span class="tag tag-budget">${fmtE(t.budget.amount)}</span>`;
   if(dur) tags+=`<span class="tag tag-time">⏱ ${fmtM(dur)}</span>`;
@@ -1150,6 +1165,8 @@ function drawerHTML(){
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
       ['agenda','📆',t('Agenda (jour/semaine/mois)','יומן','Agenda'),null],
       ['publics','🎯',t('Mon public','הקהל שלי','My Audience'),null],
+      ['tsedaka','🫙',t('Tsedakah','צדקה','Tsedakah'),null],
+      ['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat Announcements'),null],
     ]],
     [t('BIENTÔT (SaaS)','בקרוב (SaaS)','SOON (SaaS)'),[
       ['_soon','🔗',t('Connexion Unisoft','חיבור Unisoft','Unisoft Connection'),'SaaS'],
@@ -1327,6 +1344,95 @@ function delPublic(name){ if(!confirm('Supprimer le public « '+name+' » ? (les
 function setPublicFilter(v){ publicFilter=v; render(); }
 function allEventsList(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>f.events.forEach(e=>out.push({e,where:(mm?mm.emoji+' '+mm.name:'')+' › '+f.name,date:e.date||f.date||'',mId,fId:f.id,ctx:'fete'}))); }); (D.programs||[]).filter(p=>!p._general).forEach(p=>p.events.forEach(e=>out.push({e,where:'📚 '+p.name,date:e.date||p.date||'',pId:p.id,ctx:'program'}))); return out; }
 function openPublics(){ setView('publics'); }
+// ---------- TSEDAKAH ----------
+function tsData(){ if(!D.tsedaka)D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]}; if(!D.tsedaka.done)D.tsedaka.done={}; if(!Array.isArray(D.tsedaka.days))D.tsedaka.days=[0,1,2,3,4,5,6]; return D.tsedaka; }
+function tsGivenToday(){ return !!tsData().done[todayKey()]; }
+function tsIsDay(){ const d=new Date().getDay(); return tsData().days.indexOf(d)>=0; }
+function tsGive(){ const t=tsData(); t.done[todayKey()]=true; save(); render(); toast('🫙 Tsedakah donnée aujourd\'hui — Yasher Koa'+'h !'); }
+function tsUndo(){ const t=tsData(); delete t.done[todayKey()]; save(); render(); }
+function tsToggleDay(d){ const t=tsData(); const i=t.days.indexOf(d); if(i>=0)t.days.splice(i,1); else t.days.push(d); save(); render(); }
+function tsSetHour(v){ tsData().hour=v; save(); }
+function tsStreak(){ const t=tsData(); let n=0; let d=new Date(); for(let i=0;i<400;i++){ const k=todayKey(d); if(t.done[k])n++; else if(i>0) break; else if(i===0){} d.setDate(d.getDate()-1); if(i===0 && !t.done[todayKey()]) { /* aujourd'hui pas encore donné : continuer sur hier */ } } return n; }
+function openTsedaka(){ setView('tsedaka'); }
+// ---------- ANNONCES DE CHABBAT ----------
+let annAnchor=null;
+function evAnnToggle(){ const e=curEvent(); if(!e)return; if(!e.announce)e.announce={weeks:1,long:false,text:'',duringInscr:false}; e.announce.on=!e.announce.on; save(); render(); }
+function evAnnSet(k,v){ const e=curEvent(); if(!e)return; if(!e.announce)e.announce={weeks:1,long:false,text:'',duringInscr:false,on:true}; e.announce[k]=v; save(); render(); }
+function nextShabbat(fromIso){ const d=new Date((fromIso||todayKey())+'T12:00:00'); let add=(6 - d.getDay()+7)%7; d.setDate(d.getDate()+add); return todayKey(d); }
+function annEventsFor(shabbatIso){
+  const S=new Date(shabbatIso+'T12:00:00'); const out=[];
+  const add=(e,where)=>{ const an=e.announce; if(!an||!an.on||!e.date)return; const E=new Date(e.date+'T12:00:00'); const days=(E-S)/86400000; const weeks=an.weeks||1; if(days>=-1 && days<=weeks*7+1){ out.push({e,where,days}); } };
+  Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>f.events.forEach(e=>add(e,f.name))); });
+  (D.programs||[]).filter(p=>!p._general).forEach(p=>p.events.forEach(e=>add(e,p.name)));
+  out.sort((a,b)=>a.days-b.days);
+  return out;
+}
+function annBuildText(shabbatIso){
+  const items=annEventsFor(shabbatIso);
+  let txt=`📢 ANNONCES — Chabbat ${civilDate(shabbatIso)}\n${'─'.repeat(30)}\n\n`;
+  if(!items.length){ txt+='(Aucun événement à annoncer ce Chabbat. Active l\'annonce sur un événement daté.)\n'; return txt; }
+  items.forEach(x=>{ const e=x.e; const an=e.announce||{};
+    txt+=`• ${e.name}`;
+    if(e.date) txt+=` — ${civilDate(e.date)} · 🕎 ${hebrewDate(e.date)}`;
+    txt+='\n';
+    if(e.public) txt+=`  Public : ${e.public}\n`;
+    if(an.text) txt+=`  ${an.text}\n`;
+    if(an.long){ const tot=e.tasks?e.tasks.length:0; txt+=`  (Programme détaillé disponible.)\n`; }
+    txt+='\n';
+  });
+  txt+=`— Beth Habad · stepbystep`;
+  return txt;
+}
+function openAnnonces(){ annAnchor=nextShabbat(); setView('annonces'); }
+function annSetDate(v){ annAnchor=v||nextShabbat(); render(); }
+function renderAnnonces(c){
+  const sh=annAnchor||nextShabbat();
+  const txt=annBuildText(sh);
+  const n=annEventsFor(sh).length;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">Automatique</div><div class="sec-title">📢 Annonces de Chabbat</div><div class="sec-sub">Prépare les annonces pour un Chabbat donné</div></div></div>`;
+  html+=`<div class="field"><label class="field-label">Chabbat concerné (samedi)</label><input class="input" type="date" value="${sh}" onchange="annSetDate(this.value)"></div>`;
+  html+=`<div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn btn-soft btn-sm" data-act="annSetDate('${nextShabbat()}')">Ce Chabbat</button><button class="btn btn-soft btn-sm" data-act="annNext(1)">Chabbat suivant ▶</button><button class="btn btn-soft btn-sm" data-act="annNext(-1)">◀ Précédent</button></div>`;
+  html+=`<div class="hint" style="margin-bottom:8px">${n} annonce(s) pour ce Chabbat. Texte modifiable ci-dessous, puis exporte.</div>`;
+  html+=`<div class="field"><textarea class="textarea" id="ann-text" style="min-height:230px;font-family:monospace;font-size:12.5px">${esc(txt)}</textarea></div>`;
+  html+=`<div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" data-act="annCopy()">📋 Copier</button><button class="btn btn-gold btn-sm" data-act="annWhatsApp()">📱 WhatsApp</button><button class="btn btn-soft btn-sm" data-act="annExport('pdf')">📄 PDF</button><button class="btn btn-soft btn-sm" data-act="annExport('doc')">📝 Word</button><button class="btn btn-soft btn-sm" data-act="annExport('csv')">📊 Excel</button><button class="btn btn-soft btn-sm" data-act="annExport('txt')">📃 Texte</button></div>`;
+  html+=`<div class="hint" style="margin-top:10px">⚠️ Export <b>Google Docs</b> = version en ligne (SaaS). Ici : PDF, Word (.doc), Excel (CSV), Texte, plus Copier / WhatsApp.</div>`;
+  c.innerHTML=html;
+}
+function annNext(dir){ const d=new Date((annAnchor||nextShabbat())+'T12:00:00'); d.setDate(d.getDate()+dir*7); annAnchor=todayKey(d); render(); }
+function annCopy(){ const el=$('ann-text'); if(!el)return; el.select(); try{navigator.clipboard.writeText(el.value);}catch(e){document.execCommand('copy');} toast('Copié ✓'); }
+function annWhatsApp(){ const el=$('ann-text'); if(!el)return; window.open('https://wa.me/?text='+encodeURIComponent(el.value),'_blank'); }
+function annExport(fmt){ const el=$('ann-text'); const txt=el?el.value:''; const sh=annAnchor||nextShabbat(); const name='Annonces_Chabbat_'+sh;
+  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast('Texte téléchargé'); return; }
+  if(fmt==='csv'){ const lines=txt.split(/\r?\n/).map(l=>'"'+l.replace(/"/g,'""')+'"'); dlFile(name+'.csv','text/csv;charset=utf-8','﻿'+lines.join('\r\n')); toast('Excel (CSV) téléchargé'); return; }
+  const htmlDoc='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(txt)+'</body></html>';
+  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+htmlDoc); toast('Word téléchargé'); return; }
+  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(htmlDoc); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
+}
+function renderTsedaka(c){
+  const t=tsData(); const given=tsGivenToday();
+  const WD=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  let html=`<div class="sec"><div><div class="sec-eyebrow">Mitsva quotidienne</div><div class="sec-title">🫙 Tsedakah</div><div class="sec-sub">Donne chaque jour, en un clic — l'historique est gardé</div></div></div>`;
+  // bouton principal
+  html+=`<div class="card" style="padding:18px;text-align:center;margin-bottom:14px">
+    ${given?`<div style="font-size:40px">✓</div><div style="font-weight:700;color:var(--green);font-size:16px;margin:6px 0">Tsedakah donnée aujourd'hui</div><button class="btn btn-ghost btn-sm" data-act="tsUndo()">Annuler</button>`
+    :`<div style="font-size:15px;color:var(--ink-soft);margin-bottom:12px">${tsIsDay()?"C'est un jour de Tsedakah — tu n'as pas encore donné.":"Tu peux donner ta Tsedakah du jour."}</div><button class="btn btn-primary btn-block" style="font-size:16px;padding:14px" data-act="tsGive()">🫙 Donner la Tsedakah</button>`}
+  </div>`;
+  // stats
+  const total=Object.keys(t.done).length; const streak=tsStreak();
+  html+=`<div class="stat-grid"><div class="stat"><span class="stat-em">🔥</span><div class="stat-val">${streak}</div><div class="stat-label">jours d'affilée</div></div><div class="stat"><span class="stat-em">📅</span><div class="stat-val">${total}</div><div class="stat-label">jours au total</div></div></div>`;
+  // réglages
+  html+=`<div class="phead" style="padding:15px"><div class="section-label" style="margin:0 0 8px">Rappel</div>
+    <div class="field"><label class="field-label">Heure du rappel</label><input class="input" type="time" value="${esc(t.hour||'09:00')}" onchange="tsSetHour(this.value)"></div>
+    <div class="field"><label class="field-label">Jours</label><div class="toggle-group" style="flex-wrap:wrap">${WD.map((w,i)=>`<button class="toggle-opt ${t.days.indexOf(i)>=0?'active':''}" data-act="tsToggleDay(${i})">${w}</button>`).join('')}</div></div>
+    <div class="hint" style="margin-top:8px">⚠️ La <b>notification push même application fermée</b> nécessite la version hébergée avancée (SaaS) — pour l'instant, un rappel s'affiche <b>dans l'app</b> sur « Ma Journée » les jours choisis tant que tu n'as pas donné. Le <b>don en 1 clic ici</b> et l'<b>historique</b> fonctionnent déjà.</div>
+  </div>`;
+  // historique récent
+  const keys=Object.keys(t.done).sort().reverse().slice(0,30);
+  html+=`<div class="section-label" style="margin-top:16px">Historique</div>`;
+  if(keys.length) keys.forEach(k=>{ html+=`<div class="shop-item"><div class="shop-item-main"><div class="shop-item-name">✓ ${fmtDate(k)}</div><div class="shop-item-meta">🕎 ${hebrewDate(k)}</div></div></div>`; });
+  else html+=`<div class="hint">Aucun don enregistré pour l'instant.</div>`;
+  c.innerHTML=html;
+}
 function renderPublics(c){
   const pubs=D.publics||[];
   let html=`<div class="sec"><div><div class="sec-eyebrow">Audiences</div><div class="sec-title">🎯 Mon public</div><div class="sec-sub">Filtre et retrouve tes événements par public visé</div></div></div>`;
@@ -1590,6 +1696,9 @@ function taskSheet(){
 
     <div class="field"><label class="field-label">Statut</label>
       <div class="statuses">${STATUSES.map(s=>`<button class="st-opt" style="${t.status===s.id?`border-color:${s.c};background:${s.c}1A;color:${s.c}`:''}" data-act="ebSet('status','${s.id}')"><span class="st-dot" style="background:${s.c}"></span>${s.label}</button>`).join('')}</div></div>
+
+    <div class="field"><label class="field-label">Priorité</label>
+      <div class="statuses">${[['haute','🔴 Haute','#C0453F'],['normale','🟡 Normale','#B87A1F'],['basse','⚪ Basse','#6B7280']].map(([k,lbl,c])=>`<button class="st-opt" style="${(t.priority||'normale')===k?`border-color:${c};background:${c}1A;color:${c}`:''}" data-act="ebSet('priority','${k}')">${lbl}</button>`).join('')}</div></div>
 
     <div class="row2">
       <div class="field"><label class="field-label">Responsable</label>
@@ -2359,6 +2468,7 @@ function renderJournal(c){
   const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
   let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>🕎 '+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
+  if(tsIsDay() && !tsGivenToday()){ html+=`<div class="card" style="padding:12px 14px;margin-bottom:12px;border-color:var(--gold);background:var(--gold-soft);display:flex;align-items:center;gap:10px;cursor:pointer" data-act="tsGive()"><span style="font-size:22px">🫙</span><div style="flex:1"><div style="font-weight:700;color:var(--gold)">Tsedakah du jour</div><div style="font-size:12.5px;color:var(--ink-soft)">Touche pour donner en 1 clic</div></div><span class="chev">›</span></div>`; }
   html+=`<div class="tabs">
     <button class="tab ${jTab==='tasks'?'active':''}" data-act="setJTab('tasks')">${t('À faire','לעשות','To do')}</button>
     <button class="tab ${jTab==='report'?'active':''}" data-act="setJTab('report')">${t('Compte rendu','דיווח','Report')}</button>
@@ -2497,7 +2607,19 @@ function dashExportSheet(){
       <button class="btn btn-primary" data-act="copyExport()">📋 Copier</button>
       <button class="btn btn-gold" data-act="shareWhatsApp()">📱 WhatsApp</button>
     </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-soft btn-sm" data-act="crExport('pdf')">📄 PDF</button>
+      <button class="btn btn-soft btn-sm" data-act="crExport('doc')">📝 Word</button>
+      <button class="btn btn-soft btn-sm" data-act="crExport('txt')">📃 Texte</button>
+    </div>
+    <div class="hint" style="margin-top:8px">⚠️ Rédaction automatique par <b>IA</b> = version en ligne (SaaS). Ici : compte rendu structuré (compteurs, tâches faites, notes) exportable.</div>
   </div>`;
+}
+function crExport(fmt){ const el=$('exp-txt'); const txt=el?el.value:''; const name='Compte_rendu_'+todayKey();
+  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast('Texte téléchargé'); return; }
+  const htmlDoc='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(txt)+'</body></html>';
+  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+htmlDoc); toast('Word téléchargé'); return; }
+  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(htmlDoc); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
 }
 function copyExport(){ const el=$('exp-txt'); el.select(); try{navigator.clipboard.writeText(el.value);toast('Copié ✓');}catch(e){document.execCommand('copy');toast('Copié ✓');} }
 function shareWhatsApp(){ const t=$('exp-txt').value; window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }
@@ -2738,8 +2860,8 @@ function commitDragOrder(kind){
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
- setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,
- openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
+ openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  addSupplier,editSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
@@ -2770,6 +2892,7 @@ function boot(){
     migrateMaterials();
     syncCounters();
     if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
+    if(!D.tsedaka) D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]};
     lang=D._lang||'fr'; document.documentElement.lang=lang; document.documentElement.dir=(lang==='he'?'rtl':'ltr');
     render();
   }catch(err){
