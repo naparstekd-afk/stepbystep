@@ -2907,6 +2907,27 @@ function boot(){
 // Empêche le navigateur d'afficher automatiquement le bandeau « Installer l'application » (répétitif).
 try{ window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); }); }catch(e){}
 
+// Bouton RETOUR du téléphone : recule DANS l'app (ferme la fiche / remonte d'un niveau) au lieu de quitter.
+function handleBack(){
+  try{
+    if(datePicker){ dpClose(); return; }
+    if(sheet && sheet.type==='task' && moveNav){ mvClose(); return; }
+    if(sheet && sheet.type==='quickTask'){ quickTaskCancel(); return; }
+    if(sheet && sheet.type==='timer'){ tmrClose(); return; }
+    if(sheet){ closeSheet(); return; }
+    if(drawerOpen){ toggleDrawer(false); return; }
+    if(nav.eventId){ go({eventId:null}); return; }
+    if(nav.feteId){ go({feteId:null}); return; }
+    if(nav.monthId){ go({monthId:null}); return; }
+    if(nav.view!=='journal'){ setView('journal'); return; }
+    // À la racine (Ma Journée) : on reste dans l'app, on ne quitte pas.
+  }catch(e){}
+}
+try{
+  history.pushState(null,''); // amorce une entrée d'historique
+  window.addEventListener('popstate', function(){ handleBack(); history.pushState(null,''); }); // re-amorce → le retour ne quitte jamais
+}catch(e){}
+
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
 else boot();
 
