@@ -1421,6 +1421,43 @@ function shSuggest(){ const key=shAnchor||nextShabbat(); const w=shWeek(key); co
   SH_MORNING.forEach(poste=>{ if(poste==='Ouverture du Hékhal'||poste==='Hagbaa'||poste==='Maftir')return; if(w.aliyot.morning[poste])return; const id=pick(shReco(poste)); if(id)w.aliyot.morning[poste]=id; });
   save(); render(); toast('Suggestions appliquées — tu peux tout modifier');
 }
+function shPlanningText(key){
+  const w=shWeek(key); const _mid=hebMonthIdOf(key); const _mo=MONTHS.find(x=>x.id===_mid); const hp=hebParts(new Date(key+'T12:00:00'));
+  let t=`🕯️ PROGRAMME DU CHABBAT\n`;
+  if(w.paracha) t+=`Paracha ${w.paracha}\n`;
+  t+=`${civilDate(key)}\n🕎 ${hp.day} ${_mo?_mo.name:''} ${hp.year}\n${'─'.repeat(28)}\n\n📖 Chabbat matin\n`;
+  SH_MORNING.forEach(p=>{ const id=w.aliyot.morning[p]; t+=`• ${p} : ${id?personName(id):'—'}\n`; });
+  t+=`\n📖 Min'ha\n`;
+  SH_MINHA.forEach(p=>{ const id=w.aliyot.minha[p]; t+=`• ${p} : ${id?personName(id):'—'}\n`; });
+  t+=`\n— Beth Habad · stepbystep`;
+  return t;
+}
+function shPlanCopy(){ const t=shPlanningText(shAnchor||nextShabbat()); try{navigator.clipboard.writeText(t);}catch(e){} toast('Planning copié ✓'); }
+function shPlanWA(){ const t=shPlanningText(shAnchor||nextShabbat()); window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }
+function shPlanExport(fmt){ const t=shPlanningText(shAnchor||nextShabbat()); const name='Planning_Chabbat_'+(shAnchor||nextShabbat());
+  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',t); toast('Texte téléchargé'); return; }
+  const html='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(t)+'</body></html>';
+  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+html); toast('Word téléchargé'); return; }
+  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(html); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
+}
+// Demandes de montée (structure responsable — l'espace membre + notifs = SaaS)
+function shPosteOk(poste,tribe){ const r=shReco(poste); if(!r)return true; return r===tribe; }
+function shAddRequest(){ const key=shAnchor||nextShabbat(); const w=shWeek(key); const persons=D.persons||[]; if(!persons.length){ toast('Ajoute d\'abord des personnes'); return; }
+  const list=persons.map((p,i)=>(i+1)+'. '+p.name+' ('+TRIBE_LBL[p.tribe]+')').join('\n');
+  const pick=prompt('Qui demande une montée ? Entre le numéro :\n'+list); if(pick===null)return; const p=persons[parseInt(pick)-1]; if(!p){ toast('Numéro invalide'); return; }
+  const pref=(prompt('Montée souhaitée (facultatif) — ex. 3ᵉ montée, Hagbaa, Ouverture du Hékhal :','')||'').trim();
+  if(!w.requests)w.requests=[]; w.requests.push({id:uid(),personId:p.id,pref:pref,status:'pending'}); save(); render(); toast('Demande enregistrée (en attente de validation)');
+}
+function shReqAccept(rid){ const w=shWeek(shAnchor||nextShabbat()); const r=(w.requests||[]).find(x=>x.id===rid); if(!r)return; const p=(D.persons||[]).find(x=>x.id===r.personId); let poste=r.pref;
+  // valider poste : compatible tribu ? sinon demander
+  if(!poste || (SH_MORNING.indexOf(poste)<0 && SH_MINHA.indexOf(poste)<0) || (p && !shPosteOk(poste,p.tribe))){
+    const ok=SH_MORNING.filter(x=>x!=='Ouverture du Hékhal'&&x!=='Hagbaa'&&(!p||shPosteOk(x,p.tribe)));
+    const choix=prompt('Montée à attribuer'+(r.pref?' (demandée « '+r.pref+' » — non dispo/incompatible)':'')+' :\n'+ok.map((x,i)=>(i+1)+'. '+x).join('\n')); if(choix===null)return; poste=ok[parseInt(choix)-1]; if(!poste){ toast('Choix invalide'); return; }
+  }
+  w.aliyot.morning[poste]=r.personId; r.status='accepted'; r.poste=poste; save(); render(); toast('Demande validée → '+poste);
+}
+function shReqRefuse(rid){ const w=shWeek(shAnchor||nextShabbat()); const r=(w.requests||[]).find(x=>x.id===rid); if(!r)return; r.status='refused'; save(); render(); }
+function shReqDel(rid){ const w=shWeek(shAnchor||nextShabbat()); w.requests=(w.requests||[]).filter(x=>x.id!==rid); save(); render(); }
 function shPersonOpen(id){ _spPerson=id; sheet={type:'shabbatPerson'}; renderOverlay(); }
 let _spPerson=null;
 function shPersonSetTribe(tr){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(p){p.tribe=tr; save(); renderOverlay();} }
@@ -1454,6 +1491,14 @@ function renderShabbat(c){
   // rappels anniv/yahrzeit
   const rem=persons.filter(p=>shPriorBonus(p,key)>0);
   if(rem.length){ html+=`<div class="card" style="padding:11px 13px;margin-bottom:12px;border-color:var(--gold);background:var(--gold-soft)"><div style="font-weight:700;color:var(--gold);margin-bottom:4px">🎗️ À proposer une montée cette semaine</div>${rem.map(p=>`<div style="font-size:13px">• ${esc(p.name)} — ${p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?'anniversaire hébraïque':''}${p.yahrzeit&&shHebAnnivInRange(p.yahrzeit,key)?(p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?' + ':'')+'Yahrzeit':''}</div>`).join('')}</div>`; }
+  // Demandes de montée
+  const reqs=(w.requests||[]);
+  html+=`<div class="section-label" style="margin-top:6px">📩 Demandes de montée${reqs.filter(r=>r.status==='pending').length?` <span class="tag" style="background:var(--amber-soft);color:var(--amber)">${reqs.filter(r=>r.status==='pending').length} en attente</span>`:''}</div>`;
+  if(reqs.length){ reqs.forEach(r=>{ const p=(D.persons||[]).find(x=>x.id===r.personId); const nm=p?p.name:'?'; const badge=r.status==='pending'?'<span class="tag" style="background:var(--amber-soft);color:var(--amber)">⏳ En attente</span>':r.status==='accepted'?('<span class="tag" style="background:var(--green-soft);color:var(--green)">✓ Validée'+(r.poste?' · '+r.poste:'')+'</span>'):'<span class="tag" style="background:var(--red-soft);color:var(--red)">✕ Refusée</span>';
+    html+=`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(nm)}${p?` <span style="font-size:11px;color:var(--ink-soft)">(${TRIBE_LBL[p.tribe]})</span>`:''}</div><div style="font-size:12px;color:var(--ink-soft)">${r.pref?'Souhait : '+esc(r.pref):'Sans préférence'} · ${badge}</div></div>${r.status==='pending'?`<button class="btn btn-primary btn-sm" data-act="shReqAccept('${r.id}')">Accepter</button><button class="btn btn-ghost btn-sm" data-act="shReqRefuse('${r.id}')">Refuser</button>`:`<button class="mini-btn danger" data-act="shReqDel('${r.id}')">🗑</button>`}</div></div>`;
+  }); } else html+=`<div class="hint">Aucune demande pour ce Chabbat.</div>`;
+  html+=`<button class="btn btn-soft btn-sm" style="margin-top:4px" data-act="shAddRequest()">＋ Enregistrer une demande</button>`;
+  html+=`<div class="hint" style="margin:6px 0 14px">⚠️ La demande directe par les <b>membres</b> (espace perso) + les <b>notifications</b> au responsable et au membre = version en ligne (SaaS). Ici, le responsable enregistre et valide ; la validation met le planning à jour automatiquement.</div>`;
   // Minyan
   html+=`<div class="section-label" style="margin-top:6px">🙏 Présence au Minyan</div>`;
   const secLbl={friday:'Vendredi soir',morning:'Chabbat matin',minha:'Min\'ha'};
@@ -1469,6 +1514,10 @@ function renderShabbat(c){
   html+=`<div class="section-label">📖 Montées à la Torah — Chabbat matin</div><div class="card" style="padding:6px 12px">${shAliyotBlock('morning',SH_MORNING)}</div>`;
   html+=`<button class="btn btn-primary btn-sm btn-block" style="margin:10px 0" data-act="shSuggest()">✨ Suggérer les montées (rotation équilibrée)</button>`;
   html+=`<div class="section-label">📖 Montées à la Torah — Min'ha</div><div class="card" style="padding:6px 12px">${shAliyotBlock('minha',SH_MINHA)}</div>`;
+  // Partage du planning
+  html+=`<div class="section-label" style="margin-top:16px">📤 Partager le planning</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px"><button class="btn btn-primary btn-sm" data-act="shPlanCopy()">📋 Copier</button><button class="btn btn-gold btn-sm" data-act="shPlanWA()">📱 WhatsApp</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('pdf')">📄 PDF</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('doc')">📝 Word</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('txt')">📃 Texte</button></div>
+    <div class="hint" style="margin-bottom:8px">⚠️ Export <b>Google Docs</b> = version en ligne (SaaS). Le document reprend Paracha, dates, toutes les montées, ouvertures, Hagbaa.</div>`;
   // gestion personnes
   html+=`<div class="section-label" style="margin-top:16px">👥 Personnes (CRM)</div>`;
   if(persons.length) persons.forEach(p=>{ html+=`<div class="card" data-act="shPersonOpen('${p.id}')"><div class="card-body"><div class="card-icon">👤</div><div class="card-main"><div class="card-name">${esc(p.name)}</div><div class="card-meta"><span class="tag tag-sub">${TRIBE_LBL[p.tribe]||'Israël'}</span>${p.hebBirth?' 🎂':''}${p.yahrzeit?' 🕯️':''}</div></div><span class="chev">›</span></div></div>`; });
@@ -3045,7 +3094,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
