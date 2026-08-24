@@ -325,6 +325,45 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .tmr-pill.done{background:var(--red);animation:tmrpulse 1s infinite}
 .tmr-pill-x{background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 @keyframes tmrpulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ===== V12 — compact / cohérence ===== */
+.hdr-btn{height:40px;padding:0 12px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--line);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary);transition:.15s}
+.hdr-btn:active{background:var(--primary-soft)}
+.hdr-icobtn{width:40px;height:40px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--primary)}
+/* pill dropdown (période, statut, déplacer, exporter) */
+.dd{position:relative;display:inline-block}
+.dd-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:20px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;font-weight:600;color:var(--ink);transition:.12s}
+.dd-btn:active{background:var(--surface-2)}
+.dd-btn.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.dd-menu{position:absolute;z-index:60;top:calc(100% + 5px);left:0;min-width:180px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-lg);padding:5px;animation:fade .12s}
+.dd-menu.right{left:auto;right:0}
+.dd-item{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink);width:100%;text-align:left;white-space:nowrap}
+.dd-item:active{background:var(--surface-2)}
+.dd-item.sel{background:var(--primary-soft);color:var(--primary);font-weight:600}
+.dd-scrim{position:fixed;inset:0;z-index:55}
+/* toggle « prioritaire / thème » */
+.tpill{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:20px;border:1.5px solid var(--line);background:var(--surface);font-size:13.5px;font-weight:600;color:var(--ink-soft);transition:.12s}
+.tpill.on{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.tpill.on.theme{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+.tpill .dotmark{width:15px;height:15px;border-radius:5px;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+.tpill.on .dotmark{background:currentColor}
+.tpill.on .dotmark::after{content:'✓';color:#fff}
+/* grille de tuiles (Thèmes / BDD) — cohérente avec le calendrier */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px 14px;box-shadow:var(--sh);cursor:pointer;transition:.15s;position:relative;overflow:hidden;min-height:96px;display:flex;flex-direction:column;gap:4px}
+.tile:active{transform:scale(.98)}
+.tile::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--primary))}
+.tile-ic{font-size:24px;line-height:1}
+.tile-name{font-weight:600;font-size:15.5px;color:var(--ink);letter-spacing:-.2px;line-height:1.15}
+.tile-meta{font-size:12px;color:var(--ink-soft);margin-top:auto}
+.tile-add{border:1.5px dashed var(--line);background:var(--surface-2);align-items:center;justify-content:center;color:var(--ink-soft);font-weight:600;text-align:center}
+.tile-add::before{display:none}
+/* sous-tâches repliables dans Ma Journée */
+.subrow{display:flex;align-items:flex-start;gap:9px;padding:9px 12px 9px 22px;margin:0 0 0 26px;border-left:2px solid var(--line);background:var(--surface);border-top:1px solid var(--line-soft)}
+.subrow .task-text{font-size:13.5px}
+.exp-toggle{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-soft);padding:3px 9px;border-radius:12px;cursor:pointer}
+.wrap-task{margin-bottom:9px}
+.wrap-task .task{margin-bottom:0}
 </style>
 </head>
 <body>
@@ -379,7 +418,7 @@ const nextSt = id => { const i=STATUSES.findIndex(s=>s.id===id); return STATUSES
 
 // ---------- FABRIQUES ----------
 function mkTask(text=''){
-  return {id:uid(),text,responsible:'',status:'todo',duration:0,dependsOn:[],subtasks:[],notes:'',date:'',
+  return {id:uid(),text,responsible:'',status:'todo',duration:5,dependsOn:[],subtasks:[],notes:'',date:'',
     budget:{amount:0,theme:'Divers'},
     material:{type:'buy',note:'',lines:[]},
     recurring:false,reminders:[30],debrief:'',priority:'normale'};   // debrief : note post-événement ; priority : haute/normale/basse
@@ -412,6 +451,11 @@ let journalKey = todayKey();  // jour affiché dans Compte rendu
 let groupedView = null; // résultat du tri intelligent {mode, groups}
 let shopRange='all'; // filtre échéance de la liste de courses
 let selMode=false; let selSet={}; // sélection multiple de tâches
+let jPeriod='today';    // Ma Journée : today | week | civil | heb
+let openDD=null;        // menu déroulant ouvert (id)
+let expanded={};        // sous-tâches dépliées {taskId:true}
+let themeNav=null;      // thème ouvert (id)
+let bddNav=null;        // {cat, sub} navigation BDD
 
 // ---------- PERSISTANCE (robuste : fallback mémoire si localStorage bloqué) ----------
 let _memStore = {};
@@ -454,8 +498,8 @@ function findTaskAnywhere(tid){
 }
 
 // navigation
-function setView(v){ nav={view:v,monthId:null,feteId:null,eventId:null,ctx:'fete'}; groupedView=null; selMode=false; selSet={}; render(); }
-function go(patch){ nav={...nav,...patch}; groupedView=null; selMode=false; selSet={}; render(); }
+function setView(v){ try{cleanupThemes();}catch(e){} nav={view:v,monthId:null,feteId:null,eventId:null,ctx:'fete'}; groupedView=null; selMode=false; selSet={}; openDD=null; themeNav=null; bddNav=null; drawerOpen=false; render(); }
+function go(patch){ nav={...nav,...patch}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
 function changeYear(y){ D.year=parseInt(y); ensureRecurring(D.year); save(); render(); }
 
 // ============================================================
@@ -468,21 +512,9 @@ function seedData(){
     stores:['Carrefour','Amazon','Cash & Carry','Pro Emballage','Marché'],
     locations:['Maison','Beth Habad','Dépôt','Magasin'],
     months:{}, programs:[], journal:{},
-    eventTemplates:[
-      {id:'tmpl-repas', name:'Repas / Kidoush type', items:[
-        {text:'Nappes', material:{type:'onsite',note:'Placard du fond'}},
-        {text:'Assiettes', material:{type:'buy',store:'Carrefour'}},
-        {text:'Nourriture', subs:['Plateaux','Salades']},
-        {text:'Boissons', subs:['Coca Zéro','Eau','Jus']},
-        {text:'Alcool', subs:['Bourrat','Black Label']},
-        {text:'Invités', note:'Liste des invités, nombre de couverts'}
-      ]}
-    ]
+    themes:[], bdd:{cats:[]}, menuHidden:{},
+    eventTemplates:[]
   };
-  D.months.tishri = {fetes:[
-    fete_eloul(), fete_rh(), fete_kaparot(), fete_yk(), fete_sukkot(), fete_st()
-  ]};
-  D.programs = [ mkProgramSeed() ];
   return D;
 }
 
@@ -662,6 +694,9 @@ function render(){
   app.innerHTML = headerHTML() + `<div class="main" id="main"></div>` + bottomNavHTML() + fabHTML();
   const main=$('main');
   if(nav.view==='journal') renderJournal(main);
+  else if(nav.view==='report') renderReport(main);
+  else if(nav.view==='themes') renderThemes(main);
+  else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
     if(!nav.monthId) renderHome(main);
     else if(!nav.feteId) renderMonth(main);
@@ -717,10 +752,11 @@ function breadcrumbHTML(){
 }
 function t(fr,he,en){ return lang==='he'?he:(lang==='en'?(en||fr):fr); }
 function setLang(l){ lang=l; if(D)D._lang=l; document.documentElement.lang=l; document.documentElement.dir=(l==='he'?'rtl':'ltr'); save(); render(); }
+function menuVisible(v){ return !(D.menuHidden&&D.menuHidden[v]); }
 function bottomNavHTML(){
-  const items=[['journal','📔',t('Ma Journée','יומן','My Day')],['calendar','📅',t('Calendrier','לוח','Calendar')],['programs','📚',t('Programmes','תוכניות','Programs')]];
+  const all=[['journal','📔',t('Ma Journée','יומן','My Day')],['calendar','📅',t('Calendrier','לוח','Calendar')],['themes','🎯',t('Thèmes','נושאים','Themes')],['bdd','🗂️',t('BDD','מאגר','DB')]];
+  const items=all.filter(([v])=>v==='journal'||menuVisible(v));
   return `<div class="bnav">`+items.map(([v,ic,l])=>{
-    const active=(nav.view===v)||(v==='calendar'&&['calendar'].includes(nav.view))?'active':'';
     const isActive = nav.view===v ? 'active':'';
     return `<button class="bnav-btn ${isActive}" data-act="setView('${v}')"><span class="ic">${ic}</span>${l}</button>`;
   }).join('')+`</div>`;
@@ -899,7 +935,9 @@ function renderEvent(c){
   let html=`<div class="sec"><div><div class="sec-eyebrow">Événement</div><div class="sec-title"><span data-act="renameEvent()" style="cursor:pointer">${esc(ev.name)}</span></div>
     <div class="sec-sub">${dn}/${tot} fait${bud?' · '+fmtE(bud):''}${dur?' · '+fmtM(dur):''}</div></div></div>`;
   const hasDeb=!!(ev.report)||flattenTasks(ev.tasks).some(t=>t.debrief);
-  html+=`<div style="margin-bottom:10px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">${ev.date?`<span data-act="openDatePicker('event')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(ev.date)} · 🕎 ${hebrewDate(ev.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('event')">📅 + Ajouter une date</button>`}<button class="btn btn-soft btn-sm" data-act="openDebrief()">📝 Débrief${hasDeb?' <span style="color:var(--green)">✓</span>':''}</button></div>`;
+  const evTh=ev.themeId?themeById(ev.themeId):null;
+  html+=`<div style="margin-bottom:10px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">${ev.date?`<span data-act="openDatePicker('event')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(ev.date)} · 🕎 ${hebrewDate(ev.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('event')">📅 + Ajouter une date</button>`}<button class="btn btn-soft btn-sm" data-act="openDebrief()">📝 Débrief${hasDeb?' <span style="color:var(--green)">✓</span>':''}</button>
+    <span class="dd"><button class="tpill theme ${evTh?'on':''}" data-act="eventThemeToggle()"><span class="dotmark"></span>🎯 ${evTh?esc(evTh.name):'Thème'}</button>${(D.themes||[]).length?`<button class="btn btn-ghost btn-sm" style="padding:6px 9px" data-act="toggleDD('evtheme')">▾</button>${openDD==='evtheme'?`<div class="dd-menu right">${D.themes.map(th=>`<button class="dd-item ${ev.themeId===th.id?'sel':''}" data-act="eventLinkTheme('${th.id}')">${th.icon||'🎯'} ${esc(th.name)}</button>`).join('')}<button class="dd-item" data-act="eventLinkTheme('__new')">＋ Nouveau thème…</button></div>`:''}`:''}</span></div>`;
   html+=`<div style="margin-bottom:12px;display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span style="font-size:13px;color:var(--ink-soft);white-space:nowrap">🎯 Public :</span><select class="select" style="flex:1;min-width:150px" onchange="setEventPublic(this.value)"><option value="">— Non défini —</option>${(D.publics||[]).map(p=>`<option value="${esc(p)}" ${ev.public===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__new">＋ Nouveau public…</option></select>${ev.public?`<button class="mini-btn" data-act="openPublics()" title="Gérer les publics">⚙️</button>`:''}</div>`;
   const an=ev.announce||{};
   html+=`<div class="card" style="padding:12px 13px;margin-bottom:12px">
@@ -1157,8 +1195,10 @@ function drawerHTML(){
   const items=[
     [t('ESPACES','מרחבים','SPACES'),[
       ['journal','📔',t('Ma Journée','היום שלי','My Day'),null],
+      ['report','📋',t('Compte rendu','דיווח','Report'),null],
       ['calendar','📅',t('Calendrier des fêtes','לוח החגים','Holiday Calendar'),null],
-      ['programs','📚',t('Programmes & activités','תוכניות ופעילויות','Programs & Activities'),null],
+      ['themes','🎯',t('Thèmes','נושאים','Themes'),null],
+      ['bdd','🗂️',t('BDD — banque de ressources','מאגר','Resource DB'),null],
     ]],
     [t('OUTILS','כלים','TOOLS'),[
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
@@ -1186,8 +1226,10 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_soon'||v==='coach'||v==='templates'||menuVisible(v));
+    if(!vis.length) return;
     body+=`<div class="drawer-sec">${sec}</div>`;
-    list.forEach(([v,ic,label,badge])=>{
+    vis.forEach(([v,ic,label,badge])=>{
       const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
     });
@@ -1648,7 +1690,10 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ addActivityToTheme(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+// ----- Menu déroulant générique (pilule) -----
+function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
+function closeDD(){ openDD=null; render(); }
 function generalContainer(){ let p=D.programs.find(x=>x._general); if(!p){ p=mkProgram('📌 Général'); p._general=true; p.events=[mkEvent('Divers')]; D.programs.push(p); } if(!p.events.length) p.events.push(mkEvent('Divers')); return p; }
 function qaTaskIndep(){ const p=generalContainer(); const e=p.events[0]; const t=mkTask(''); e.tasks.push(t); save(); openQuickTask(t.id); }
 function qaEventIndep(){ const p=generalContainer(); const e=mkEvent('Nouvel événement'); p.events.push(e); save(); go({view:'programs',feteId:p.id,eventId:e.id,ctx:'program'}); }
@@ -1687,10 +1732,9 @@ function quickAddSheet(){
   const pick = sheet.pick;
   if(!pick){
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
+      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 Nouvel événement</button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('task')">✅ Nouvelle tâche</button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaProgramNamed()">📚 Nouveau programme</button>
       <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
     </div>`;
   }
@@ -1710,7 +1754,6 @@ function quickAddSheet(){
       <div class="section-label">Où placer le nouvel événement ?</div>
       <div class="field"><select class="select" onchange="closeSheet();qaEventTo(this.value)"><option value="">Choisir une destination…</option>
         <optgroup label="Sous un mois">${moOpts}</optgroup>
-        ${prOpts?`<optgroup label="Dans un programme">${prOpts}</optgroup>`:''}
         ${feteOpts?`<optgroup label="Dans une fête">${feteOpts}</optgroup>`:''}
       </select></div>
       <button class="btn btn-ghost btn-block" data-act="qaPickBack()">‹ Retour</button>
@@ -1722,7 +1765,6 @@ function quickAddSheet(){
     <div class="section-label">Où placer la nouvelle tâche ?</div>
     <div class="field"><select class="select" onchange="closeSheet();qaTaskTo(this.value)"><option value="">Choisir une destination…</option>
       <optgroup label="Sous un mois">${moOpts}</optgroup>
-      ${prOpts?`<optgroup label="Dans un programme">${prOpts}</optgroup>`:''}
       ${evOpts?`<optgroup label="Dans un événement">${evOpts}</optgroup>`:''}
     </select></div>
     <button class="btn btn-ghost btn-block" data-act="qaPickBack()">‹ Retour</button>
@@ -1799,7 +1841,7 @@ function qaEventHere(){ const c=curContainer(); if(!c)return; const e=mkEvent('N
 function addProgramHere(){ const p=mkProgram('Nouveau programme'); const mId=nav.monthId; const base=new Date(); let found=''; for(let off=0; off<400 && !found; off++){ for(const s of [1,-1]){ const d=new Date(base); d.setDate(d.getDate()+off*s); if(hebMonthIdOf(todayKey(d))===mId){ found=todayKey(d); break; } } } if(found) p.date=found; D.programs.push(p); save(); go({view:'programs',feteId:p.id,eventId:null,ctx:'program'}); toast('Programme créé'); }
 function delFeteById(fid){ if(!confirm('Supprimer cette fête et tout son contenu ?'))return; const m=curMonth(); if(!m)return; m.fetes=m.fetes.filter(x=>x.id!==fid); save(); render(); toast('Fête supprimée'); }
 function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); go({eventId:null}); toast('Événement supprimé'); }
-function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('programs'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
+function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
 function listFeteDests(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:(mm?mm.name:mId)+' › '+f.name})); }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
 function destContainer(v){ const pr=v.split('|'); if(pr[0]==='program'){ return D.programs.find(x=>x.id===pr[1]); } const m=D.months[pr[1]]; return m?m.fetes.find(x=>x.id===pr[2]):null; }
 function cloneEventNewIds(ev){ const c=JSON.parse(JSON.stringify(ev)); c.id=uid(); const reid=(t)=>{ t.id=uid(); t.dependsOn=[]; (t.subtasks||[]).forEach(reid); }; (c.tasks||[]).forEach(reid); return c; }
@@ -1813,6 +1855,7 @@ function navDrawer(v){ drawerOpen=false; setView(v); }
 function sheetHTML(){
   let inner='';
   if(sheet.type==='task') inner=taskSheet();
+  else if(sheet.type==='bddAdd') inner=bddAddSheet();
   else if(sheet.type==='quickTask') inner=quickTaskSheet();
   else if(sheet.type==='export') inner=exportSheet();
   else if(sheet.type==='importList') inner=importListSheet();
@@ -1882,100 +1925,119 @@ function quickTaskSave(){ quickTaskSync(); saveTask(true); closeSheet(); render(
 function quickTaskMore(){ quickTaskSync(); sheet={type:'task'}; renderOverlay(); }
 function quickTaskCancel(){ quickTaskSync(); if(!editBuf.text||!editBuf.text.trim()){ try{ const loc=editBuf._loc; const arr=(loc&&loc.parent)?loc.parent.subtasks:containerTasks(loc); const i=arr.findIndex(x=>x.id===editBuf.id); if(i>=0)arr.splice(i,1); save(); }catch(e){} } else { saveTask(true); } closeSheet(); render(); }
 function taskSheet(){
-  const t=editBuf;
+  const t=editBuf; const isTpl=t._tplItem!=null;
   const _eff = t.date || effectiveDate(t,t._loc);
-  const _dnote = _eff ? ('📅 '+civilDate(_eff)+'<br>🕎 '+hebrewDate(_eff)+(t.date?'':' — date héritée')) : 'Aucune date — héritera de la fête / événement si tu en définis une.';
-  // tâches sœurs pour dépendances (même conteneur, hors elle-même)
   let siblings=[];
   const ev=eventOfLoc(t._loc);
   if(ev) siblings=flattenTasks(ev.tasks).filter(x=>x.id!==t.id);
-  const promote = t._isSub; // peut remonter au niveau tâche
+  const promote = t._isSub;
+  const st=stOf(t.status); const prio=t.priority==='haute';
+  const hasBudget = (t.budget&&t.budget.amount>0)||t._showBudget;
+  const hasMat = (t.material&&((t.material.lines&&t.material.lines.length)||t.material.note))||t._showMat;
+  const hasDeps = ((t.dependsOn||[]).length>0)||t._showDeps;
+  const hasRec = t.recurring||t._showRec;
+  // options restant à révéler via « + »
+  const more=[]; if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
   return `
-  <div class="sheet-head"><div class="sheet-title">${t._tplItem!=null?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${t._tplItem!=null?'':`<div data-act="mvOpen()" style="font-size:12px;color:var(--ink-soft);cursor:pointer;margin-bottom:8px">${parentLabel(t._loc)||'—'} <span style="color:var(--primary)">▾ déplacer / dupliquer</span></div>${moveNav?moveExplorerHTML():''}`}
-    <div class="field"><label class="field-label">Intitulé</label>
-      <input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?"></div>
+    ${isTpl?'':`<div data-act="mvOpen()" style="font-size:12px;color:var(--ink-soft);cursor:pointer;margin-bottom:8px">${parentLabel(t._loc)||'—'} <span style="color:var(--primary)">▾ déplacer</span></div>${moveNav?moveExplorerHTML():''}`}
 
-    <div class="field"><label class="field-label">Statut</label>
-      <div class="statuses">${STATUSES.map(s=>`<button class="st-opt" style="${t.status===s.id?`border-color:${s.c};background:${s.c}1A;color:${s.c}`:''}" data-act="ebSet('status','${s.id}')"><span class="st-dot" style="background:${s.c}"></span>${s.label}</button>`).join('')}</div></div>
+    <div class="field" style="margin-bottom:12px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
 
-    <div class="field"><label class="field-label">Priorité</label>
-      <div class="statuses">${[['haute','🔴 Haute','#C0453F'],['normale','🟡 Normale','#B87A1F'],['basse','⚪ Basse','#6B7280']].map(([k,lbl,c])=>`<button class="st-opt" style="${(t.priority||'normale')===k?`border-color:${c};background:${c}1A;color:${c}`:''}" data-act="ebSet('priority','${k}')">${lbl}</button>`).join('')}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="ebSet('status',this.value)">
+        ${STATUSES.map(s=>`<option value="${s.id}" ${t.status===s.id?'selected':''}>${s.label}</option>`).join('')}
+      </select>
+      <button class="tpill ${prio?'on':''}" data-act="ebTogglePrio()"><span class="dotmark"></span>Prioritaire</button>
+      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date">🗓 ${t.date?fmtDate(t.date):'Date'}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
+    </div>
+    ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
     <div class="row2">
       <div class="field"><label class="field-label">Responsable</label>
         <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
         <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
       <div class="field"><label class="field-label">Durée</label>
-        <div class="dur-chips">${[5,15,25,60].map(d=>`<button class="dur-chip ${t.duration===d?'active':''}" data-act="ebSet('duration',${d})">${fmtM(d)}</button>`).join('')}</div>
-        <input class="input" id="f-dur" type="number" value="${t.duration||''}" placeholder="minutes"><button class="btn btn-soft btn-sm btn-block" style="margin-top:6px" data-act="openTimer()">⏱️ Minuteur</button></div>
+        <input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="5 min"></div>
     </div>
 
-${t._tplItem!=null?'':`    <div class="field"><label class="field-label">Échéance — date civile ou hébraïque</label>
+    ${isTpl?'':`<div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
       <div style="display:flex;gap:7px;align-items:center">
-        <input class="input" id="f-date" type="date" value="${t.date||''}" onchange="syncInputs();renderOverlay()" style="flex:1">
-        <button class="btn btn-primary btn-sm" style="white-space:nowrap" data-act="openDatePicker('task')">🕎 Hébraïque</button>
+        <span style="font-size:13px;color:var(--ink-soft)">J-</span>
+        <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
+        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">Ajouter</button>
+        <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
       </div>
-      <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin-top:6px">${_dnote}</div></div>
-    <div class="field"><label class="field-label">🔔 Rappels — avant l'échéance</label>
-      <div class="toggle-group" style="flex-wrap:wrap">${[30,15,7,1].map(n=>`<button class="toggle-opt ${(t.reminders||[]).includes(n)?'active':''}" data-act="ebToggleReminder(${n})">J-${n}</button>`).join('')}</div>
-      <div style="display:flex;gap:7px;margin-top:7px;align-items:center">
-        <input class="input" id="f-rem" type="number" placeholder="autre (jours avant)" style="flex:1">
-        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">+ Jours</button>
-        <button class="btn btn-primary btn-sm" style="white-space:nowrap" data-act="openDatePicker('reminder')">🕎 Date précise</button>
-      </div>
-      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30. Échéance par défaut = date de l\'événement.</div>'}</div>`}
+      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30.</div>'}</div>`}
 
-    <div class="row2">
-      <div class="field"><label class="field-label">Budget</label>
-        <input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
-      <div class="field"><label class="field-label">Thème budgétaire</label>
-        <input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="Thème (ou nouveau)"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-label">Matériel</div>
-    <div class="field"><div class="mat-types">${MAT.map(mt=>`<button class="mat-opt ${(t.material&&t.material.type)===mt.id?'active':''}" data-act="ebSetMat('type','${mt.id}')"><span class="em">${mt.em}</span>${mt.label}</button>`).join('')}</div></div>
-    <div id="mat-lines">${((t.material&&t.material.lines)||[]).map((ln,i)=>matLineHTML(ln,i)).join('')}</div>
-    <datalist id="dl-stores">${D.stores.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
-    <button class="btn btn-ghost btn-sm btn-block" data-act="ebAddMatLine()">＋ Ajouter une ligne (quantité / produit / magasin)</button>
-    <div class="field" style="margin-top:11px"><label class="field-label">${(D.labels&&D.labels.matNoteLabel)||"Note matériel — où c'est rangé / quel magasin"}</label>
-      <input class="input" id="f-matnote" value="${esc(t.material&&t.material.note||'')}" placeholder="${esc((D.labels&&D.labels.matNotePlaceholder)||'Ex. Dépôt étagère haute · Amazon · réf. fournisseur')}"></div>
-
-    ${siblings.length?`<div class="divider"></div><div class="section-label">Dépendances — à faire avant</div>
-      <div class="field"><div class="deps">${(t.dependsOn||[]).map(id=>{const d=siblings.find(s=>s.id===id);return d?`<span class="dep">${esc(d.text.slice(0,28))}<span class="dep-x" data-act="ebRmDep('${id}')">✕</span></span>`:''}).join('')}</div>
-      <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ Cette tâche dépend de…</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
-
-    <div class="divider"></div>
     <div class="field"><label class="field-label">Notes</label><textarea class="textarea" id="f-notes" placeholder="Détails, rappels, décisions…">${esc(t.notes||'')}</textarea></div>
 
-    <div class="divider"></div>
-    <div class="section-label">Récurrence</div>
-    <div class="field"><div class="toggle-group">
-      <button class="toggle-opt ${!t.recurring?'active':''}" data-act="ebSet('recurring',false)">Unique<span class="sub">cette année seulement</span></button>
-      <button class="toggle-opt ${t.recurring?'active':''}" data-act="ebSet('recurring',true)">Chaque année<span class="sub">revient automatiquement</span></button>
-    </div></div>
+    ${hasBudget?`<div class="row2">
+      <div class="field"><label class="field-label">Budget</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
+      <div class="field"><label class="field-label">Thème budgétaire</label><input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="Thème"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
+    </div>`:''}
+
+    ${hasMat?`<div class="section-label">🛒 Matériel</div>
+      <div id="mat-lines">${((t.material&&t.material.lines)||[]).map((ln,i)=>matLineHTML(ln,i)).join('')}</div>
+      <datalist id="dl-stores">${D.stores.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+      <button class="btn btn-ghost btn-sm btn-block" data-act="ebAddMatLine()">＋ Ajouter une ligne (produit / quantité / magasin)</button>`:''}
+
+    ${hasDeps&&siblings.length?`<div class="section-label">🔗 Cette tâche dépend de</div>
+      <div class="field"><div class="deps">${(t.dependsOn||[]).map(id=>{const d=siblings.find(s=>s.id===id);return d?`<span class="dep">${esc(d.text.slice(0,28))}<span class="dep-x" data-act="ebRmDep('${id}')">✕</span></span>`:''}).join('')}</div>
+      <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ Choisir une tâche…</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
+
+    ${hasRec?`<div class="section-label">🔁 Récurrence</div>
+      <div class="field"><div class="toggle-group">
+        <button class="toggle-opt ${!t.recurring?'active':''}" data-act="ebSet('recurring',false)">Unique</button>
+        <button class="toggle-opt ${t.recurring?'active':''}" data-act="ebSet('recurring',true)">Chaque année</button>
+      </div></div>`:''}
+
+    ${more.length?`<div class="dd" style="margin:6px 0 4px">
+      <button class="dd-btn" data-act="ebToggleMore()">＋ Ajouter un champ ▾</button>
+      ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}</div>`:''}
+    </div>`:''}
 
     <div class="divider"></div>
     <div class="section-label">Sous-tâches</div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
     <button class="btn btn-ghost btn-block" data-act="ebAddSub()">+ Ajouter une sous-tâche</button>
 
-    <div class="divider"></div>
-    <div class="section-label">Déplacer</div>
-    ${promote?`<button class="btn btn-ghost btn-block" style="margin-bottom:8px" data-act="ebPromote()">⬆ Transformer en tâche principale</button>`:''}
-    ${!promote&&siblings.length?`<div class="field"><select class="select" onchange="ebDemote(this.value);this.value=''"><option value="">⬇ Transformer en sous-tâche de…</option>${siblings.filter(s=>!isDescendant(t,s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
+    ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
+      <div class="dd" style="flex:1">
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleMove()">↗ Déplacer ▾</button>
+        ${t._moveOpen?`<div class="dd-menu" style="width:100%">
+          <button class="dd-item" data-act="ebToggleMove();openDatePicker('task')">📅 Vers une autre date</button>
+          <button class="dd-item" data-act="ebToggleMove();mvOpen()">🎯 Vers un autre thème / événement</button>
+          ${promote?`<button class="dd-item" data-act="ebPromote()">⬆ En tâche principale</button>`:''}
+          ${!promote&&siblings.length?siblings.filter(s=>!isDescendant(t,s.id)).slice(0,20).map(s=>`<button class="dd-item" data-act="ebDemote('${s.id}')">↳ Sous-tâche de : ${esc(s.text.slice(0,26))}</button>`).join(''):''}
+        </div>`:''}
+      </div>
+      <div class="dd" style="flex:1">
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ Exporter ▾</button>
+        ${t._expOpen?`<div class="dd-menu right" style="width:100%">
+          <button class="dd-item" data-act="taskExport('csv')">📊 Excel</button>
+          <button class="dd-item" data-act="taskExport('doc')">📝 Word</button>
+          <button class="dd-item" data-act="taskExport('pdf')">📄 PDF</button>
+          <button class="dd-item" data-act="taskExport('txt')">📃 Texte</button>
+          <button class="dd-item" data-act="taskExport('wa')">💬 WhatsApp</button>
+        </div>`:''}
+      </div>
+    </div>`}
 
-
-
-    ${t._tplItem!=null?'':`<button class="btn btn-ghost btn-block" style="margin-top:14px" data-act="openExport('task')">⬇ Exporter cette tâche</button>`}
-
-    <div style="display:flex;gap:9px;margin-top:14px">
-      <button class="btn btn-primary btn-block" data-act="saveTask()">Enregistrer</button>
-    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:14px" data-act="saveTask()">Enregistrer</button>
   </div>`;
 }
+// durée : parseur et formateur « humains »
+function parseDur(s){ if(s==null)return 0; s=String(s).toLowerCase().trim(); if(!s)return 0; const hm=s.match(/(\d+)\s*h\s*(\d+)/); if(hm)return parseInt(hm[1])*60+parseInt(hm[2]); const h=s.match(/(\d+)\s*h/); const mn=s.match(/(\d+)\s*(?:min|m)\b/); if(h||mn){ return (h?parseInt(h[1])*60:0)+(mn?parseInt(mn[1]):0); } const n=parseInt(s); return isNaN(n)?0:n; }
+function fmtDurH(min){ min=parseInt(min)||0; if(!min)return ''; const h=Math.floor(min/60),r=min%60; if(h&&r)return h+' h '+(r<10?'0'+r:r); if(h)return h+' h'; return min+' min'; }
+function ebTogglePrio(){ syncInputs(); editBuf.priority = (editBuf.priority==='haute')?'normale':'haute'; renderOverlay(); }
+function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
+function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
+function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
+function ebReveal(k){ syncInputs(); if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'){ const txt=taskWAtext(editBuf); window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); return; } _expScope='task'; expRun(fmt); }
+function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); return s; }
 function subEditHTML(s,i){
   const st=stOf(s.status);
   return `<div class="subedit">
@@ -2036,7 +2098,7 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
   const g=id=>{const el=$(id);return el?el.value:null;};
   if($('f-text')!=null) editBuf.text=g('f-text');
   if($('f-who')!=null) editBuf.responsible=g('f-who');
-  if($('f-dur')!=null) editBuf.duration=parseInt(g('f-dur'))||0;
+  if($('f-dur')!=null) editBuf.duration=parseDur(g('f-dur'));
   if($('f-bud')!=null){ if(!editBuf.budget)editBuf.budget={theme:'Divers'}; editBuf.budget.amount=parseFloat(g('f-bud'))||0; }
   if($('f-theme')!=null){ if(!editBuf.budget)editBuf.budget={amount:0}; editBuf.budget.theme=g('f-theme'); }
   ebSyncMatLines();
@@ -2285,9 +2347,11 @@ function saveTask(silent){
     return;
   }
   const r=findTaskAnywhere(editBuf.id); if(!r){ if(!silent)closeSheet(); return; }
-  // réécrire les champs (sans les _meta)
-  const clean={...editBuf}; delete clean._loc; delete clean._isSub; delete clean._parentId;
+  // réécrire les champs (sans les _meta transitoires)
+  const clean={...editBuf}; Object.keys(clean).forEach(k=>{ if(k[0]==='_') delete clean[k]; });
   Object.keys(clean).forEach(k=>{ r.task[k]=clean[k]; });
+  // retirer d'éventuels flags transitoires déjà persistés
+  ['_showBudget','_showMat','_showDeps','_showRec','_moreOpen','_moveOpen','_expOpen','_new'].forEach(k=>{ delete r.task[k]; });
   // mémoriser nouveaux responsables/magasins
   if(clean.responsible && !D.people.includes(clean.responsible)) D.people.push(clean.responsible);
   if(clean.budget&&clean.budget.theme && !THEMES.includes(clean.budget.theme)){ if(!D.budgetThemes)D.budgetThemes=[]; if(!D.budgetThemes.includes(clean.budget.theme))D.budgetThemes.push(clean.budget.theme); }
@@ -2666,71 +2730,254 @@ function addCounter(){ const em=prompt('Icône (emoji) du nouveau compteur :','�
 function editCounter(k){ syncCounters(); const c=D.counters.find(x=>x.k===k); if(!c)return; const em=prompt('Icône (emoji) :',c.em); if(em===null)return; const label=prompt('Nom :',c.label); if(label===null||!label.trim())return; c.em=(em||c.em).trim()||c.em; c.label=label.trim(); save(); render(); }
 function delCounter(k){ syncCounters(); const c=D.counters.find(x=>x.k===k); if(!c)return; if(!confirm('Supprimer le compteur « '+c.label+' » ? (les chiffres déjà saisis restent dans les journées)'))return; D.counters=D.counters.filter(x=>x.k!==k); COUNTERS=D.counters; save(); render(); }
 
+// ---------- Ma Journée : période ----------
+function jRange(){
+  const now=new Date(); const tk=todayKey(now);
+  if(jPeriod==='week'){ const d=new Date(now); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); return {from,to:todayKey(e),label:'Cette semaine'}; }
+  if(jPeriod==='civil'){ const f=new Date(now.getFullYear(),now.getMonth(),1); const tt=new Date(now.getFullYear(),now.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}; }
+  if(jPeriod==='heb'){ const mid=hebMonthIdOf(tk); let from=tk,to=tk; for(let i=1;i<=45;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(now); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:'Mois hébraïque')+' héb.'}; }
+  return {from:tk,to:tk,label:"Aujourd'hui"};
+}
+function setJPeriod(p){ jPeriod=p; jDay=todayKey(); openDD=null; render(); }
+function toggleExpand(id){ if(expanded[id])delete expanded[id]; else expanded[id]=true; render(); }
+function _subMatch(t,from,to){ return (t.subtasks||[]).some(s=>((s.status!=='done'&&s.date&&s.date>=from&&s.date<=to)||_subMatch(s,from,to))); }
+// carte de tâche (avec sous-tâches repliables) pour Ma Journée
+function jTaskCard(t,where,eff,opt){ opt=opt||{};
+  const st=stOf(t.status); const late=eff&&eff<todayKey()&&t.status!=='done';
+  const remTag=opt.reminder?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🔔 ${remLabel(opt.reminder)}</span>`:'';
+  const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ ':'📅 '}${fmtDate(eff)}</span>`:'';
+  const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 Prioritaire</span>`:'';
+  const subs=t.subtasks||[]; const isOpen=!!expanded[t.id]||opt.auto;
+  const expBtn=subs.length?`<span class="exp-toggle" data-act="toggleExpand('${t.id}')">${isOpen?'▾':'▸'} ${subs.length}</span>`:'';
+  let h=`<div class="wrap-task"><div class="task"><div class="task-main">
+    <div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${t.status==='done'?'✓':''}</div>
+    <div class="task-content" data-act="openTask('${t.id}')"><div class="task-text ${t.status==='done'?'done':''}">${esc(t.text)}</div>
+      <div class="task-tags">${where?`<span class="tag tag-sub">${esc(where)}</span>`:''}${prio}${remTag}${dateTag}${t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:''}</div></div>
+    ${expBtn?`<div class="task-acts" style="align-items:center">${expBtn}</div>`:''}
+  </div></div>`;
+  if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${esc(s.text)}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
+  h+=`</div>`; return h;
+}
 function renderJournal(c){
   const now=new Date();
   const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>🕎 '+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
-  if(tsIsDay() && !tsGivenToday()){ html+=`<div class="card" style="padding:12px 14px;margin-bottom:12px;border-color:var(--gold);background:var(--gold-soft);display:flex;align-items:center;gap:10px;cursor:pointer" data-act="tsGive()"><span style="font-size:22px">🫙</span><div style="flex:1"><div style="font-weight:700;color:var(--gold)">Tsedakah du jour</div><div style="font-size:12.5px;color:var(--ink-soft)">Touche pour donner en 1 clic</div></div><span class="chev">›</span></div>`; }
-  html+=`<div class="tabs">
-    <button class="tab ${jTab==='tasks'?'active':''}" data-act="setJTab('tasks')">${t('À faire','לעשות','To do')}</button>
-    <button class="tab ${jTab==='report'?'active':''}" data-act="setJTab('report')">${t('Compte rendu','דיווח','Report')}</button>
-    <button class="tab ${jTab==='dash'?'active':''}" data-act="setJTab('dash')">${t('Bilan','סיכום','Summary')}</button>
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>'+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
+  // — Sélecteur de période (menu déroulant, texte seul) —
+  const rg=jRange(); const periods=[['today',"Aujourd'hui"],['week','Semaine'],['civil','Mois civil'],['heb','Mois hébraïque']];
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <div class="dd">
+      <button class="dd-btn on" data-act="toggleDD('jperiod')">${rg.label} ▾</button>
+      ${openDD==='jperiod'?`<div class="dd-menu">${periods.map(([v,l])=>`<button class="dd-item ${jPeriod===v?'sel':''}" data-act="setJPeriod('${v}')">${l}</button>`).join('')}</div>`:''}
+    </div>
   </div>`;
+  // — Bandeau thèmes (rappel visuel sur Ma Journée) —
+  if((D.themes||[]).length){ html+=`<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px">${D.themes.map(th=>`<button class="tpill theme on" style="flex-shrink:0" data-act="setView('themes');openTheme('${th.id}')"><span>${th.icon||'🎯'}</span>${esc(th.name)}</button>`).join('')}</div>`; }
 
-  if(jTab==='tasks'){
+  if(jPeriod==='today'){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey();
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <button class="cbtn" data-act="jDayNav(-1)">◀</button>
-      <div style="flex:1;text-align:center"><div style="font-weight:600;text-transform:capitalize">${isJToday?"Aujourd'hui":civilDate(jKey)}</div><div style="font-size:11px;color:var(--ink-soft)">🕎 ${hebrewDate(jKey)}</div></div>
-      <button class="cbtn" data-act="jDayNav(1)">▶</button></div>`;
-    html+=`<div style="display:flex;gap:6px;margin-bottom:10px"><button class="btn btn-soft btn-sm" style="flex:1" data-act="setAgMode('week');setView('agenda')">📅 Semaine</button><button class="btn btn-soft btn-sm" style="flex:1" data-act="setAgMode('civil');setView('agenda')">🗓️ Mois civil</button><button class="btn btn-soft btn-sm" style="flex:1" data-act="setAgMode('heb');setView('agenda')">🕎 Mois héb.</button></div>`;
-    if(!isJToday) html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`;
+    if(!isJToday) html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="cbtn" data-act="jDayNav(-1)">◀</button><div style="flex:1;text-align:center"><div style="font-weight:600;text-transform:capitalize">${civilDate(jKey)}</div><div style="font-size:11px;color:var(--ink-soft)">🕎 ${hebrewDate(jKey)}</div></div><button class="cbtn" data-act="jDayNav(1)">▶</button></div><button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`;
     const open=[]; const noDate=[];
-    const _handle=(t,where,eff)=>{ if(t.status==='done')return; if(Array.isArray(t.reminders)){ t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) open.push({t,where,eff:eff,reminder:n}); }); } if(t.pinDay){ open.push({t,where,eff:eff}); return; } if(!eff){ if(isJToday) noDate.push({t,where,eff:''}); return; } if(eff===jKey || (isJToday && eff<jKey)) open.push({t,where,eff:eff}); };
-    Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ const eff0=e.date||f.date||''; flattenTasks(e.tasks).forEach(t=>_handle(t,f.name+' › '+e.name,t.date||eff0)); })));
-    Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); flattenTasks(m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),t.date||'')); });
-    D.programs.forEach(p=>p.events.forEach(e=>{ const eff0=e.date||p.date||''; flattenTasks(e.tasks).forEach(t=>_handle(t,p.name+' › '+e.name,t.date||eff0)); }));
-    const _row=(o)=>{ const t=o.t,where=o.where,eff=o.eff; const st=stOf(t.status); const late=eff&&eff<todayKey(); const remTag=o.reminder?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🔔 Rappel ${remLabel(o.reminder)}</span>`:''; const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ en retard · ':'📅 '}${fmtDate(eff)}</span>`:''; return `<div class="task"><div class="task-main"><div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${t.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${t.id}')"><div class="task-text">${esc(t.text)}</div><div class="task-tags"><span class="tag tag-sub">${esc(where)}</span>${remTag}${dateTag}${t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:''}</div></div></div></div>`; };
-    if(!open.length && !noDate.length){
+    const _handle=(t,where,eff0)=>{ if(t.status==='done')return; const eff=t.date||eff0;
+      if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
+      if(t.pinDay){ open.push({t,where,eff}); return; }
+      if(!eff){ if(isJToday) noDate.push({t,where,eff:''}); return; }
+      if(eff===jKey || (isJToday && eff<jKey)){ open.push({t,where,eff}); return; }
+      if(_subMatch(t,jKey,jKey)) open.push({t,where,eff,auto:true});
+    };
+    Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ const eff0=e.date||f.date||''; (e.tasks||[]).forEach(t=>_handle(t,f.name+' › '+e.name,eff0)); })));
+    Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); (m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),'')); });
+    D.programs.forEach(p=>p.events.forEach(e=>{ const eff0=e.date||p.date||''; (e.tasks||[]).forEach(t=>_handle(t,p._general?'':(p.name+' › '+e.name),eff0)); }));
+    open.sort((a,b)=>(b.t.priority==='haute'?1:0)-(a.t.priority==='haute'?1:0));
+    // fêtes / événements du jour
+    const evs=datedAll().filter(x=>(x.kind==='fete'||x.kind==='event')&&x.iso===jKey);
+    if(!open.length && !noDate.length && !evs.length){
       html+=emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','');
     } else {
-      if(open.length){ html+=`<div class="sec-sub" style="margin-bottom:10px">${open.length} tâche(s) ${isJToday?"pour aujourd'hui":'ce jour'}</div>`; open.slice(0,80).forEach(o=>html+=_row(o)); }
-      else if(isJToday){ html+=`<div class="sec-sub" style="margin-bottom:10px">Aucune tâche datée aujourd'hui.</div>`; }
-      if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div><div class="hint" style="margin-bottom:8px">Ces tâches n'ont pas de date. Mets une date à leur fête / événement (ou à la tâche) pour les répartir sur les bons jours.</div>`; noDate.slice(0,80).forEach(o=>html+=_row(o)); }
+      if(evs.length){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
+      if(open.length){ html+=`<div class="section-label">✅ À faire (${open.length})</div>`; open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto})); }
+      if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'')); }
     }
+  } else {
+    // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
+    const items=datedAll().filter(x=>x.iso&&x.iso>=rg.from&&x.iso<=rg.to);
+    const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
+    const days=Object.keys(byDay).sort();
+    if(!days.length){ html+=emptyHTML('🗓️','Rien sur la période','Aucune fête, événement ou tâche datés sur '+rg.label.toLowerCase()+'.','',''); }
+    else days.forEach(d=>{
+      const dd=new Date(d+'T12:00:00');
+      html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between"><span style="text-transform:capitalize">${dd.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span><span style="color:var(--ink-soft);font-weight:500;text-transform:none">🕎 ${hebrewDate(d)}</span></div>`;
+      byDay[d].forEach(x=>{ if(x.kind==='task'){ html+=jTaskCard(x.t,x.where,x.iso); } else { html+=jEventRow(x); } });
+    });
   }
-  else if(jTab==='report'){
-    const key=journalKey; const j=ensureJournal(key);
-    const isToday = key===todayKey();
-    const dObj=new Date(key+'T12:00:00');
-    const civ = dObj.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    html+=`<div class="phead" style="padding:16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <button class="cbtn" data-act="journalNav(-1)" title="Jour précédent">◀</button>
-        <div style="flex:1;text-align:center"><div style="font-weight:600;color:var(--ink);text-transform:capitalize">${civ}${j.validated?' <span style="color:var(--green)">✓</span>':''}</div><div style="font-size:11.5px;color:var(--ink-soft)">🕎 ${hebrewDate(key)}</div></div>
-        <button class="cbtn" data-act="journalNav(1)" title="Jour suivant">▶</button>
-      </div>
-      ${!isToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="journalToday()">↩ Revenir à aujourd'hui</button>`:''}
-      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px">
-        <div class="section-label" style="margin:0">Compte rendu</div>
-        <button class="btn btn-ghost btn-sm" data-act="addCounter()">＋ Compteur</button>
-      </div>
-      ${COUNTERS.map(cn=>{const arch=(j.archived&&j.archived[cn.k])||0;return `<div class="counter"><div class="counter-info"><span class="counter-em" data-act="editCounter('${cn.k}')" style="cursor:pointer" title="Modifier l'icône / le nom">${cn.em}</span><span class="counter-name" data-act="editCounter('${cn.k}')" style="cursor:pointer">${cn.label}${arch?` <span style="font-size:11px;color:var(--green);font-weight:600">✓ ${arch} validé${arch>1?'s':''}</span>`:''}</span></div>
-        <div class="counter-ctrl"><button class="cbtn danger" data-act="delCounter('${cn.k}')" title="Supprimer" style="color:var(--red)">🗑</button><button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',-1)">−</button>
-        <span class="cval">${j.counters[cn.k]||0}</span>
-        <button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',1)">+</button></div></div>`;}).join('')}
-      <div class="hint" style="margin-top:6px">Touche l'icône ou le nom d'un compteur pour le modifier. La corbeille le supprime.</div>
-      <div class="field" style="margin:14px 0 0"><label class="field-label">Notes du jour</label>
-        <textarea class="textarea" id="j-note" onchange="saveNote('${key}',this.value)" placeholder="Ce qui a marqué la journée…">${esc(j.note||'')}</textarea></div>
-      <button class="btn ${j.validated?'btn-soft':'btn-primary'} btn-block" style="margin-top:12px" data-act="validateReport('${key}')">${j.validated?'✓ Validé — appuyer pour modifier':'✓ Valider ce compte rendu'}</button>
+  c.innerHTML=html;
+}
+function jEventRow(x){
+  const go=x.isProgram?`setView('journal')`:(x.kind==='fete'?`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:null})`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.eId}'})`);
+  return `<div class="card" style="margin-bottom:8px" data-act="${go}"><div class="card-body" style="padding:12px 14px"><span class="card-icon">${x.kind==='fete'?'🎉':'📌'}</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(x.label)}</div></div><span class="chev">›</span></div></div>`;
+}
+function renderReport(c){
+  const now=new Date();
+  const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Suivi','מעקב','Tracking')}</div><div class="sec-title">${t('Compte rendu','דיווח','Report')}</div></div></div>`;
+  const key=journalKey; const j=ensureJournal(key);
+  const isToday = key===todayKey();
+  const dObj=new Date(key+'T12:00:00');
+  const civ = dObj.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  html+=`<div class="phead" style="padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <button class="cbtn" data-act="journalNav(-1)" title="Jour précédent">◀</button>
+      <div style="flex:1;text-align:center"><div style="font-weight:600;color:var(--ink);text-transform:capitalize">${civ}${j.validated?' <span style="color:var(--green)">✓</span>':''}</div><div style="font-size:11.5px;color:var(--ink-soft)">🕎 ${hebrewDate(key)}</div></div>
+      <button class="cbtn" data-act="journalNav(1)" title="Jour suivant">▶</button>
+    </div>
+    ${!isToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="journalToday()">↩ Revenir à aujourd'hui</button>`:''}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px">
+      <div class="section-label" style="margin:0">Compteurs</div>
+      <button class="btn btn-ghost btn-sm" data-act="addCounter()">＋ Compteur</button>
+    </div>
+    ${COUNTERS.map(cn=>{const arch=(j.archived&&j.archived[cn.k])||0;return `<div class="counter"><div class="counter-info"><span class="counter-em" data-act="editCounter('${cn.k}')" style="cursor:pointer" title="Modifier l'icône / le nom">${cn.em}</span><span class="counter-name" data-act="editCounter('${cn.k}')" style="cursor:pointer">${cn.label}${arch?` <span style="font-size:11px;color:var(--green);font-weight:600">✓ ${arch}</span>`:''}</span></div>
+      <div class="counter-ctrl"><button class="cbtn danger" data-act="delCounter('${cn.k}')" title="Supprimer" style="color:var(--red)">🗑</button><button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',-1)">−</button>
+      <span class="cval">${j.counters[cn.k]||0}</span>
+      <button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',1)">+</button></div></div>`;}).join('')}
+    <div class="field" style="margin:14px 0 0"><label class="field-label">Notes du jour</label>
+      <textarea class="textarea" id="j-note" onchange="saveNote('${key}',this.value)" placeholder="Ce qui a marqué la journée…">${esc(j.note||'')}</textarea></div>
+    <button class="btn ${j.validated?'btn-soft':'btn-primary'} btn-block" style="margin-top:12px" data-act="validateReport('${key}')">${j.validated?'✓ Validé — appuyer pour modifier':'✓ Valider ce compte rendu'}</button>
+  </div>`;
+  html+=`<div class="section-label" style="margin:20px 0 8px">📊 Bilan</div>`;
+  html+=dashboardInline();
+  c.innerHTML=html;
+}
+
+// ============================================================
+//  VUE : THÈMES  (types d'activités reliés au calendrier)
+// ============================================================
+function themeEvents(tid){ const out=[];
+  Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ if(e.themeId===tid) out.push({e,mId,fId:f.id,fName:f.name}); })));
+  return out;
+}
+function themeById(id){ return (D.themes||[]).find(x=>x.id===id); }
+const THEME_COLS=['#1E3A6E','#6B4E9E','#2E7D55','#B87A1F','#C0453F','#2C5B8E','#AC8438','#111827'];
+function newTheme(){ if(!Array.isArray(D.themes))D.themes=[]; const th={id:uid(),name:'',icon:'🎯',color:'#1E3A6E'}; D.themes.push(th); save(); themeNav=th.id; render(); setTimeout(()=>{const e=$('th-name');if(e)e.focus();},60); }
+function openTheme(id){ themeNav=id; render(); }
+function thSetName(v){ const th=themeById(themeNav); if(th){ th.name=v; save(); } }
+function thSetIcon(v){ const th=themeById(themeNav); if(th){ th.icon=(v||'🎯').trim()||'🎯'; save(); render(); } }
+function thSetColor(cl){ const th=themeById(themeNav); if(th){ th.color=cl; save(); render(); } }
+function cleanupThemes(){ if(!D||!Array.isArray(D.themes))return; D.themes=D.themes.filter(th=>((th.name||'').trim()||themeEvents(th.id).length)); }
+function themesHome(){ themeNav=null; render(); }
+function bddHome(){ bddNav=null; render(); }
+function bddGoCat(id){ bddNav={cat:id}; render(); }
+function bddQuickCat(name,icon,kind){ if(typeof closeSheet==='function')closeSheet(); bddNav={cat:ensureBddCat(name,icon,kind).id}; render(); }
+function eventThemeToggle(){ const ev=curEvent(); if(!ev)return; if(ev.themeId){ delete ev.themeId; save(); render(); toast('Thème détaché'); return; }
+  const nm=(ev.name||'Activité').trim(); if(!Array.isArray(D.themes))D.themes=[]; let th=D.themes.find(x=>x.name.toLowerCase()===nm.toLowerCase()); if(!th){ th={id:uid(),name:nm,icon:'🎯',color:'#1E3A6E'}; D.themes.push(th); } ev.themeId=th.id; save(); render(); toast('Relié au thème « '+th.name+' » ✓'); }
+function eventLinkTheme(tid){ const ev=curEvent(); if(!ev)return; openDD=null; if(tid==='__new'){ const n=prompt('Nom du thème :',ev.name||''); if(n===null||!n.trim())return; if(!Array.isArray(D.themes))D.themes=[]; let th=D.themes.find(x=>x.name.toLowerCase()===n.trim().toLowerCase()); if(!th){ th={id:uid(),name:n.trim(),icon:'🎯',color:'#1E3A6E'}; D.themes.push(th);} ev.themeId=th.id; } else { ev.themeId=tid; } save(); render(); }
+function renameTheme(id){ const th=themeById(id); if(!th)return; const n=prompt('Nom du thème :',th.name); if(n&&n.trim())th.name=n.trim(); const ic=prompt('Icône (emoji) :',th.icon); if(ic!==null&&ic.trim())th.icon=ic.trim(); save(); render(); }
+function delTheme(id){ if(!confirm('Supprimer ce thème ? (les activités du calendrier sont conservées, simplement détachées)'))return; themeEvents(id).forEach(x=>{ delete x.e.themeId; }); D.themes=(D.themes||[]).filter(x=>x.id!==id); themeNav=null; save(); render(); }
+function addActivityToTheme(tid){ const th=themeById(tid); if(!th)return; const name=prompt('Nom de l\'activité (ex. '+th.name+' — décembre) :',th.name+' — '); if(name===null||!name.trim())return;
+  const mId=hebMonthIdOf(todayKey())||'tishri'; const f=monthFete(mId); const e=mkEvent(name.trim()); e.themeId=tid; f.events.push(e); save();
+  go({view:'calendar',monthId:mId,feteId:f.id,eventId:e.id,ctx:'fete'}); toast('Activité créée dans le calendrier ✓'); }
+function renderThemes(c){
+  if(themeNav){
+    const th=themeById(themeNav);
+    if(!th){ themeNav=null; return renderThemes(c); }
+    const evs=themeEvents(themeNav);
+    let html=`<div class="bc"><span class="bc-item" data-act="themesHome()">🎯 Thèmes</span><span class="bc-sep">▸</span><span class="bc-item active">${esc(th.name||'Nouveau thème')}</span></div>`;
+    // — Fiche du thème (éditable directement) —
+    html+=`<div class="sec" style="margin-top:8px;align-items:center"><div style="flex:1;min-width:0">
+      <div class="sec-eyebrow">${th.icon||'🎯'} Fiche du thème</div>
+      <input class="input" id="th-name" value="${esc(th.name)}" placeholder="Nom du thème (ex. Soirée féminine)" onchange="thSetName(this.value)" style="font-family:var(--serif);font-size:24px;font-weight:600;border:none;padding:2px 0;background:transparent;color:var(--ink)">
+    </div></div>`;
+    html+=`<div class="row2" style="margin-bottom:14px;align-items:start">
+      <div class="field" style="margin:0"><label class="field-label">Icône</label><input class="input" id="th-icon" value="${esc(th.icon||'🎯')}" onchange="thSetIcon(this.value)" style="text-align:center;font-size:20px"></div>
+      <div class="field" style="margin:0"><label class="field-label">Couleur</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:3px">${THEME_COLS.map(cl=>`<button data-act="thSetColor('${cl}')" style="width:28px;height:28px;border-radius:50%;background:${cl};border:none;${(th.color||'#1E3A6E')===cl?'outline:3px solid var(--ink);outline-offset:1px':''}"></button>`).join('')}</div></div>
     </div>`;
-    html+=`<div class="section-label" style="margin:20px 0 8px">📊 Bilan</div>`;
-    html+=dashboardInline();
+    html+=`<div class="section-label">Activités rattachées (${evs.length})</div>`;
+    if(!evs.length){ html+=`<div class="hint" style="margin-bottom:10px">Aucune activité pour l'instant. Ajoute une activité de ce type, ou relie un événement du calendrier à ce thème (bouton 🎯 Thème dans l'événement).</div>`; }
+    else { evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); html+=`<div class="card" data-act="go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
+    html+=`<button class="btn btn-soft btn-block" style="margin-top:6px" data-act="addActivityToTheme('${th.id}')">＋ Nouvelle activité</button>`;
+    html+=`<button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="delTheme('${th.id}')">🗑 Supprimer le thème</button>`;
+    c.innerHTML=html; return;
   }
-  else if(jTab==='dash'){
-    html+=dashboardInline();
+  cleanupThemes();
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Activités','פעילויות','Activities')}</div><div class="sec-title">${t('Thèmes','נושאים','Themes')}</div><div class="sec-sub">Types d'activités reliés au calendrier</div></div></div>`;
+  const ths=D.themes||[];
+  if(!ths.length){ html+=emptyHTML('🎯','Aucun thème','Un thème regroupe toutes les activités d\'un même type (ex. Soirée féminine, Cours des jeunes). Crée ton premier thème.','＋ Nouveau thème','newTheme()'); }
+  else {
+    html+=`<div class="tiles">`;
+    ths.forEach(th=>{ const n=themeEvents(th.id).length; html+=`<div class="tile" style="--accent:${th.color||'#1E3A6E'}" data-act="openTheme('${th.id}')"><div class="tile-ic">${th.icon||'🎯'}</div><div class="tile-name">${esc(th.name)}</div><div class="tile-meta">${n} activité${n>1?'s':''}</div></div>`; });
+    html+=`<div class="tile tile-add" data-act="newTheme()"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">Nouveau thème</div></div>`;
+    html+=`</div>`;
   }
+  c.innerHTML=html;
+}
+
+// ============================================================
+//  VUE : BDD — banque de ressources réutilisables
+// ============================================================
+const BDD_BUILTIN=[
+  {id:'_suppliers',name:'Prestataires',icon:'📇',route:'suppliers'},
+  {id:'_templates',name:'Modèles de tâches',icon:'📋',route:'templates'},
+];
+function bddCatById(id){ return (D.bdd.cats||[]).find(c=>c.id===id); }
+function ensureBddCat(name,icon,kind){ if(!D.bdd)D.bdd={cats:[]}; let c=D.bdd.cats.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!c){ c={id:uid(),name,icon:icon||'🗂️',kind:kind||'items',items:[],subcats:[]}; D.bdd.cats.push(c); save(); } return c; }
+function newBddCat(){ const n=prompt('Nom de la catégorie :',''); if(n===null||!n.trim())return; const ic=(prompt('Icône (emoji) :','🗂️')||'🗂️').trim()||'🗂️'; const sub=confirm('Cette catégorie contient-elle des sous-catégories ? (ex. Idées par type d\'activité)\n\nOK = oui · Annuler = liste simple'); const c={id:uid(),name:n.trim(),icon:ic,kind:sub?'subs':'items',items:[],subcats:[]}; if(!D.bdd)D.bdd={cats:[]}; D.bdd.cats.push(c); save(); closeSheet&&closeSheet(); bddNav={cat:c.id}; render(); }
+function delBddCat(id){ if(!confirm('Supprimer cette catégorie et son contenu ?'))return; D.bdd.cats=(D.bdd.cats||[]).filter(c=>c.id!==id); bddNav=null; save(); render(); }
+function bddArr(catId,subId){ const c=bddCatById(catId); if(!c)return null; if(subId){ const s=(c.subcats||[]).find(x=>x.id===subId); return s?(s.items=s.items||[]):null; } return (c.items=c.items||[]); }
+function bddAddItem(catId,subId){ const arr=bddArr(catId,subId); if(!arr)return; const title=prompt('Intitulé :',''); if(title===null||!title.trim())return; const text=prompt('Détail (facultatif) :','')||''; arr.push({id:uid(),title:title.trim(),text:text.trim(),created:todayKey()}); save(); render(); }
+function bddEditItem(catId,subId,itId){ const arr=bddArr(catId,subId); if(!arr)return; const it=arr.find(x=>x.id===itId); if(!it)return; const title=prompt('Intitulé (vide = supprimer) :',it.title); if(title===null)return; if(!title.trim()){ const i=arr.indexOf(it); arr.splice(i,1); save(); render(); return; } it.title=title.trim(); const text=prompt('Détail :',it.text||''); if(text!==null)it.text=text.trim(); save(); render(); }
+function bddAddSub(catId){ const c=bddCatById(catId); if(!c)return; const n=prompt('Nom de la sous-catégorie :',''); if(n===null||!n.trim())return; c.subcats=c.subcats||[]; c.subcats.push({id:uid(),name:n.trim(),items:[]}); save(); render(); }
+function delBddSub(catId,subId){ if(!confirm('Supprimer cette sous-catégorie ?'))return; const c=bddCatById(catId); if(!c)return; c.subcats=(c.subcats||[]).filter(s=>s.id!==subId); save(); render(); }
+function openBddCat(id){ const b=BDD_BUILTIN.find(x=>x.id===id); if(b){ setView(b.route); return; } bddNav={cat:id}; render(); }
+function openBddSub(catId,subId){ bddNav={cat:catId,sub:subId}; render(); }
+function openBddAdd(){
+  if(bddNav&&bddNav.sub){ bddAddItem(bddNav.cat,bddNav.sub); return; }
+  if(bddNav&&bddNav.cat){ const c=bddCatById(bddNav.cat); if(c&&c.kind==='subs') bddAddSub(bddNav.cat); else bddAddItem(bddNav.cat); return; }
+  sheet={type:'bddAdd'}; renderOverlay();
+}
+function bddAddSheet(){
+  return `<div class="sheet-head"><div class="sheet-title">＋ Ajouter du contenu</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();addSupplier()">📇 Prestataire</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();openTemplates()">📋 Modèle de tâches</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="bddQuickCat('Idées d\\'activités','💡','subs')">💡 Idée d'activité</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="bddQuickCat('Modèles d\\'événements','📅','items')">📅 Modèle d'événement</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="bddQuickCat('Contenus réutilisables','📎','items')">📎 Contenu réutilisable</button>
+    <div class="divider"></div>
+    <button class="btn btn-primary btn-block" data-act="newBddCat()">🗂️ Nouvelle catégorie</button>
+  </div>`;
+}
+function _bddItemCard(catId,subId,it){ return `<div class="card" data-act="bddEditItem('${catId}',${subId?`'${subId}'`:'null'},'${it.id}')"><div class="card-body" style="padding:13px 14px"><div class="card-main"><div class="card-name" style="font-size:15px">${esc(it.title)}</div>${it.text?`<div class="card-meta">${esc(it.text)}</div>`:''}</div><span class="chev">✏️</span></div></div>`; }
+function renderBDD(c){
+  // — détail sous-catégorie —
+  if(bddNav&&bddNav.sub){ const cat=bddCatById(bddNav.cat); const sub=cat&&(cat.subcats||[]).find(s=>s.id===bddNav.sub);
+    if(!sub){ bddNav={cat:bddNav.cat}; return renderBDD(c); }
+    let html=`<div class="bc"><span class="bc-item" data-act="bddHome()">🗂️ BDD</span><span class="bc-sep">▸</span><span class="bc-item" data-act="bddGoCat('${cat.id}')">${esc(cat.name)}</span><span class="bc-sep">▸</span><span class="bc-item active">${esc(sub.name)}</span></div>`;
+    html+=`<div class="sec" style="margin-top:8px"><div><div class="sec-title" style="font-size:22px">${esc(sub.name)}</div></div><button class="btn btn-ghost btn-icon" style="color:var(--red)" data-act="delBddSub('${cat.id}','${sub.id}')">🗑</button></div>`;
+    const its=sub.items||[]; if(!its.length) html+=emptyHTML('💡','Vide','Ajoute des idées ou éléments réutilisables ici.','＋ Ajouter',`bddAddItem('${cat.id}','${sub.id}')`);
+    else { its.forEach(it=>html+=_bddItemCard(cat.id,sub.id,it)); html+=`<button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="bddAddItem('${cat.id}','${sub.id}')">＋ Ajouter un élément</button>`; }
+    c.innerHTML=html; return;
+  }
+  // — détail catégorie —
+  if(bddNav&&bddNav.cat){ const cat=bddCatById(bddNav.cat);
+    if(!cat){ bddNav=null; return renderBDD(c); }
+    let html=`<div class="bc"><span class="bc-item" data-act="bddHome()">🗂️ BDD</span><span class="bc-sep">▸</span><span class="bc-item active">${esc(cat.name)}</span></div>`;
+    html+=`<div class="sec" style="margin-top:8px"><div><div class="sec-eyebrow">${cat.icon} Catégorie</div><div class="sec-title">${esc(cat.name)}</div></div><button class="btn btn-ghost btn-icon" style="color:var(--red)" data-act="delBddCat('${cat.id}')">🗑</button></div>`;
+    if(cat.kind==='subs'){ const subs=cat.subcats||[];
+      if(!subs.length) html+=emptyHTML(cat.icon||'🗂️','Aucune sous-catégorie','Crée des sous-catégories (ex. Soirée féminine, Activité enfants).','＋ Sous-catégorie',`bddAddSub('${cat.id}')`);
+      else { html+=`<div class="tiles">`; subs.forEach(s=>{ html+=`<div class="tile" data-act="openBddSub('${cat.id}','${s.id}')"><div class="tile-ic">📁</div><div class="tile-name">${esc(s.name)}</div><div class="tile-meta">${(s.items||[]).length} élément(s)</div></div>`; }); html+=`<div class="tile tile-add" data-act="bddAddSub('${cat.id}')"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">Sous-catégorie</div></div></div>`; }
+    } else { const its=cat.items||[];
+      if(!its.length) html+=emptyHTML(cat.icon||'🗂️','Vide','Ajoute des éléments réutilisables.','＋ Ajouter',`bddAddItem('${cat.id}')`);
+      else { its.forEach(it=>html+=_bddItemCard(cat.id,null,it)); html+=`<button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="bddAddItem('${cat.id}')">＋ Ajouter un élément</button>`; }
+    }
+    c.innerHTML=html; return;
+  }
+  // — accueil BDD —
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Ressources','משאבים','Resources')}</div><div class="sec-title">${t('BDD','מאגר','Resource DB')}</div><div class="sec-sub">Banque de modèles, idées et prestataires réutilisables</div></div></div>`;
+  html+=`<div class="tiles">`;
+  BDD_BUILTIN.forEach(b=>{ let meta=''; if(b.id==='_suppliers')meta=(D.suppliers||[]).length+' fiche(s)'; if(b.id==='_templates')meta=(D.eventTemplates||[]).length+' modèle(s)'; html+=`<div class="tile" style="--accent:var(--gold)" data-act="openBddCat('${b.id}')"><div class="tile-ic">${b.icon}</div><div class="tile-name">${b.name}</div><div class="tile-meta">${meta}</div></div>`; });
+  (D.bdd.cats||[]).forEach(cat=>{ const n=cat.kind==='subs'?(cat.subcats||[]).length+' sous-cat.':(cat.items||[]).length+' élément(s)'; html+=`<div class="tile" data-act="openBddCat('${cat.id}')"><div class="tile-ic">${cat.icon||'🗂️'}</div><div class="tile-name">${esc(cat.name)}</div><div class="tile-meta">${n}</div></div>`; });
+  html+=`<div class="tile tile-add" data-act="newBddCat()"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">Nouvelle catégorie</div></div>`;
+  html+=`</div>`;
+  html+=`<button class="btn btn-soft btn-block" style="margin-top:14px" data-act="openBddAdd()">＋ Ajouter du contenu</button>`;
   c.innerHTML=html;
 }
 function setJTab(t){ jTab=t; render(); }
@@ -2751,7 +2998,7 @@ function validateReport(key){
   }
   save(); render();
 }
-function openReportDay(key){ journalKey=key; jTab='report'; render(); }
+function openReportDay(key){ journalKey=key; setView('report'); }
 function bumpCounter(key,k,d){ const j=ensureJournal(key); j.counters[k]=Math.max(0,(j.counters[k]||0)+d); save(); render(); }
 function saveNote(key,v){ const j=ensureJournal(key); j.note=v; save(); }
 
@@ -2944,12 +3191,15 @@ function supplierSheet(){
 // ============================================================
 //  VUE : RÉGLAGES
 // ============================================================
+function setMenuHidden(v,hidden){ if(!D.menuHidden)D.menuHidden={}; if(hidden)D.menuHidden[v]=true; else delete D.menuHidden[v]; save(); render(); }
 function renderSettings(c){
+  const MODS=[['report','📋','Compte rendu'],['calendar','📅','Calendrier'],['themes','🎯','Thèmes'],['bdd','🗂️','BDD'],['shopping','🛒','Liste de courses'],['dashboard','📊','Tableau de bord'],['suppliers','📇','Prestataires'],['agenda','📆','Agenda'],['publics','🎯','Mon public'],['tsedaka','🫙','Tsedakah'],['annonces','📢','Annonces de Chabbat'],['shabbat','🕯️','Shabbat'],['ideas','💡','Idées'],['alltasks','✅','Toutes les tâches']];
   c.innerHTML=`<div class="sec"><div><div class="sec-eyebrow">${t('Système','מערכת','System')}</div><div class="sec-title">${t('Réglages','הגדרות','Settings')}</div></div></div>
-    <div class="section-label">Libellés personnalisés</div>
-    <div class="field"><label class="field-label">Titre du champ « Note matériel »</label><input class="input" value="${esc((D.labels&&D.labels.matNoteLabel)||"Note matériel — où c'est rangé / quel magasin")}" onchange="setLabel('matNoteLabel',this.value)"></div>
-    <div class="field"><label class="field-label">Exemple (placeholder) de la note matériel</label><input class="input" value="${esc((D.labels&&D.labels.matNotePlaceholder)||'Ex. Dépôt étagère haute · Amazon · réf. fournisseur')}" onchange="setLabel('matNotePlaceholder',this.value)"></div>
-    <div class="divider"></div>
+    <div class="section-label">Personnalisation du menu</div>
+    <div class="hint" style="margin-bottom:10px">Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.</div>
+    <div class="card" style="cursor:default;padding:2px 14px;margin-bottom:18px">
+    ${MODS.map(([v,ic,l])=>`<label class="counter" style="cursor:pointer"><div class="counter-info"><span class="counter-em" style="font-size:18px">${ic}</span><span class="counter-name">${l}</span></div><input type="checkbox" ${menuVisible(v)?'checked':''} onchange="setMenuHidden('${v}',!this.checked)" style="width:20px;height:20px;accent-color:var(--primary)"></label>`).join('')}
+    </div>
     <div class="section-label">${t('Langue','שפה','Language')}</div>
     <div class="toggle-group" style="margin-bottom:14px">
       <button class="toggle-opt ${lang==='fr'?'active':''}" data-act="setLang('fr')">FR · Français</button>
@@ -3014,6 +3264,7 @@ function exportSheet(){
       <button class="btn btn-soft btn-sm" data-act="expRun('doc')">📝 Word</button>
       <button class="btn btn-soft btn-sm" data-act="expRun('pdf')">📄 PDF</button>
       <button class="btn btn-soft btn-sm" data-act="expRun('txt')">📃 Texte</button>
+      <button class="btn btn-gold btn-sm" data-act="expWA()">💬 WhatsApp</button>
     </div>
     <div class="divider"></div>
     <div class="section-label">Importer</div>
@@ -3021,11 +3272,12 @@ function exportSheet(){
     <button class="btn btn-ghost btn-block" data-act="expImportFile()">⬆ Choisir un fichier à importer</button>
   </div>`;
 }
+function expWA(){ const g=expGather(_expScope); let s='📋 '+g.title+'\n'; g.rows.forEach(r=>{ const ind='   '.repeat(r.lvl); s+=ind+'• '+r.nom; const m=[]; if(r.statut&&r.statut!=='À faire')m.push(r.statut); if(r.resp)m.push('👤 '+r.resp); if(r.date)m.push('📅 '+r.date); if(m.length)s+=' ('+m.join(' · ')+')'; s+='\n'; }); window.open('https://wa.me/?text='+encodeURIComponent(s),'_blank'); }
 function _importTarget(){ const e=curEvent(); if(e)return e; const c=curContainer(); if(c){ if(!c.tasks)c.tasks=[]; return c; } return null; }
 function expImportFile(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.txt,.csv,.json'; inp.onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>{ const txt=String(rd.result||''); if(f.name.toLowerCase().endsWith('.json')){ if(!confirm('Remplacer TOUTES les données par cette sauvegarde ?'))return; try{ D=JSON.parse(txt); save(); closeSheet(); render(); toast('Sauvegarde importée ✓'); }catch(err){ toast('JSON invalide'); } return; } const ev=_importTarget(); if(!ev){ toast('Ouvre une fête ou un événement pour importer'); return; } let count=0; txt.split(/\r?\n/).forEach((line,i)=>{ line=line.trim(); if(!line)return; let name=line; if(line.indexOf(';')>=0){ if(i===0&&/niveau|type|nom/i.test(line))return; const cols=line.split(';').map(c=>c.replace(/^﻿/,'').replace(/^"|"$/g,'').trim()); name=cols[2]||cols[1]||cols[0]||''; } name=name.replace(/^[•\-\*\s]+/,'').trim(); if(!name)return; ev.tasks.push(mkTask(name)); count++; }); save(); closeSheet(); render(); toast(count+' tâche(s) importée(s) ✓'); }; rd.readAsText(f); }; inp.click(); }
 function exportData(){ const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='marbitz-sauvegarde-'+todayKey()+'.json'; a.click(); toast('Sauvegarde téléchargée'); }
 function importData(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{D=JSON.parse(rd.result);save();render();toast('Importé ✓');}catch(err){toast('Fichier invalide');}};rd.readAsText(f);}; inp.click(); }
-function resetData(){ if(confirm('Tout effacer et repartir des données Tishri par défaut ?')){ localStorage.removeItem('marbitz-v11'); D=seedData(); D._activeYear=D.year; save(); render(); toast('Réinitialisé'); } }
+function resetData(){ if(confirm('Tout effacer et repartir d\'une base vide ?')){ try{localStorage.removeItem('marbitz-v11');}catch(e){} D=seedData(); D._activeYear=D.year; D._v12cleared=true; save(); render(); toast('Réinitialisé'); } }
 
 // ============================================================
 //  INIT
@@ -3096,6 +3348,10 @@ function commitDragOrder(kind){
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
+ toggleDD,closeDD,setJPeriod,toggleExpand,renderReport,renderThemes,renderBDD,
+ newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
+ ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
@@ -3121,7 +3377,17 @@ function boot(){
     if(!D._activeYear) D._activeYear=D.year;
     if(!D.journal) D.journal={};
     if(!D.stores) D.stores=['Carrefour','Amazon'];
-    if(!D.eventTemplates) D.eventTemplates=seedData().eventTemplates;
+    if(!D.eventTemplates) D.eventTemplates=[];
+    // — Nettoyage unique v12 : on repart avec une base de tâches / fêtes / programmes vide,
+    //   MAIS on conserve prestataires, personnes, réglages, tsedaka, compteurs, publics, idées.
+    if(!D._v12cleared){
+      D.months={}; D.programs=[];
+      D._v12cleared=true;
+    }
+    // — Nouvelles collections v12 —
+    if(!Array.isArray(D.themes)) D.themes=[];
+    if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
+    if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
     migrateMaterials();
     syncCounters();
     if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
@@ -3146,12 +3412,15 @@ try{ window.addEventListener('beforeinstallprompt', function(e){ e.preventDefaul
 // Bouton RETOUR du téléphone : recule DANS l'app (ferme la fiche / remonte d'un niveau) au lieu de quitter.
 function handleBack(){
   try{
+    if(openDD){ openDD=null; render(); return; }
     if(datePicker){ dpClose(); return; }
     if(sheet && sheet.type==='task' && moveNav){ mvClose(); return; }
     if(sheet && sheet.type==='quickTask'){ quickTaskCancel(); return; }
     if(sheet && sheet.type==='timer'){ tmrClose(); return; }
     if(sheet){ closeSheet(); return; }
     if(drawerOpen){ toggleDrawer(false); return; }
+    if(nav.view==='themes' && themeNav){ themeNav=null; render(); return; }
+    if(nav.view==='bdd' && bddNav){ if(bddNav.sub){ bddNav={cat:bddNav.cat}; } else { bddNav=null; } render(); return; }
     if(nav.eventId){ go({eventId:null}); return; }
     if(nav.feteId){ go({feteId:null}); return; }
     if(nav.monthId){ go({monthId:null}); return; }
@@ -3166,6 +3435,9 @@ try{
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
 else boot();
+
+// PWA : enregistre le service worker s'il est présent (met l'app à jour toute seule quand elle est en ligne).
+try{ if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); } }catch(e){}
 
 </script>
 </body>
