@@ -74,6 +74,33 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .agcell.first{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
 .agcell.first .agd{color:var(--gold)}
 .agw.rtl{direction:rtl}
+/* ---- Calendrier mensuel coloré (agenda unifié) ---- */
+.cal-legend{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px}
+.cal-legch{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:20px;border:1px solid var(--line);background:var(--surface);cursor:pointer;color:var(--ink)}
+.cal-legch.off{opacity:.38}
+.cal-legdot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
+.cal-grid.rtl{direction:rtl}
+.cal-wh{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;padding:3px 0}
+.cal-cell{min-height:64px;border:1px solid var(--line-soft);border-radius:8px;padding:4px;cursor:pointer;background:var(--surface);display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.cal-cell.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.cal-cell.first{box-shadow:inset 0 0 0 1px var(--gold)}
+.cal-cell.empty{background:transparent;border:none;cursor:default}
+.cal-dh{display:flex;justify-content:space-between;align-items:baseline;gap:3px}
+.cal-dh .civ{font-size:14px;font-weight:700;font-family:var(--serif);color:var(--ink);line-height:1}
+.cal-cell.today .cal-dh .civ{color:var(--primary)}
+.cal-cell.first .cal-dh .civ{color:var(--gold)}
+.cal-dh .heb{font-size:9px;color:var(--ink-soft);font-weight:600}
+.cal-dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:1px}
+.cal-dot{width:7px;height:7px;border-radius:50%;background:var(--ink-soft)}
+.cal-chip{font-size:10px;line-height:1.25;padding:1px 4px;border-radius:4px;border-left:3px solid var(--ink-soft);background:var(--surface-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;color:var(--ink)}
+.cal-chip.done{opacity:.5;text-decoration:line-through}
+.cal-more{font-size:9px;color:var(--ink-soft);font-weight:700;padding-left:2px}
+.cal-cnt{font-size:10px;color:var(--ink-soft);font-weight:700;margin-top:auto}
+body.desktop .app{max-width:880px}
+body.desktop .cal-cell{min-height:104px}
+body.desktop .cal-chip{font-size:11px;padding:2px 5px}
+body.desktop .cal-wh{font-size:12.5px}
 .dp-day .dp-g{font-size:14px;font-weight:600;line-height:1.1}
 .dp-day .dp-h{font-size:10px;color:var(--ink-soft)}
 .dp-day.sel .dp-h{color:#dbe4f2}
@@ -443,6 +470,9 @@ let progYM=null;        // mois affiché dans Présences & Salaires
 let progGen=false;      // formulaire de génération de journées
 let childFilter='all'; let childDay=null; // présences enfants
 let agMode='civil'; let agAnchor=null; // agenda fusionné
+let agHidden={}; // thèmes masqués dans le calendrier (filtre par couleur)
+let journalDeskMode='cal'; // sur ordinateur : 'cal' (calendrier mensuel) ou 'cards' (Ma journée en liste)
+function setJournalDeskMode(m){ journalDeskMode=m; render(); }
 let jDay=null; let childBulk=false; let progDates=false; // nav jour + ajout groupé + import dates
 let _tmrTotal=0,_tmrLeft=0,_tmrRun=false,_tmrIv=null,_tmrEnd=0,_tmrTaskText='',_tmrDone=false,_tmrAudio=null; // minuteur
 let coachMsgs=[];       // historique du chat coach
@@ -1034,10 +1064,13 @@ function cloneProgramShell(p){ return {...p,id:uid(),events:[],sessions:[],absen
 // ============================================================
 function render(){
   const app=$('app');
+  try{ document.body.classList.toggle('desktop', isDesktop()); }catch(e){}
   const _sc=(document.getElementById('main')||{}).scrollTop||0;
   app.innerHTML = headerHTML() + `<div class="main" id="main"></div>` + bottomNavHTML() + fabHTML();
   const main=$('main');
-  if(nav.view==='journal') renderJournal(main);
+  // Sur ordinateur, « Ma journée » s'affiche en calendrier mensuel coloré ; sur téléphone, en cartes.
+  if(nav.view==='journal' && isDesktop() && journalDeskMode==='cal') renderCalGrid(main, true);
+  else if(nav.view==='journal') renderJournal(main);
   else if(nav.view==='report') renderReport(main);
   else if(nav.view==='themes') renderThemes(main);
   else if(nav.view==='bdd') renderBDD(main);
@@ -1605,26 +1638,31 @@ function coachMic(){ const SR=window.SpeechRecognition||window.webkitSpeechRecog
 function datedAll(){
   const out=[];
   Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>{
-    if(f.date) out.push({iso:f.date,kind:'fete',label:f.name,mId:mId,fId:f.id});
+    if(f.date) out.push({iso:f.date,kind:'fete',label:f.name,mId:mId,fId:f.id,color:f.color});
     f.events.forEach(e=>{
-      if(e.date) out.push({iso:e.date,kind:'event',label:f.name+' › '+e.name,mId:mId,fId:f.id,eId:e.id});
+      if(e.date) out.push({iso:e.date,kind:'event',label:f.name+' › '+e.name,mId:mId,fId:f.id,eId:e.id,themeId:e.themeId});
       const eff0=e.date||f.date||'';
-      flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:f.name+' › '+e.name}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:f.name+' › '+e.name,n:n})); } });
+      flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:f.name+' › '+e.name,themeId:e.themeId}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:f.name+' › '+e.name,n:n,themeId:e.themeId})); } });
     });
-    flattenTasks(f.tasks||[]).forEach(t=>{ const iso=t.date||f.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:f.name}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:f.name,n:n})); } });
+    flattenTasks(f.tasks||[]).forEach(t=>{ const iso=t.date||f.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:f.name,color:f.color}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:f.name,n:n,color:f.color})); } });
   }));
   Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); flattenTasks(m.tasks||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:(mm?mm.name:'Mois')}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:(mm?mm.name:'Mois'),n:n})); } }); });
   D.programs.forEach(p=>{
-    if(p.date) out.push({iso:p.date,kind:'fete',label:'📚 '+p.name,pId:p.id,isProgram:true});
+    if(p.date) out.push({iso:p.date,kind:'fete',label:'📚 '+p.name,pId:p.id,isProgram:true,color:p.color});
     p.events.forEach(e=>{
-      if(e.date) out.push({iso:e.date,kind:'event',label:p.name+' › '+e.name,pId:p.id,eId:e.id,isProgram:true});
+      if(e.date) out.push({iso:e.date,kind:'event',label:p.name+' › '+e.name,pId:p.id,eId:e.id,isProgram:true,themeId:e.themeId});
       const eff0=e.date||p.date||'';
-      flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name+' › '+e.name}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name+' › '+e.name,n:n})); } });
+      flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name+' › '+e.name,themeId:e.themeId}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name+' › '+e.name,n:n,themeId:e.themeId})); } });
     });
-    flattenTasks(p.tasks||[]).forEach(t=>{ const iso=t.date||p.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name,n:n})); } });
+    flattenTasks(p.tasks||[]).forEach(t=>{ const iso=t.date||p.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name,color:p.color}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name,n:n,color:p.color})); } });
   });
   return out;
 }
+// Couleur/thème d'un élément daté (pour le calendrier coloré).
+function agThemeOf(x){ if(x&&x.themeId){ const th=(D.themes||[]).find(t=>t.id===x.themeId); if(th) return th; } return null; }
+function agColorOf(x){ const th=agThemeOf(x); if(th&&th.color) return th.color; if(x&&x.color) return x.color; return null; }
+function _hexA(hex,aa){ hex=String(hex||'').trim(); if(/^#([0-9a-f]{6})$/i.test(hex)) return hex+aa; return hex; }
+function isDesktop(){ try{ return window.innerWidth>=900; }catch(e){ return false; } }
 function datedTasks(){
   const out=[];
   Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ const eff0=e.date||f.date||''; flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso) out.push({iso:iso,t:t,where:f.name+' › '+e.name}); }); })));
@@ -1669,34 +1707,75 @@ function exportICS(){
   lines.push('END:VCALENDAR');
   const blob=new Blob([lines.join('\r\n')],{type:'text/calendar'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stepbystep-agenda.ics'; a.click(); toast('Fichier .ics téléchargé');
 }
-function renderAgenda(c){
+function renderAgenda(c){ renderCalGrid(c, false); }
+function agToggleTheme(k){ if(agHidden[k]) delete agHidden[k]; else agHidden[k]=1; render(); }
+function agShowAllThemes(){ agHidden={}; render(); }
+// Calendrier mensuel unifié + coloré par thème (agenda commun à tous les modules).
+function renderCalGrid(c, asJournal){
   const mode=agMode||'civil'; const anchor=agAnchor||todayKey();
-  const dt=datedAll(); const cnt={}, bud={};
-  dt.forEach(x=>{ if((x.kind==='task'||x.kind==='reminder')&&x.t.status==='done') return; cnt[x.iso]=(cnt[x.iso]||0)+1; if(x.kind==='task') bud[x.iso]=(bud[x.iso]||0)+((x.t.budget&&x.t.budget.amount)||0); });
+  const dt=datedAll();
+  // Regroupe par jour, hors tâches/rappels terminés.
+  const byday={};
+  dt.forEach(x=>{ if((x.kind==='task'||x.kind==='reminder')&&x.t&&x.t.status==='done') return; (byday[x.iso]=byday[x.iso]||[]).push(x); });
+  // Thèmes présents (pour la légende + le filtre).
+  const present={}; let hasNone=false;
+  dt.forEach(x=>{ const th=agThemeOf(x); if(th){ present[th.id]=th; } else if(x.kind!=='reminder'){ hasNone=true; } });
+  const themeList=Object.values(present).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   let days=[], title='';
   if(mode==='civil'){ const a=new Date(anchor+'T12:00:00'); const y=a.getFullYear(),mo=a.getMonth(); const first=new Date(y,mo,1); const dim=new Date(y,mo+1,0).getDate(); const sw=first.getDay(); for(let i=0;i<sw;i++)days.push(null); for(let d=1;d<=dim;d++)days.push(new Date(y,mo,d,12)); title=first.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); }
   else if(mode==='heb'){ const a=new Date(anchor+'T12:00:00'); const ap=hebParts(a); let d1=new Date(a); d1.setDate(d1.getDate()-(ap.day-1)); let cur=new Date(d1); const arr=[]; for(let i=0;i<32;i++){ const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year) break; arr.push(new Date(cur)); cur=new Date(cur); cur.setDate(cur.getDate()+1);} const sw=arr[0].getDay(); for(let i=0;i<sw;i++)days.push(null); arr.forEach(d=>days.push(d)); { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); title=(_mo?_mo.name:ap.month)+' '+ap.year; } }
   else { const a=new Date(anchor+'T12:00:00'); const start=new Date(a); start.setDate(a.getDate()-a.getDay()); for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d);} title='Semaine du '+start.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
   const wd=['D','L','M','M','J','V','S'];
   const rtl=(mode==='heb'); const rtlCls=rtl?' rtl':'';
-  // sous-titre : les mois de l'AUTRE calendrier couverts par la période (souvent 2)
   let sub=''; const _valid=days.filter(Boolean);
   if(_valid.length){
     if(mode==='heb'){ const set=[]; _valid.forEach(d=>{ const lbl=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); if(!set.includes(lbl))set.push(lbl); }); sub='📅 '+set.join(' · '); }
     else { const set=[]; _valid.forEach(d=>{ const mid=hebMonthIdOf(todayKey(d)); const mo=MONTHS.find(x=>x.id===mid); const lbl=(mo?mo.name:mid); if(!set.includes(lbl))set.push(lbl); }); sub='🕎 '+set.join(' · '); }
   }
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Agenda fusionné</div><div class="sec-title" style="text-transform:capitalize">${title}</div>${sub?`<div class="sec-sub" style="text-transform:capitalize">${sub}</div>`:''}</div></div>`;
+  const desk=isDesktop();
+  let html=`<div class="sec"><div><div class="sec-eyebrow">Agenda — tous les modules réunis</div><div class="sec-title" style="text-transform:capitalize">${title}</div>${sub?`<div class="sec-sub" style="text-transform:capitalize">${sub}</div>`:''}</div></div>`;
+  if(asJournal && desk){ html+=`<div class="filters"><button class="chip active" data-act="setJournalDeskMode('cal')">🗓️ Vue mois</button><button class="chip" data-act="setJournalDeskMode('cards')">📋 Ma journée (liste)</button></div>`; }
   html+=`<div class="filters"><button class="chip ${mode==='civil'?'active':''}" data-act="setAgMode('civil')">📅 Mois civil</button><button class="chip ${mode==='heb'?'active':''}" data-act="setAgMode('heb')">🕎 Mois hébraïque</button><button class="chip ${mode==='week'?'active':''}" data-act="setAgMode('week')">🗓️ Semaine</button></div>`;
+  // Légende + filtre par couleur/thème
+  if(themeList.length || hasNone){
+    html+=`<div class="cal-legend">`;
+    themeList.forEach(th=>{ const off=agHidden[th.id]?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('${th.id}')"><span class="cal-legdot" style="background:${th.color||'#1E3A6E'}"></span>${th.icon||'🎯'} ${esc(th.name)}</span>`; });
+    if(hasNone){ const off=agHidden['__none']?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('__none')"><span class="cal-legdot" style="background:#9AA3AF"></span>Sans thème</span>`; }
+    if(Object.keys(agHidden).length) html+=`<span class="cal-legch" data-act="agShowAllThemes()" style="border-style:dashed">Tout afficher</span>`;
+    html+=`</div>`;
+  }
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="cbtn" data-act="agShift(-1)">◀</button><div style="flex:1;text-align:center"><button class="btn btn-soft btn-sm" data-act="agToday()">📔 Aujourd'hui</button></div><button class="cbtn" data-act="agShift(1)">▶</button></div>`;
-  html+=`<div class="agw${rtlCls}">${wd.map(w=>`<div class="agwh">${w}</div>`).join('')}</div>`;
-  html+=`<div class="agw${rtlCls}">`;
-  days.forEach(d=>{ if(!d){ html+='<div></div>'; return; } const iso=todayKey(d); const n=cnt[iso]||0; const b=bud[iso]||0; const isTd=iso===todayKey();
+  html+=`<div class="cal-grid${rtlCls}">${wd.map(w=>`<div class="cal-wh">${w}</div>`).join('')}</div>`;
+  html+=`<div class="cal-grid${rtlCls}">`;
+  const MAXCHIP = desk?4:3;
+  days.forEach(d=>{ if(!d){ html+='<div class="cal-cell empty"></div>'; return; }
+    const iso=todayKey(d); const isTd=iso===todayKey();
     const hp=hebParts(d); const civ=d.getDate(); const hebd=hp.day;
     const big=rtl?hebd:civ; const small=rtl?civ:hebd; const isFirst=rtl?(hebd===1):(civ===1);
-    html+=`<div class="agcell${isTd?' today':''}${isFirst?' first':''}${n?' has':''}" data-act="openDayTasks('${iso}')"><div class="agd">${big}</div><div class="agds">${small}</div>${n?`<div class="agn">${n} tâ.</div>`:''}${b?`<div class="agb">${fmtE(b)}</div>`:''}</div>`;
+    let items=(byday[iso]||[]).filter(x=>x.kind!=='reminder'); // rappels non affichés dans la grille
+    items=items.filter(x=>{ const th=agThemeOf(x); const k=th?th.id:'__none'; return !agHidden[k]; });
+    // ordre : fêtes, événements, puis tâches
+    const rk={fete:0,event:1,task:2}; items.sort((a,b)=>(rk[a.kind]||3)-(rk[b.kind]||3));
+    let cell=`<div class="cal-cell${isTd?' today':''}${isFirst?' first':''}" data-act="openDayTasks('${iso}')"><div class="cal-dh"><span class="civ">${big}</span><span class="heb">${small}</span></div>`;
+    if(items.length){
+      if(desk){
+        cell+=items.slice(0,MAXCHIP).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; const lbl=x.kind==='task'?(x.t.text||'Tâche'):(x.kind==='fete'?('🎉 '+x.label):x.label.split(' › ').pop()); const dn=(x.kind==='task'&&x.t.status==='done')?' done':''; return `<div class="cal-chip${dn}" style="border-left-color:${col};background:${_hexA(col,'18')}">${esc(lbl)}</div>`; }).join('');
+        if(items.length>MAXCHIP) cell+=`<div class="cal-more">+${items.length-MAXCHIP}</div>`;
+      } else {
+        const dots=items.slice(0,8).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; return `<span class="cal-dot" style="background:${col}"></span>`; }).join('');
+        cell+=`<div class="cal-dots">${dots}</div><div class="cal-cnt">${items.length}</div>`;
+      }
+    }
+    cell+=`</div>`;
+    html+=cell;
   });
-  html+=`</div><button class="btn btn-soft btn-block" style="margin-top:12px" data-act="exportICS()">📤 Exporter pour Google Agenda (.ics)</button>`;
-  html+=`<div class="hint" style="margin-top:10px">Fusionne fêtes, événements et programmes datés (+ rappels). Le bouton .ics s'importe dans Google Agenda. Synchro automatique Google : en version SaaS.</div>`;
+  html+=`</div>`;
+  html+=`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">`;
+  if(desk) html+=`<button class="btn btn-soft btn-sm" data-act="openDayTasks('${todayKey()}')">📔 Détail d'aujourd'hui</button>`;
+  html+=`<button class="btn btn-soft btn-sm" data-act="exportICS()">📤 Exporter (.ics)</button>`;
+  if(_org && (_org.role==='owner'||_isAdmin)) html+=`<button class="btn btn-soft btn-sm" data-act="gcalOpen()">🔗 Google Agenda</button>`;
+  html+=`</div>`;
+  html+=`<div class="hint" style="margin-top:10px">Tout ce qui a une date (fêtes, événements, programmes, tâches) apparaît ici. Chaque couleur = un thème. Touche un jour pour voir le détail${desk?'':' ; filtre par thème avec la légende ci-dessus'}.</div>`;
   c.innerHTML=html;
 }
 function toggleProgDates(){ progDates=!progDates; renderOverlay(); }
@@ -3103,6 +3182,7 @@ function renderJournal(c){
   const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
   let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>'+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
+  if(isDesktop()){ html+=`<div class="filters"><button class="chip" data-act="setJournalDeskMode('cal')">🗓️ Vue mois</button><button class="chip active" data-act="setJournalDeskMode('cards')">📋 Ma journée (liste)</button></div>`; }
   // — Sélecteur de période + navigation ◀ ▶ —
   const rg=jRange(); const periods=[['today',"Aujourd'hui"],['week','Semaine'],['civil','Mois civil'],['heb','Mois hébraïque']];
   const atToday=(jDay||todayKey())===todayKey();
@@ -3622,6 +3702,11 @@ function resetData(){ if(confirm('Tout effacer et repartir d\'une base vide ?'))
 // Un seul gestionnaire lit l'attribut data-act (ou onclick legacy) et l'exécute.
 // Fiable dans tous les navigateurs et webviews, contrairement aux handlers inline
 // qui peuvent être neutralisés dans certains contextes.
+// Ré-affiche quand on passe téléphone ↔ ordinateur (largeur d'écran) — bascule cartes / calendrier.
+let _wasDesktop=null, _rzT=null;
+try{ window.addEventListener('resize', function(){ if(_rzT)clearTimeout(_rzT); _rzT=setTimeout(function(){ const d=isDesktop(); if(d!==_wasDesktop){ _wasDesktop=d; if(_org){ try{render();}catch(e){} } } },200); }); }catch(e){}
+// Placeholder : la vraie connexion Google Agenda est ajoutée à l'étape suivante.
+function gcalOpen(){ try{ toast('Synchro Google Agenda : on la configure ensemble (voir le chat).'); }catch(e){} }
 document.addEventListener('click', function(ev){
   // Après un glisser-déposer, ignorer le clic « fantôme » qui suit (sinon on ouvrirait la fiche).
   if(_dragSuppressClick){ _dragSuppressClick=false; ev.preventDefault(); ev.stopPropagation(); return; }
@@ -3701,6 +3786,7 @@ function commitDragOrder(kind){
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
+ agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
