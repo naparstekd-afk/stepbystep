@@ -1165,8 +1165,20 @@ function renderHome(c){
   html+=`</div>`;
   c.innerHTML=html;
 }
-function countAll(tasks){ let n=0; (tasks||[]).forEach(t=>{n++; if(t.subtasks)n+=countAll(t.subtasks);}); return n; }
-function countAllDone(tasks){ let n=0; (tasks||[]).forEach(t=>{if(t.status==='done')n++; if(t.subtasks)n+=countAllDone(t.subtasks);}); return n; }
+// Progression = uniquement les tâches « feuilles ». Une tâche qui a des sous-tâches
+// est un TITRE (case générale) : elle ne compte pas pour elle-même, seules ses feuilles comptent.
+function countAll(tasks){ let n=0; (tasks||[]).forEach(t=>{ if(t.subtasks&&t.subtasks.length) n+=countAll(t.subtasks); else n++; }); return n; }
+function countAllDone(tasks){ let n=0; (tasks||[]).forEach(t=>{ if(t.subtasks&&t.subtasks.length) n+=countAllDone(t.subtasks); else if(t.status==='done')n++; }); return n; }
+// Toutes les feuilles sous t sont-elles cochées ?
+function _leafAllDone(t){ if(t.subtasks&&t.subtasks.length) return t.subtasks.every(_leafAllDone); return t.status==='done'; }
+// Coche / décoche t et toute sa descendance.
+function _setDone(t,done){ if(t.subtasks&&t.subtasks.length) t.subtasks.forEach(s=>_setDone(s,done)); t.status=done?'done':'todo'; }
+// Recalcule le statut « dérivé » des tâches parentes (bas → haut) : parent = fait ssi toutes ses feuilles sont faites.
+function _normTasks(arr){ (arr||[]).forEach(t=>{ if(t.subtasks&&t.subtasks.length){ _normTasks(t.subtasks); const all=t.subtasks.every(s=>s.status==='done'); t.status = all ? 'done' : (t.status==='done'?'todo':t.status); } }); }
+function normalizeAllTasks(){
+  Object.values(D.months||{}).forEach(m=>{ if(m.tasks)_normTasks(m.tasks); (m.fetes||[]).forEach(f=>{ if(f.tasks)_normTasks(f.tasks); (f.events||[]).forEach(e=>{ if(e.tasks)_normTasks(e.tasks); }); }); });
+  (D.programs||[]).forEach(p=>{ if(p.tasks)_normTasks(p.tasks); (p.events||[]).forEach(e=>{ if(e.tasks)_normTasks(e.tasks); }); });
+}
 function remainingDur(t){ if(t.subtasks&&t.subtasks.length) return t.subtasks.reduce((a,s)=>a+remainingDur(s),0); return t.status==='done'?0:(t.duration||0); }
 const sumRemDur = arr => (arr||[]).reduce((a,t)=>a+remainingDur(t),0);
 function programCost(p){ return (p.events||[]).reduce((a,e)=>a+sumBud(e.tasks),0); }
@@ -1482,7 +1494,7 @@ function taskHTML(t,ev,idx,total,reorder){
   return `<div class="task drag-row" data-taskid="${t.id}" data-dragid="${t.id}" data-dragkind="task">
     <div class="task-main">
       ${reorder&&total>1?`<div class="drag-handle" data-drag="${t.id}" title="Glisser pour déplacer">⠿</div>`:''}
-      <div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${t.status==='done'?'✓':(t.status==='inprogress'||t.status==='waiting'?`<span style="color:${st.c};font-size:9px">●</span>`:'')}</div>
+      <div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')" title="${t.subtasks&&t.subtasks.length?'Tout cocher / décocher':''}">${t.status==='done'?'✓':((t.subtasks&&t.subtasks.length&&countAllDone(t.subtasks)>0)?`<span style="color:${st.c};font-size:12px;font-weight:800;line-height:1">–</span>`:(t.status==='inprogress'||t.status==='waiting'?`<span style="color:${st.c};font-size:9px">●</span>`:''))}</div>
       <div class="task-content" data-act="openTask('${t.id}')">
         <div class="task-text ${t.status==='done'?'done':''}">${esc(t.text)}</div>
         ${tags?`<div class="task-tags">${tags}</div>`:''}
@@ -1501,7 +1513,7 @@ function subHTML(s,parent){
   if(s.duration)extra.push('⏱ '+fmtM(s.duration));
   if(s.budget&&s.budget.amount)extra.push(fmtE(s.budget.amount));
   let h=`<div class="sub">
-    <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'}" data-act="event.stopPropagation();toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div>
+    <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'}" data-act="event.stopPropagation();toggleTask('${s.id}')">${s.status==='done'?'✓':((s.subtasks&&s.subtasks.length&&countAllDone(s.subtasks)>0)?`<span style="color:${st.c};font-size:11px;font-weight:800;line-height:1">–</span>`:'')}</div>
     <div class="sub-text ${s.status==='done'?'done':''}" data-act="openTask('${s.id}')">${esc(s.text)}${extra.length?` <span style="color:var(--ink-soft);font-size:11.5px">· ${extra.join(' · ')}</span>`:''}</div>
   </div>`;
   if(s.subtasks&&s.subtasks.length){ h+=`<div class="subs-deep">${s.subtasks.map(ss=>subHTML(ss,s)).join('')}</div>`; }
@@ -1514,8 +1526,16 @@ function clearGroup(){ groupedView=null; render(); }
 // ---------- toggle / move / delete ----------
 function toggleTask(tid){
   const r=findTaskAnywhere(tid); if(!r)return;
-  // Cocher = Fait directement ; recocher = À faire. (Le statut « En cours » reste dispo dans l'éditeur.)
-  r.task.status = (r.task.status==='done') ? 'todo' : 'done'; save(); render();
+  const t=r.task;
+  if(t.subtasks && t.subtasks.length){
+    // Case « générale » : coche tout / décoche tout selon l'état actuel.
+    _setDone(t, !_leafAllDone(t));
+  } else {
+    // Cocher = Fait ; recocher = À faire. (« En cours » reste dispo dans l'éditeur.)
+    t.status = (t.status==='done') ? 'todo' : 'done';
+  }
+  normalizeAllTasks();   // le parent devient « fait » quand toutes ses feuilles le sont
+  save(); render();
 }
 function delTask(tid){
   const r=findTaskAnywhere(tid); if(!r)return;
@@ -3933,6 +3953,7 @@ function ensureCollections(){
   if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
   if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
   migrateMaterials();
+  normalizeAllTasks();   // cohérence parent/sous-tâches (le parent = fait ssi toutes ses feuilles le sont)
   syncCounters();
   if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
   if(!D.tsedaka) D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]};
