@@ -32,6 +32,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 [data-act]{cursor:pointer;-webkit-tap-highlight-color:rgba(30,58,110,.12);touch-action:manipulation}
 .drag-handle{cursor:grab;touch-action:none;color:var(--ink-soft);font-size:19px;line-height:1;padding:4px 4px;user-select:none;-webkit-user-select:none;display:flex;align-items:center;flex-shrink:0}
 .drag-handle:active{cursor:grabbing}
+.drag-row.dragging{touch-action:none}
 .task.dragging{opacity:.55;background:var(--primary-soft);border-radius:10px}
 .task.dragover-top{box-shadow:inset 0 3px 0 var(--primary)}
 .task.dragover-bot{box-shadow:inset 0 -3px 0 var(--primary)}
@@ -3275,6 +3276,8 @@ function resetData(){ if(confirm('Tout effacer et repartir d\'une base vide ?'))
 // Fiable dans tous les navigateurs et webviews, contrairement aux handlers inline
 // qui peuvent être neutralisés dans certains contextes.
 document.addEventListener('click', function(ev){
+  // Après un glisser-déposer, ignorer le clic « fantôme » qui suit (sinon on ouvrirait la fiche).
+  if(_dragSuppressClick){ _dragSuppressClick=false; ev.preventDefault(); ev.stopPropagation(); return; }
   // Laisser les champs de saisie natifs fonctionner (focus, frappe, ouverture des listes).
   if(ev.target.closest('input,select,textarea,option')) return;
   const el = ev.target.closest('[data-act]');
@@ -3291,24 +3294,37 @@ document.addEventListener('click', function(ev){
   catch(e){ console.error('Action echouee:', code, e); }
 });
 // ---------- GLISSER-DÉPOSER DES TÂCHES (poignée ⠿, tactile + souris) ----------
-let _drag=null;
+let _drag=null, _dragMoved=false, _dragSuppressClick=false, _dragScroller=null;
 document.addEventListener('pointerdown', function(ev){
   const h=ev.target.closest('[data-drag]'); if(!h) return;
   const row=h.closest('.drag-row'); if(!row) return;
   ev.preventDefault();
-  _drag={ row:row, kind:row.getAttribute('data-dragkind'), pid:ev.pointerId };
+  _drag={ row:row, kind:row.getAttribute('data-dragkind'), pid:ev.pointerId, handle:h };
+  _dragMoved=false;
   row.classList.add('dragging');
-  try{ row.setPointerCapture(ev.pointerId); }catch(e){}
-});
+  // Verrouille le défilement de la liste pendant le glissement (indispensable sur mobile,
+  // sinon le doigt fait défiler la page au lieu de déplacer l'élément).
+  _dragScroller=row.closest('.main')||document.getElementById('main');
+  if(_dragScroller){ _dragScroller.style.touchAction='none'; _dragScroller.style.overflowY='hidden'; }
+  // Capture sur la POIGNÉE (qui a touch-action:none) pour garder le geste attaché au glissement.
+  try{ h.setPointerCapture(ev.pointerId); }catch(e){}
+}, {passive:false});
 document.addEventListener('pointermove', function(ev){
   if(!_drag) return;
   ev.preventDefault();
+  _dragMoved=true;
   const rows=Array.from(document.querySelectorAll('.drag-row[data-dragkind="'+_drag.kind+'"]'));
   const y=ev.clientY; let target=null;
   for(const r of rows){ if(r===_drag.row) continue; const rc=r.getBoundingClientRect(); if(y>=rc.top && y<=rc.bottom){ target=r; break; } }
   if(target){ const rc=target.getBoundingClientRect(); const before=y<rc.top+rc.height/2; const parent=_drag.row.parentNode; if(before) parent.insertBefore(_drag.row,target); else parent.insertBefore(_drag.row,target.nextSibling); }
-});
-function _endDrag(){ if(!_drag) return; _drag.row.classList.remove('dragging'); commitDragOrder(_drag.kind); _drag=null; }
+}, {passive:false});
+function _endDrag(){
+  if(!_drag) return;
+  _drag.row.classList.remove('dragging');
+  if(_dragScroller){ _dragScroller.style.touchAction=''; _dragScroller.style.overflowY=''; _dragScroller=null; }
+  const kind=_drag.kind; const moved=_dragMoved; _drag=null;
+  if(moved){ _dragSuppressClick=true; setTimeout(()=>{ _dragSuppressClick=false; },500); commitDragOrder(kind); }
+}
 document.addEventListener('pointerup', _endDrag);
 document.addEventListener('pointercancel', _endDrag);
 function commitDragOrder(kind){
