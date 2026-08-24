@@ -238,6 +238,9 @@ input,select,textarea{font-family:inherit;font-size:15px}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .sheet{background:var(--bg);border-radius:22px 22px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;animation:slideup .28s cubic-bezier(.16,1,.3,1);box-shadow:var(--sh-lg)}
 @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* Pas de ré-animation quand la fiche est déjà ouverte (évite que la page « saute » à chaque bouton). */
+.sheet.no-anim,.drawer.no-anim{animation:none!important}
+.subedit.collapsed{cursor:pointer}
 .sheet-grip{width:38px;height:4px;background:var(--line);border-radius:3px;margin:9px auto 0}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;position:sticky;top:0;background:var(--bg);z-index:5}
 .sheet-title{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--ink)}
@@ -1563,12 +1566,15 @@ function moveTask(tid,dir){
 // ============================================================
 function renderOverlay(){
   const r=$('overlay-root');
-  const _ss=(r.querySelector('.sheet')||{}).scrollTop||0;
+  const exSheet=r.querySelector('.sheet'); const exDrawer=r.querySelector('.drawer');
+  const _ss=exSheet?exSheet.scrollTop:0;
+  const hadSheet=!!exSheet, hadDrawer=!!exDrawer;
   let html='';
   if(drawerOpen) html+=drawerHTML();
   if(sheet) html+=sheetHTML();
   r.innerHTML=html;
-  const _ns=r.querySelector('.sheet'); if(_ns) _ns.scrollTop=_ss;
+  const _ns=r.querySelector('.sheet'); if(_ns){ if(hadSheet)_ns.classList.add('no-anim'); _ns.scrollTop=_ss; }
+  const _nd=r.querySelector('.drawer'); if(_nd&&hadDrawer)_nd.classList.add('no-anim');
   if(typeof renderTimerPill==='function') renderTimerPill();
 }
 function closeSheet(){ sheet=null; editBuf=null; renderOverlay(); }
@@ -2398,15 +2404,6 @@ function taskSheet(){
       <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
       <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>`:''}
 
-    ${isTpl?'':`<div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
-      <div style="display:flex;gap:7px;align-items:center">
-        <span style="font-size:13px;color:var(--ink-soft)">J-</span>
-        <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
-        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">Ajouter</button>
-        <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
-      </div>
-      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30.</div>'}</div>`}
-
     ${hasBudget?`<div class="row2">
       <div class="field"><label class="field-label">Budget</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
       <div class="field"><label class="field-label">Thème budgétaire</label><input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="Thème"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
@@ -2436,6 +2433,15 @@ function taskSheet(){
     <div class="section-label">Sous-tâches</div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
     <button class="btn btn-ghost btn-block" data-act="ebAddSub()">+ Ajouter une sous-tâche</button>
+
+    ${isTpl?'':`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
+      <div style="display:flex;gap:7px;align-items:center">
+        <span style="font-size:13px;color:var(--ink-soft)">J-</span>
+        <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
+        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">Ajouter</button>
+        <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
+      </div>
+      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30.</div>'}</div>`}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
       <div class="dd" style="flex:1">
@@ -2474,9 +2480,23 @@ function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'
 function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); return s; }
 function subEditHTML(s,i){
   const st=stOf(s.status);
+  const open = (editBuf._openSub===s.id);
+  if(!open){
+    // Repliée : uniquement le nom + libellés (responsable, durée). Un clic pour déplier.
+    const meta=[]; if(s.responsible)meta.push('👤 '+esc(s.responsible)); if(s.duration)meta.push('⏱ '+fmtM(s.duration));
+    return `<div class="subedit collapsed" data-act="ebToggleSub('${s.id}')" style="padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'};flex:0 0 auto" data-act="event.stopPropagation();toggleSubInEditor('${s.id}')">${s.status==='done'?'✓':''}</div>
+        <div style="flex:1;min-width:0"><div class="${s.status==='done'?'done':''}" style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.text?esc(s.text):'<span style=\'color:var(--ink-soft);font-weight:400\'>Sous-tâche sans titre</span>'}</div>${meta.length?`<div style="font-size:11.5px;color:var(--ink-soft)">${meta.join(' · ')}</div>`:''}</div>
+        <span style="color:var(--ink-soft);flex:0 0 auto">▾</span>
+        <button class="mini-btn danger" style="flex:0 0 auto" data-act="event.stopPropagation();ebRmSub('${s.id}')">🗑</button>
+      </div>
+    </div>`;
+  }
   return `<div class="subedit">
     <div class="subedit-head"><span class="subedit-num">Sous-tâche ${i+1}</span>
       <button class="mini-btn" data-act="ebOpenSub('${s.id}')" title="Toutes les options">⚙️</button>
+      <button class="mini-btn" data-act="ebToggleSub('${s.id}')" title="Replier">▴</button>
       <button class="mini-btn danger" style="margin-left:auto" data-act="ebRmSub('${s.id}')">🗑</button></div>
     <div class="subedit-grid">
       <input class="input-sm" value="${esc(s.text)}" oninput="ebSubField('${s.id}','text',this.value)" placeholder="Intitulé">
@@ -2542,8 +2562,10 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
 }
 function ebAddDep(id){ syncInputs(); if(!editBuf.dependsOn)editBuf.dependsOn=[]; if(id&&!editBuf.dependsOn.includes(id))editBuf.dependsOn.push(id); renderOverlay(); }
 function ebRmDep(id){ syncInputs(); editBuf.dependsOn=(editBuf.dependsOn||[]).filter(x=>x!==id); renderOverlay(); }
-function ebAddSub(){ syncInputs(); if(!editBuf.subtasks)editBuf.subtasks=[]; editBuf.subtasks.push(mkTask('')); renderOverlay(); }
-function ebRmSub(id){ syncInputs(); editBuf.subtasks=editBuf.subtasks.filter(s=>s.id!==id); renderOverlay(); }
+function ebAddSub(){ syncInputs(); if(!editBuf.subtasks)editBuf.subtasks=[]; const n=mkTask(''); editBuf.subtasks.push(n); editBuf._openSub=n.id; renderOverlay(); setTimeout(()=>{ try{ const el=document.querySelector('#subedit-list .subedit:not(.collapsed) input'); if(el){ el.focus({preventScroll:true}); } }catch(e){} },40); }
+function ebRmSub(id){ syncInputs(); editBuf.subtasks=editBuf.subtasks.filter(s=>s.id!==id); if(editBuf._openSub===id)editBuf._openSub=null; renderOverlay(); }
+function ebToggleSub(id){ syncInputs(); editBuf._openSub = (editBuf._openSub===id ? null : id); renderOverlay(); }
+function toggleSubInEditor(id){ syncInputs(); const s=(editBuf.subtasks||[]).find(x=>x.id===id); if(s) _setDone(s, s.status!=='done'); renderOverlay(); }
 function ebSubField(id,k,v){ const s=editBuf.subtasks.find(x=>x.id===id); if(!s)return; s[k]= k==='duration'?(parseInt(v)||0):v; }
 function ebOpenSub(id){ // ouvrir une sous-tâche dans l'éditeur complet (sauve le parent d'abord)
   syncInputs(); saveTask(true);
@@ -3910,7 +3932,7 @@ function commitDragOrder(kind){
 // On expose sur window toutes les fonctions appelées par les data-act, pour que
 // l'app fonctionne quel que soit le contexte d'exécution du script.
 [setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
- ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
+ ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
