@@ -464,6 +464,7 @@ let _lsOK = (()=>{ try{ const k='__t'; localStorage.setItem(k,'1'); localStorage
 function save(){
   try{ if(_lsOK) localStorage.setItem('marbitz-v11', JSON.stringify(D)); else _memStore['marbitz-v11']=JSON.stringify(D); }
   catch(e){ _memStore['marbitz-v11']=JSON.stringify(D); }
+  if(!_cloudSuppress) scheduleCloudPush();
 }
 function load(){
   try{
@@ -471,6 +472,59 @@ function load(){
     if(s){ D=JSON.parse(s); return true; }
   }catch(e){}
   return false;
+}
+
+// ============================================================
+//  SYNCHRONISATION CLOUD (Supabase) — offline-first
+//  Les données vivent en local ET dans le cloud partagé.
+//  Si le cloud est injoignable, l'app fonctionne normalement en local.
+// ============================================================
+const SUPA_URL='https://kpdvdtpvhmdshwtlhmri.supabase.co';
+const SUPA_KEY='sb_publishable_kqAU6bJmXgKMwsSdWRh9Yw_JBCMGCXm';
+const SUPA_ROW='main';
+let _cloudReady=false, _cloudSuppress=false, _cloudTimer=null, _lastSyncStamp=null, _cloudBusy=false, _syncState='';
+function _supaH(extra){ return Object.assign({apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json'}, extra||{}); }
+function _isRealD(o){ return !!(o && typeof o==='object' && (o.year!==undefined || o.months!==undefined || o._v12cleared!==undefined)); }
+function setSyncState(s){ _syncState=s; try{ const el=document.getElementById('sync-badge'); if(el){ el.textContent=s==='ok'?'☁':(s==='sync'?'⟳':(s==='err'?'⚠':'⊘')); el.style.color=s==='ok'?'var(--green)':(s==='err'?'var(--red)':'var(--ink-soft)'); el.title=s==='ok'?'Synchronisé ✓':(s==='sync'?'Synchronisation…':(s==='err'?'Erreur de synchro':'Hors-ligne')); } }catch(e){} }
+function scheduleCloudPush(){ if(!_cloudReady)return; setSyncState('sync'); if(_cloudTimer)clearTimeout(_cloudTimer); _cloudTimer=setTimeout(cloudPush,1200); }
+async function cloudPush(){
+  if(!_cloudReady||_cloudBusy)return; _cloudBusy=true;
+  try{
+    const stamp=new Date().toISOString();
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?on_conflict=id',{method:'POST',headers:_supaH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{id:SUPA_ROW,data:D,updated_at:stamp}])});
+    if(r.ok){ _lastSyncStamp=stamp; setSyncState('ok'); } else { setSyncState('err'); }
+  }catch(e){ setSyncState('off'); }
+  _cloudBusy=false;
+}
+async function cloudPull(){
+  if(!_cloudReady)return false;
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?id=eq.'+SUPA_ROW+'&select=data,updated_at',{headers:_supaH()});
+    if(!r.ok){ setSyncState('err'); return false; }
+    const rows=await r.json(); const row=rows&&rows[0];
+    if(!row){ return false; }
+    if(row.updated_at===_lastSyncStamp){ setSyncState('ok'); return false; }
+    if(_isRealD(row.data)){
+      _lastSyncStamp=row.updated_at;
+      _cloudSuppress=true; D=row.data; save(); _cloudSuppress=false;
+      if(!sheet && !drawerOpen){ try{ render(); }catch(e){} }
+      setSyncState('ok'); return true;
+    }
+    setSyncState('ok'); return false;
+  }catch(e){ setSyncState('off'); return false; }
+}
+async function cloudStart(){
+  _cloudReady=true; setSyncState('sync');
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?id=eq.'+SUPA_ROW+'&select=data,updated_at',{headers:_supaH()});
+    if(r.ok){ const rows=await r.json(); const row=rows&&rows[0];
+      if(row && _isRealD(row.data)){ _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; save(); _cloudSuppress=false; try{render();}catch(e){} setSyncState('ok'); }
+      else { await cloudPush(); }
+    } else { setSyncState('err'); }
+  }catch(e){ setSyncState('off'); }
+  try{ document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') cloudPull(); }); }catch(e){}
+  try{ window.addEventListener('focus',function(){ cloudPull(); }); }catch(e){}
+  try{ setInterval(function(){ if(document.visibilityState==='visible') cloudPull(); },20000); }catch(e){}
 }
 
 // ---------- TOAST ----------
@@ -728,6 +782,7 @@ function headerHTML(){
   return `<div class="hdr">
     <div class="hdr-logo"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">Beth Habad</span></span></div>
     <div class="hdr-spacer"></div>
+    <span id="sync-badge" title="Synchronisation" data-act="cloudPull()" style="font-size:16px;cursor:pointer;color:${_syncState==='ok'?'var(--green)':(_syncState==='err'?'var(--red)':'var(--ink-soft)')};padding:0 2px">${_syncState==='ok'?'☁':(_syncState==='sync'?'⟳':(_syncState==='err'?'⚠':'⊘'))}</span>
     <button class="hdr-year" data-act="openYearMenu()">${D.year} ▾</button>
     <button class="hdr-menu-btn" data-act="toggleDrawer(true)">☰</button>
   </div>` + breadcrumbHTML();
@@ -3352,7 +3407,7 @@ function commitDragOrder(kind){
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
- toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,
+ toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
@@ -3401,6 +3456,8 @@ function boot(){
     if(!D.shabbat) D.shabbat={};
     lang=D._lang||'fr'; document.documentElement.lang=lang; document.documentElement.dir=(lang==='he'?'rtl':'ltr');
     render();
+    // Démarre la synchronisation cloud (partage téléphone ↔ ordinateur ↔ bénévoles)
+    try{ cloudStart(); }catch(e){}
   }catch(err){
     document.getElementById('app').innerHTML='<div style="padding:40px;font-family:sans-serif;color:#1C2A3A">'+
       '<h2 style="font-family:Georgia,serif">stepbystep</h2>'+
