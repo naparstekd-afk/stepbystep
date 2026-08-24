@@ -1107,7 +1107,6 @@ function headerHTML(){
   return `<div class="hdr">
     <div class="hdr-logo" data-act="openOrgPanel()"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">${esc((_org&&_org.name)||'')}</span></span></div>
     <div class="hdr-spacer"></div>
-    <span id="sync-badge" title="Synchronisation" data-act="cloudPull()" style="font-size:16px;cursor:pointer;color:${_syncState==='ok'?'var(--green)':(_syncState==='err'?'var(--red)':'var(--ink-soft)')};padding:0 2px">${_syncState==='ok'?'☁':(_syncState==='sync'?'⟳':(_syncState==='err'?'⚠':'⊘'))}</span>
     <button class="hdr-year" data-act="openYearMenu()">${D.year}</button>
     <button class="hdr-menu-btn" data-act="toggleDrawer(true)">☰</button>
   </div>` + breadcrumbHTML();
@@ -1288,6 +1287,12 @@ function renderContainerEvents(c,cont,ctx){
   let html=`<div class="sec"><div><div class="sec-eyebrow">${ctx==='program'?'Programme':'Fête'}</div><div class="sec-title"><span data-act="renameContainer()" style="cursor:pointer">${esc(cont.name)}</span></div><div class="sec-sub">${cont.events.length} événement(s)</div></div>
     </div>`;
   html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('fete')">📅 + Ajouter une date</button>`}</div>`;
+  if(ctx==='fete'){
+    html+=`<div class="toggle-group" style="margin-bottom:12px">
+      <button class="toggle-opt${!cont.recurring?' active':''}" style="padding:9px" data-act="setContainerRecurring(false)">Fête unique</button>
+      <button class="toggle-opt${cont.recurring?' active':''}" style="padding:9px" data-act="setContainerRecurring(true)">🔁 Chaque année</button>
+    </div>`;
+  }
   if(ctx==='program'){
     html+=`<div class="filters"><button class="chip" data-act="go({view:'programs'})" style="display:none"></button></div>`;
     // quick access to attendance/salaries
@@ -1365,6 +1370,11 @@ function renderEvent(c){
 
   // Description propre à l'événement (même sans tâche)
   html+=`<div class="field" style="margin-bottom:12px"><textarea class="textarea" style="min-height:54px" placeholder="Description de l'événement (facultatif)…" onchange="setEventDesc(this.value)">${esc(ev.desc||'')}</textarea></div>`;
+  // Événement unique ou récurrent chaque année
+  html+=`<div class="toggle-group" style="margin-bottom:12px">
+    <button class="toggle-opt${!ev.recurring?' active':''}" style="padding:9px" data-act="setEventRecurring(false)">Événement unique</button>
+    <button class="toggle-opt${ev.recurring?' active':''}" style="padding:9px" data-act="setEventRecurring(true)">🔁 Chaque année</button>
+  </div>`;
 
   if(tot){
     html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -2556,6 +2566,8 @@ function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='program'){ const p=
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
+function setContainerRecurring(v){ const c=curContainer(); if(c){ c.recurring=v; save(); render(); } }
+function setEventRecurring(v){ const e=curEvent(); if(e){ e.recurring=v; save(); render(); } }
 function flattenTasks(arr,out=[]){ (arr||[]).forEach(t=>{out.push(t); if(t.subtasks)flattenTasks(t.subtasks,out);}); return out; }
 function isDescendant(task,id){ // id est-il dans le sous-arbre de task ?
   if(task.id===id)return true;
@@ -3980,7 +3992,7 @@ function commitDragOrder(kind){
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
- addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
+ addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
 function migrateMaterials(){
