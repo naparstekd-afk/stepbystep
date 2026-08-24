@@ -3441,7 +3441,11 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 else boot();
 
 // PWA : enregistre le service worker s'il est présent (met l'app à jour toute seule quand elle est en ligne).
-try{ if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); } }catch(e){}
+// PWA : service worker « réseau d'abord » → l'app récupère toujours la dernière version quand elle est en ligne,
+// et fonctionne hors-ligne avec la dernière connue. Mise à jour automatique à chaque ouverture connectée.
+try{ if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').then(function(reg){ try{ reg.update(); }catch(e){} setInterval(function(){ try{ reg.update(); }catch(e){} }, 60*60*1000); }).catch(function(){}); }); } }catch(e){}
+// Stockage rendu PERMANENT : le navigateur ne pourra pas effacer tes données automatiquement.
+try{ if(navigator.storage && navigator.storage.persist){ navigator.storage.persist(); } }catch(e){}
 
 </script>
 </body>
