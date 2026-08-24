@@ -900,7 +900,7 @@ function renderContainerEvents(c,cont,ctx){
               ${bud?`<span class="pill pill-budget">${fmtE(bud)}</span>`:''}
               ${dur?`<span class="pill pill-time">${fmtM(dur)}</span>`:''}</div>
           </div>
-          <div class="card-side"><span class="pill ${pct===100?'pill-done':'pill-count'}">${dn}/${tot}</span></div>
+          <div class="card-side"><span class="pill ${pct===100?'pill-done':'pill-count'}">${dn}/${tot}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventById('${e.id}')" title="Supprimer l'événement">🗑</button></div>
         </div>
         <div class="progress"><div class="progress-fill" style="width:${pct}%;background:${col}"></div></div>
       </div>`;
@@ -1826,6 +1826,7 @@ function qaTaskHere(){ const ev=curEvent(); if(!ev)return; const t=mkTask(''); e
 function qaEventHere(){ const c=curContainer(); if(!c)return; const e=mkEvent('Nouvel événement'); c.events.push(e); save(); go({eventId:e.id}); }
 function addProgramHere(){ const p=mkProgram('Nouveau programme'); const mId=nav.monthId; const base=new Date(); let found=''; for(let off=0; off<400 && !found; off++){ for(const s of [1,-1]){ const d=new Date(base); d.setDate(d.getDate()+off*s); if(hebMonthIdOf(todayKey(d))===mId){ found=todayKey(d); break; } } } if(found) p.date=found; D.programs.push(p); save(); go({view:'programs',feteId:p.id,eventId:null,ctx:'program'}); toast('Programme créé'); }
 function delFeteById(fid){ if(!confirm('Supprimer cette fête et tout son contenu ?'))return; const m=curMonth(); if(!m)return; m.fetes=m.fetes.filter(x=>x.id!==fid); save(); render(); toast('Fête supprimée'); }
+function delEventById(eid){ const c=curContainer(); if(!c)return; const e=(c.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » et ses tâches ?'))return; c.events=c.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
 function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); go({eventId:null}); toast('Événement supprimé'); }
 function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
 function listFeteDests(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:(mm?mm.name:mId)+' › '+f.name})); }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
@@ -1918,18 +1919,21 @@ function taskSheet(){
   if(ev) siblings=flattenTasks(ev.tasks).filter(x=>x.id!==t.id);
   const promote = t._isSub;
   const st=stOf(t.status); const prio=t.priority==='haute';
+  const hasWho = (t.responsible&&t.responsible.trim())||t._showWho;
   const hasBudget = (t.budget&&t.budget.amount>0)||t._showBudget;
   const hasMat = (t.material&&((t.material.lines&&t.material.lines.length)||t.material.note))||t._showMat;
   const hasDeps = ((t.dependsOn||[]).length>0)||t._showDeps;
   const hasRec = t.recurring||t._showRec;
   // options restant à révéler via « + »
-  const more=[]; if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
+  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     ${isTpl?'':`<div data-act="mvOpen()" style="font-size:12px;color:var(--ink-soft);cursor:pointer;margin-bottom:8px">${parentLabel(t._loc)||'—'} <span style="color:var(--primary)">▾ déplacer</span></div>${moveNav?moveExplorerHTML():''}`}
 
-    <div class="field" style="margin-bottom:12px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
+    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
+
+    <div class="field"><label class="field-label">Description</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
       <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="ebSet('status',this.value)">
@@ -1940,13 +1944,12 @@ function taskSheet(){
     </div>
     ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
-    <div class="row2">
-      <div class="field"><label class="field-label">Responsable</label>
-        <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
-        <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
-      <div class="field"><label class="field-label">Durée</label>
-        <input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="5 min"></div>
-    </div>
+    <div class="field"><label class="field-label">Durée</label>
+      <input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="5 min" style="max-width:170px"></div>
+
+    ${hasWho?`<div class="field"><label class="field-label">Responsable</label>
+      <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
+      <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>`:''}
 
     ${isTpl?'':`<div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
       <div style="display:flex;gap:7px;align-items:center">
@@ -1956,8 +1959,6 @@ function taskSheet(){
         <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
       </div>
       ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30.</div>'}</div>`}
-
-    <div class="field"><label class="field-label">Notes</label><textarea class="textarea" id="f-notes" placeholder="Détails, rappels, décisions…">${esc(t.notes||'')}</textarea></div>
 
     ${hasBudget?`<div class="row2">
       <div class="field"><label class="field-label">Budget</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
@@ -2021,7 +2022,7 @@ function ebTogglePrio(){ syncInputs(); editBuf.priority = (editBuf.priority==='h
 function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
 function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
 function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
-function ebReveal(k){ syncInputs(); if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
 function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'){ const txt=taskWAtext(editBuf); window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); return; } _expScope='task'; expRun(fmt); }
 function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); return s; }
 function subEditHTML(s,i){
@@ -2337,7 +2338,7 @@ function saveTask(silent){
   const clean={...editBuf}; Object.keys(clean).forEach(k=>{ if(k[0]==='_') delete clean[k]; });
   Object.keys(clean).forEach(k=>{ r.task[k]=clean[k]; });
   // retirer d'éventuels flags transitoires déjà persistés
-  ['_showBudget','_showMat','_showDeps','_showRec','_moreOpen','_moveOpen','_expOpen','_new'].forEach(k=>{ delete r.task[k]; });
+  ['_showWho','_showBudget','_showMat','_showDeps','_showRec','_moreOpen','_moveOpen','_expOpen','_new'].forEach(k=>{ delete r.task[k]; });
   // mémoriser nouveaux responsables/magasins
   if(clean.responsible && !D.people.includes(clean.responsible)) D.people.push(clean.responsible);
   if(clean.budget&&clean.budget.theme && !THEMES.includes(clean.budget.theme)){ if(!D.budgetThemes)D.budgetThemes=[]; if(!D.budgetThemes.includes(clean.budget.theme))D.budgetThemes.push(clean.budget.theme); }
@@ -2716,13 +2717,20 @@ function delCounter(k){ syncCounters(); const c=D.counters.find(x=>x.k===k); if(
 
 // ---------- Ma Journée : période ----------
 function jRange(){
-  const now=new Date(); const tk=todayKey(now);
-  if(jPeriod==='week'){ const d=new Date(now); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); return {from,to:todayKey(e),label:'Cette semaine'}; }
-  if(jPeriod==='civil'){ const f=new Date(now.getFullYear(),now.getMonth(),1); const tt=new Date(now.getFullYear(),now.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}; }
-  if(jPeriod==='heb'){ const mid=hebMonthIdOf(tk); let from=tk,to=tk; for(let i=1;i<=45;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(now); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:'Mois hébraïque')+' héb.'}; }
-  return {from:tk,to:tk,label:"Aujourd'hui"};
+  const tk=todayKey(); const anchor=jDay||tk; const base=new Date(anchor+'T12:00:00');
+  if(jPeriod==='week'){ const d=new Date(base); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); const to=todayKey(e); return {from,to,label:'Sem. du '+new Date(from+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}; }
+  if(jPeriod==='civil'){ const f=new Date(base.getFullYear(),base.getMonth(),1); const tt=new Date(base.getFullYear(),base.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:base.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}; }
+  if(jPeriod==='heb'){ const mid=hebMonthIdOf(anchor); let from=anchor,to=anchor; for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:'Mois héb.')}; }
+  return {from:anchor,to:anchor,label: anchor===tk?"Aujourd'hui":new Date(anchor+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})};
 }
 function setJPeriod(p){ jPeriod=p; jDay=todayKey(); openDD=null; render(); }
+function jNav(dir){ const base=new Date((jDay||todayKey())+'T12:00:00');
+  if(jPeriod==='week')base.setDate(base.getDate()+dir*7);
+  else if(jPeriod==='civil')base.setMonth(base.getMonth()+dir);
+  else if(jPeriod==='heb')base.setDate(base.getDate()+dir*30);
+  else base.setDate(base.getDate()+dir);
+  jDay=todayKey(base); render();
+}
 function toggleExpand(id){ if(expanded[id])delete expanded[id]; else expanded[id]=true; render(); }
 function _subMatch(t,from,to){ return (t.subtasks||[]).some(s=>((s.status!=='done'&&s.date&&s.date>=from&&s.date<=to)||_subMatch(s,from,to))); }
 // carte de tâche (avec sous-tâches repliables) pour Ma Journée
@@ -2747,26 +2755,29 @@ function renderJournal(c){
   const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
   let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>'+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
-  // — Sélecteur de période (menu déroulant, texte seul) —
+  // — Sélecteur de période + navigation ◀ ▶ —
   const rg=jRange(); const periods=[['today',"Aujourd'hui"],['week','Semaine'],['civil','Mois civil'],['heb','Mois hébraïque']];
+  const atToday=(jDay||todayKey())===todayKey();
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <div class="dd">
-      <button class="dd-btn on" data-act="toggleDD('jperiod')">${rg.label} ▾</button>
-      ${openDD==='jperiod'?`<div class="dd-menu">${periods.map(([v,l])=>`<button class="dd-item ${jPeriod===v?'sel':''}" data-act="setJPeriod('${v}')">${l}</button>`).join('')}</div>`:''}
+    <button class="cbtn" data-act="jNav(-1)" title="Précédent">◀</button>
+    <div class="dd" style="flex:1">
+      <button class="dd-btn on" style="width:100%;justify-content:center" data-act="toggleDD('jperiod')">${rg.label} ▾</button>
+      ${openDD==='jperiod'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%)">${periods.map(([v,l])=>`<button class="dd-item ${jPeriod===v?'sel':''}" data-act="setJPeriod('${v}')">${l}</button>`).join('')}</div>`:''}
     </div>
-  </div>`;
+    <button class="cbtn" data-act="jNav(1)" title="Suivant">▶</button>
+  </div>
+  ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`:''}`;
   // — Bandeau thèmes (rappel visuel sur Ma Journée) —
   if((D.themes||[]).length){ html+=`<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px">${D.themes.map(th=>`<button class="tpill theme on" style="flex-shrink:0" data-act="setView('themes');openTheme('${th.id}')"><span>${th.icon||'🎯'}</span>${esc(th.name)}</button>`).join('')}</div>`; }
 
   if(jPeriod==='today'){
-    const jKey=jDay||todayKey(); const isJToday=jKey===todayKey();
-    if(!isJToday) html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="cbtn" data-act="jDayNav(-1)">◀</button><div style="flex:1;text-align:center"><div style="font-weight:600;text-transform:capitalize">${civilDate(jKey)}</div><div style="font-size:11px;color:var(--ink-soft)">🕎 ${hebrewDate(jKey)}</div></div><button class="cbtn" data-act="jDayNav(1)">▶</button></div><button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`;
+    const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
     const open=[]; const noDate=[];
     const _handle=(t,where,eff0)=>{ if(t.status==='done')return; const eff=t.date||eff0;
       if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
       if(t.pinDay){ open.push({t,where,eff}); return; }
       if(!eff){ if(isJToday) noDate.push({t,where,eff:''}); return; }
-      if(eff===jKey || (isJToday && eff<jKey)){ open.push({t,where,eff}); return; }
+      if(eff===jKey || (eff<realToday)){ open.push({t,where,eff}); return; }
       if(_subMatch(t,jKey,jKey)) open.push({t,where,eff,auto:true});
     };
     Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ const eff0=e.date||f.date||''; (e.tasks||[]).forEach(t=>_handle(t,f.name+' › '+e.name,eff0)); })));
@@ -2865,18 +2876,11 @@ function renderThemes(c){
     if(!th){ themeNav=null; return renderThemes(c); }
     const evs=themeEvents(themeNav);
     let html=`<div class="bc"><span class="bc-item" data-act="themesHome()">🎯 Thèmes</span><span class="bc-sep">▸</span><span class="bc-item active">${esc(th.name||'Nouveau thème')}</span></div>`;
-    // — Fiche du thème (éditable directement) —
-    html+=`<div class="sec" style="margin-top:8px;align-items:center"><div style="flex:1;min-width:0">
-      <div class="sec-eyebrow">${th.icon||'🎯'} Fiche du thème</div>
-      <input class="input" id="th-name" value="${esc(th.name)}" placeholder="Nom du thème (ex. Soirée féminine)" onchange="thSetName(this.value)" style="font-family:var(--serif);font-size:24px;font-weight:600;border:none;padding:2px 0;background:transparent;color:var(--ink)">
-    </div></div>`;
-    html+=`<div class="row2" style="margin-bottom:14px;align-items:start">
-      <div class="field" style="margin:0"><label class="field-label">Icône</label><input class="input" id="th-icon" value="${esc(th.icon||'🎯')}" onchange="thSetIcon(this.value)" style="text-align:center;font-size:20px"></div>
-      <div class="field" style="margin:0"><label class="field-label">Couleur</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:3px">${THEME_COLS.map(cl=>`<button data-act="thSetColor('${cl}')" style="width:28px;height:28px;border-radius:50%;background:${cl};border:none;${(th.color||'#1E3A6E')===cl?'outline:3px solid var(--ink);outline-offset:1px':''}"></button>`).join('')}</div></div>
+    // — Fiche du thème : juste le nom (compacte) —
+    html+=`<div class="field" style="margin-top:10px;margin-bottom:14px">
+      <input class="input" id="th-name" value="${esc(th.name)}" placeholder="Nom du thème (ex. Soirée féminine)" onchange="thSetName(this.value)" style="font-family:var(--serif);font-size:22px;font-weight:600">
     </div>`;
-    html+=`<div class="section-label">Activités rattachées (${evs.length})</div>`;
-    if(!evs.length){ html+=`<div class="hint" style="margin-bottom:10px">Aucune activité pour l'instant. Ajoute une activité de ce type, ou relie un événement du calendrier à ce thème (bouton 🎯 Thème dans l'événement).</div>`; }
-    else { evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); html+=`<div class="card" data-act="go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
+    if(evs.length){ evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); html+=`<div class="card" data-act="go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
     html+=`<button class="btn btn-soft btn-block" style="margin-top:6px" data-act="addActivityToTheme('${th.id}')">＋ Nouvelle activité</button>`;
     html+=`<button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="delTheme('${th.id}')">🗑 Supprimer le thème</button>`;
     c.innerHTML=html; return;
@@ -3332,7 +3336,7 @@ function commitDragOrder(kind){
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
- toggleDD,closeDD,setJPeriod,toggleExpand,renderReport,renderThemes,renderBDD,
+ toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
