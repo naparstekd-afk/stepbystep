@@ -498,7 +498,7 @@ function save(){
   const key=_stateKey();
   try{ if(_lsOK) localStorage.setItem(key, JSON.stringify(D)); else _memStore[key]=JSON.stringify(D); }
   catch(e){ _memStore[key]=JSON.stringify(D); }
-  if(!_cloudSuppress) scheduleCloudPush();
+  if(!_cloudSuppress){ scheduleCloudPush(); scheduleGcalPush(); }
 }
 function load(){
   const key=_stateKey();
@@ -3705,8 +3705,121 @@ function resetData(){ if(confirm('Tout effacer et repartir d\'une base vide ?'))
 // Ré-affiche quand on passe téléphone ↔ ordinateur (largeur d'écran) — bascule cartes / calendrier.
 let _wasDesktop=null, _rzT=null;
 try{ window.addEventListener('resize', function(){ if(_rzT)clearTimeout(_rzT); _rzT=setTimeout(function(){ const d=isDesktop(); if(d!==_wasDesktop){ _wasDesktop=d; if(_org){ try{render();}catch(e){} } } },200); }); }catch(e){}
-// Placeholder : la vraie connexion Google Agenda est ajoutée à l'étape suivante.
-function gcalOpen(){ try{ toast('Synchro Google Agenda : on la configure ensemble (voir le chat).'); }catch(e){} }
+// ============================================================
+//  SYNCHRO GOOGLE AGENDA (via un script Google Apps Script déployé par l'utilisateur)
+//  L'appli envoie (POST no-cors) la liste des éléments datés ; le script les
+//  crée/met à jour/supprime dans le Google Agenda du propriétaire.
+// ============================================================
+let _gcalTimer=null;
+function _gcal(){ if(!D.gcal||typeof D.gcal!=='object') D.gcal={url:'',secret:'',auto:true,lastSync:''}; if(!D.gcal.secret) D.gcal.secret=_randSecret(); return D.gcal; }
+function _randSecret(){ var s='',c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; for(var i=0;i<18;i++){ s+=c.charAt(Math.floor(Math.random()*c.length)); } return s; }
+function _gcalItems(){
+  const seen={}, out=[];
+  datedAll().forEach(function(x){
+    if(x.kind==='reminder') return;
+    if(x.kind==='task' && x.t && x.t.status==='done') return;
+    const iso=x.iso; if(!iso) return;
+    let uid,title,desc='';
+    if(x.kind==='task'){ uid='t'+(x.t.id||''); title='✅ '+(x.t.text||'Tâche'); desc=x.where||''; }
+    else if(x.kind==='event'){ uid='e'+(x.eId||''); title='📌 '+String(x.label||'').split(' › ').pop(); desc=x.label||''; }
+    else { uid='f'+(x.fId||x.pId||''); title='🎉 '+(x.label||'Fête'); }
+    if(seen[uid]) return; seen[uid]=1;
+    out.push({uid:uid,title:title,date:iso,desc:desc});
+  });
+  return out;
+}
+const GCAL_SCRIPT = [
+"// ===== stepbystep -> Google Agenda (colle tout ceci dans Apps Script) =====",
+"var SECRET = '__SECRET__';",
+"function doPost(e){",
+"  try{",
+"    var b = JSON.parse(e.postData.contents);",
+"    if(b.secret !== SECRET) return _out({error:'unauthorized'});",
+"    var cal = CalendarApp.getDefaultCalendar();",
+"    var tz = cal.getTimeZone();",
+"    var items = b.items || [];",
+"    var from = b.from ? new Date(b.from+'T00:00:00') : new Date(Date.now()-31*864e5);",
+"    var to   = b.to   ? new Date(b.to  +'T00:00:00') : new Date(Date.now()+400*864e5);",
+"    var existing = cal.getEvents(from,to).filter(function(ev){ return ev.getTag('sbsSync')==='1'; });",
+"    var byUid = {}; existing.forEach(function(ev){ var u=ev.getTag('sbsUid'); if(u) byUid[u]=ev; });",
+"    var created=0, updated=0, deleted=0;",
+"    items.forEach(function(it){",
+"      var ex = byUid[it.uid];",
+"      var d  = new Date(it.date+'T00:00:00');",
+"      if(ex){",
+"        var exd = ex.getAllDayStartDate();",
+"        var exs = exd ? Utilities.formatDate(exd, tz, 'yyyy-MM-dd') : '';",
+"        if(exs !== it.date){ ex.deleteEvent(); var nv=cal.createAllDayEvent(it.title,d); nv.setTag('sbsSync','1'); nv.setTag('sbsUid',it.uid); if(it.desc)nv.setDescription(it.desc); updated++; }",
+"        else { if(ex.getTitle()!==it.title) ex.setTitle(it.title); if(it.desc)ex.setDescription(it.desc); updated++; }",
+"        delete byUid[it.uid];",
+"      } else {",
+"        var nv2=cal.createAllDayEvent(it.title,d); nv2.setTag('sbsSync','1'); nv2.setTag('sbsUid',it.uid); if(it.desc)nv2.setDescription(it.desc); created++;",
+"      }",
+"    });",
+"    Object.keys(byUid).forEach(function(u){ try{ byUid[u].deleteEvent(); deleted++; }catch(_){} });",
+"    return _out({ok:true, created:created, updated:updated, deleted:deleted});",
+"  }catch(err){ return _out({error:String(err)}); }",
+"}",
+"function doGet(){ return _out({ok:true, msg:'stepbystep sync pret'}); }",
+"function _out(o){ return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }"
+].join('\n');
+function gcalScriptCode(){ return GCAL_SCRIPT.replace('__SECRET__', _gcal().secret); }
+function scheduleGcalPush(){ const g=D.gcal; if(!g||!g.url||!g.auto) return; if(_gcalTimer)clearTimeout(_gcalTimer); _gcalTimer=setTimeout(function(){ gcalSync(false); }, 12000); }
+async function gcalSync(manual){
+  const g=_gcal(); if(!g.url){ if(manual) toast('Renseigne d\'abord le lien du script.'); return; }
+  const items=_gcalItems();
+  const today=todayKey(); const to=todayKey(new Date(Date.now()+400*864e5)); const from=todayKey(new Date(Date.now()-31*864e5));
+  const payload={ secret:g.secret, items:items, from:from, to:to };
+  try{
+    // no-cors : la requête part et le script s'exécute ; la réponse est opaque (on ne peut pas la lire).
+    await fetch(g.url,{ method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+    g.lastSync=new Date().toISOString(); _cloudSuppress=true; save(); _cloudSuppress=false;
+    if(manual){ toast('Envoyé à Google Agenda ✓ ('+items.length+' dates) — vérifie ton agenda'); _renderGcal(); }
+  }catch(e){ if(manual) toast('Échec de l\'envoi. Vérifie le lien.'); }
+}
+function _closeGcal(){ const el=document.getElementById('gcal-panel'); if(el) el.remove(); }
+function gcalOpen(){ try{ toggleDrawer(false); }catch(e){} _closeGcal(); _renderGcal(); }
+function gcalSaveUrl(){ const el=document.getElementById('gcal-url'); if(!el) return; const v=el.value.trim(); if(v && !/^https:\/\/script\.google\.com\/.*\/exec/.test(v)){ toast('Le lien doit se terminer par /exec (déploiement Web App).'); return; } _gcal().url=v; _cloudSuppress=true; save(); _cloudSuppress=false; if(v){ gcalSync(true); } else { _renderGcal(); } }
+function gcalToggleAuto(){ const g=_gcal(); g.auto=!g.auto; _cloudSuppress=true; save(); _cloudSuppress=false; _renderGcal(); }
+async function gcalCopyCode(){ const code=gcalScriptCode(); try{ await navigator.clipboard.writeText(code); }catch(e){ try{ const t=document.createElement('textarea'); t.value=code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }catch(_){} } const b=document.getElementById('gcal-copybtn'); if(b){ b.textContent='Code copié ✓'; setTimeout(function(){ if(b)b.textContent='📋 Copier le code du script'; },1600); } }
+function _renderGcal(){
+  _closeGcal();
+  const g=_gcal(); const connected=!!g.url;
+  const stepStyle='font-size:13px;color:var(--ink);margin:8px 0;line-height:1.45';
+  const inner=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <div style="font-weight:700;font-size:18px;font-family:var(--serif);flex:1">🔗 Synchro Google Agenda</div>
+      <div style="font-size:22px;color:var(--ink-soft);cursor:pointer;padding:2px 6px" data-act="_closeGcal()">✕</div>
+    </div>
+    ${connected?`
+      <div style="display:inline-block;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;background:var(--green-soft);color:var(--green)">Connecté ✓</div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Dernier envoi : ${g.lastSync?fmtDate(g.lastSync.slice(0,10))+' '+g.lastSync.slice(11,16):'—'}</div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px" data-act="gcalSync(true)">🔄 Synchroniser maintenant</button>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;cursor:pointer"><input type="checkbox" ${g.auto?'checked':''} data-act="gcalToggleAuto()"> Envoi automatique à chaque changement</label>
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+        <div style="font-size:12px;color:var(--ink-soft)">Lien du script :</div>
+        <input class="input" id="gcal-url" value="${esc(g.url)}" style="font-size:12px;margin-top:4px">
+        <button class="btn btn-soft btn-sm btn-block" style="margin-top:8px" data-act="gcalSaveUrl()">Mettre à jour le lien</button>
+      </div>
+      <div class="hint" style="margin-top:10px">La synchro est à sens unique (appli → Google Agenda). Ce qui a une date apparaît dans ton agenda ; les couleurs/thèmes restent dans l'appli.</div>
+    `:`
+      <div style="${stepStyle}">Suis ces étapes une seule fois (sur ordinateur, c'est plus simple) :</div>
+      <div style="${stepStyle}"><b>1.</b> Va sur <b>script.google.com</b> → <b>Nouveau projet</b>.</div>
+      <div style="${stepStyle}"><b>2.</b> Efface tout, puis colle le code ci-dessous :</div>
+      <button class="btn btn-primary btn-block" id="gcal-copybtn" data-act="gcalCopyCode()">📋 Copier le code du script</button>
+      <div style="${stepStyle}"><b>3.</b> Clique <b>Déployer ▸ Nouveau déploiement</b> → type <b>Application Web</b> → « Exécuter en tant que : <b>moi</b> » → « Qui a accès : <b>Tout le monde</b> » → <b>Déployer</b>, puis <b>autorise</b> l'accès à ton agenda.</div>
+      <div style="${stepStyle}"><b>4.</b> Copie l'<b>URL de l'application Web</b> (elle finit par <b>/exec</b>) et colle-la ici :</div>
+      <input class="input" id="gcal-url" placeholder="https://script.google.com/…/exec" style="font-size:12px">
+      <button class="btn btn-primary btn-block" style="margin-top:8px" data-act="gcalSaveUrl()">✅ Enregistrer & tester</button>
+      <div class="hint" style="margin-top:10px">Ton code secret est déjà intégré au script copié — tu n'as rien d'autre à saisir.</div>
+    `}`;
+  const div=document.createElement('div');
+  div.id='gcal-panel';
+  div.setAttribute('data-act','_closeGcal()');
+  div.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center';
+  div.innerHTML=`<div data-act="event.stopPropagation()" style="width:100%;max-width:460px;max-height:92vh;overflow:auto;background:var(--surface);border-radius:16px 16px 0 0;padding:20px 20px 28px;box-shadow:var(--sh-lg)">${inner}</div>`;
+  document.body.appendChild(div);
+}
 document.addEventListener('click', function(ev){
   // Après un glisser-déposer, ignorer le clic « fantôme » qui suit (sinon on ouvrirait la fiche).
   if(_dragSuppressClick){ _dragSuppressClick=false; ev.preventDefault(); ev.stopPropagation(); return; }
@@ -3786,7 +3899,7 @@ function commitDragOrder(kind){
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
- agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,
+ agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
