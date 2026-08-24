@@ -461,14 +461,19 @@ let bddNav=null;        // {cat, sub} navigation BDD
 // ---------- PERSISTANCE (robuste : fallback mémoire si localStorage bloqué) ----------
 let _memStore = {};
 let _lsOK = (()=>{ try{ const k='__t'; localStorage.setItem(k,'1'); localStorage.removeItem(k); return true; }catch(e){ return false; } })();
+// Clé de stockage local : propre à chaque association une fois connecté,
+// sinon l'ancienne clé « marbitz-v11 » (données d'avant le multi-compte).
+function _stateKey(){ return (typeof _org!=='undefined' && _org) ? 'sbs_state_'+_org.id : 'marbitz-v11'; }
 function save(){
-  try{ if(_lsOK) localStorage.setItem('marbitz-v11', JSON.stringify(D)); else _memStore['marbitz-v11']=JSON.stringify(D); }
-  catch(e){ _memStore['marbitz-v11']=JSON.stringify(D); }
+  const key=_stateKey();
+  try{ if(_lsOK) localStorage.setItem(key, JSON.stringify(D)); else _memStore[key]=JSON.stringify(D); }
+  catch(e){ _memStore[key]=JSON.stringify(D); }
   if(!_cloudSuppress) scheduleCloudPush();
 }
 function load(){
+  const key=_stateKey();
   try{
-    const s = _lsOK ? localStorage.getItem('marbitz-v11') : _memStore['marbitz-v11'];
+    const s = _lsOK ? localStorage.getItem(key) : _memStore[key];
     if(s){ D=JSON.parse(s); return true; }
   }catch(e){}
   return false;
@@ -481,50 +486,327 @@ function load(){
 // ============================================================
 const SUPA_URL='https://kpdvdtpvhmdshwtlhmri.supabase.co';
 const SUPA_KEY='sb_publishable_kqAU6bJmXgKMwsSdWRh9Yw_JBCMGCXm';
-const SUPA_ROW='main';
 let _cloudReady=false, _cloudSuppress=false, _cloudTimer=null, _lastSyncStamp=null, _cloudBusy=false, _syncState='';
-function _supaH(extra){ return Object.assign({apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json'}, extra||{}); }
+
+// ---- État d'authentification & d'association ----
+let _auth=null;      // {access_token, refresh_token, expires_at, user:{id,email}}
+let _orgs=[];        // associations de l'utilisateur (via sbs_my_orgs)
+let _org=null;       // association active
+let _isAdmin=false;  // accès admin gratuit (défini côté serveur)
+let _freshEntry=false; // vrai lors de la 1re entrée dans une association (pas de cache local)
+
+function _authLoad(){ try{ const s=localStorage.getItem('sbs_auth'); if(s) _auth=JSON.parse(s); }catch(e){} }
+function _authSave(){ try{ if(_auth) localStorage.setItem('sbs_auth',JSON.stringify(_auth)); else localStorage.removeItem('sbs_auth'); }catch(e){} }
+function _jwtPayload(t){ try{ const p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); return JSON.parse(decodeURIComponent(escape(atob(p)))); }catch(e){ return {}; } }
+// En-têtes : anon key en apikey (obligatoire), token utilisateur en Bearer si connecté.
+function _authH(extra){ return Object.assign({apikey:SUPA_KEY, Authorization:'Bearer '+((_auth&&_auth.access_token)||SUPA_KEY), 'Content-Type':'application/json'}, extra||{}); }
+function _supaH(extra){ return _authH(extra); }
 function _isRealD(o){ return !!(o && typeof o==='object' && (o.year!==undefined || o.months!==undefined || o._v12cleared!==undefined)); }
+function _applyAuth(j){
+  if(!j||!j.access_token) return false;
+  const pl=_jwtPayload(j.access_token);
+  _auth={ access_token:j.access_token, refresh_token:j.refresh_token,
+          expires_at: (j.expires_at || (Math.floor(Date.now()/1000)+(j.expires_in||3600))),
+          user:{ id:pl.sub, email:(j.user&&j.user.email)||pl.email } };
+  _authSave(); return true;
+}
+async function _ensureToken(){
+  if(!_auth) return false;
+  const now=Math.floor(Date.now()/1000);
+  if(_auth.expires_at && (_auth.expires_at-now)>60) return true;
+  try{
+    const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:_auth.refresh_token})});
+    if(!r.ok){ return false; }
+    return _applyAuth(await r.json());
+  }catch(e){ return false; }
+}
+async function authSignup(email,pwd){
+  const r=await fetch(SUPA_URL+'/auth/v1/signup',{method:'POST',headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pwd})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||j.error||('Inscription impossible ('+r.status+')'));
+  if(j.access_token){ _applyAuth(j); return {session:true}; }
+  return {session:false, needConfirm:true};
+}
+async function authLogin(email,pwd){
+  const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pwd})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||j.error||'Email ou mot de passe incorrect');
+  _applyAuth(j); return true;
+}
+function authLogout(){
+  try{ if(_auth&&_auth.access_token) fetch(SUPA_URL+'/auth/v1/logout',{method:'POST',headers:_authH()}).catch(()=>{}); }catch(e){}
+  _auth=null; _org=null; _orgs=[]; _isAdmin=false; _cloudReady=false; _lastSyncStamp=null;
+  _authSave(); try{ localStorage.removeItem('sbs_org'); }catch(e){}
+  renderGate('login');
+}
+async function _rpc(fn,args){
+  if(!await _ensureToken()) throw new Error('not_authenticated');
+  const r=await fetch(SUPA_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:_authH(),body:JSON.stringify(args||{})});
+  const t=await r.text(); let j=null; try{ j=t?JSON.parse(t):null; }catch(e){ j=t; }
+  if(!r.ok) throw new Error((j&&(j.message||j.msg||j.hint))||('Erreur serveur ('+r.status+')'));
+  return j;
+}
+async function loadOrgs(){ _orgs = (await _rpc('sbs_my_orgs',{})) || []; _isAdmin = _orgs.length ? !!_orgs[0].is_admin : _isAdmin; return _orgs; }
+async function orgCreate(name){ const o=await _rpc('sbs_create_org',{p_name:name}); await loadOrgs(); return o; }
+async function orgJoin(code){ const o=await _rpc('sbs_join_org',{p_code:code}); await loadOrgs(); return o; }
+async function orgMembers(id){ return (await _rpc('sbs_org_members',{p_org:id})) || []; }
 function setSyncState(s){ _syncState=s; try{ const el=document.getElementById('sync-badge'); if(el){ el.textContent=s==='ok'?'☁':(s==='sync'?'⟳':(s==='err'?'⚠':'⊘')); el.style.color=s==='ok'?'var(--green)':(s==='err'?'var(--red)':'var(--ink-soft)'); el.title=s==='ok'?'Synchronisé ✓':(s==='sync'?'Synchronisation…':(s==='err'?'Erreur de synchro':'Hors-ligne')); } }catch(e){} }
 function scheduleCloudPush(){ if(!_cloudReady)return; setSyncState('sync'); if(_cloudTimer)clearTimeout(_cloudTimer); _cloudTimer=setTimeout(cloudPush,1200); }
 async function cloudPush(){
-  if(!_cloudReady||_cloudBusy)return; _cloudBusy=true;
+  if(!_cloudReady||_cloudBusy||!_org)return; _cloudBusy=true;
   try{
+    if(!await _ensureToken()){ setSyncState('off'); _cloudBusy=false; return; }
     const stamp=new Date().toISOString();
-    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?on_conflict=id',{method:'POST',headers:_supaH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{id:SUPA_ROW,data:D,updated_at:stamp}])});
+    const body=[{org_id:_org.id, data:D, updated_at:stamp, updated_by:(_auth&&_auth.user&&_auth.user.id)||null}];
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?on_conflict=org_id',{method:'POST',headers:_authH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
     if(r.ok){ _lastSyncStamp=stamp; setSyncState('ok'); } else { setSyncState('err'); }
   }catch(e){ setSyncState('off'); }
   _cloudBusy=false;
 }
 async function cloudPull(){
-  if(!_cloudReady)return false;
+  if(!_cloudReady||!_org)return false;
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?id=eq.'+SUPA_ROW+'&select=data,updated_at',{headers:_supaH()});
+    if(!await _ensureToken()){ setSyncState('off'); return false; }
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?org_id=eq.'+_org.id+'&select=data,updated_at',{headers:_authH()});
     if(!r.ok){ setSyncState('err'); return false; }
     const rows=await r.json(); const row=rows&&rows[0];
-    if(!row){ return false; }
+    if(!row){ setSyncState('ok'); return false; }
     if(row.updated_at===_lastSyncStamp){ setSyncState('ok'); return false; }
     if(_isRealD(row.data)){
       _lastSyncStamp=row.updated_at;
-      _cloudSuppress=true; D=row.data; save(); _cloudSuppress=false;
+      _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false;
       if(!sheet && !drawerOpen){ try{ render(); }catch(e){} }
       setSyncState('ok'); return true;
     }
     setSyncState('ok'); return false;
   }catch(e){ setSyncState('off'); return false; }
 }
+// Estime la « richesse » d'un jeu de données pour ne jamais écraser des données réelles par du vide.
+function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
+  try{
+    Object.values(o.months||{}).forEach(m=>(m.fetes||[]).forEach(f=>{ n+=2; (f.events||[]).forEach(e=>{ n+=2; n+=((e.tasks||[]).length); }); }));
+    (o.programs||[]).forEach(p=>{ n+=3; (p.events||[]).forEach(e=>{ n+=1; n+=((e.tasks||[]).length); }); });
+    n+=(o.themes||[]).length; n+=(((o.bdd&&o.bdd.cats)||[]).length); n+=(o.persons||[]).length; n+=(o.suppliers||[]).length;
+  }catch(e){}
+  return n;
+}
 async function cloudStart(){
+  if(!_org) return;
   _cloudReady=true; setSyncState('sync');
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/sbs_sync?id=eq.'+SUPA_ROW+'&select=data,updated_at',{headers:_supaH()});
+    if(!await _ensureToken()){ setSyncState('off'); return; }
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?org_id=eq.'+_org.id+'&select=data,updated_at',{headers:_authH()});
     if(r.ok){ const rows=await r.json(); const row=rows&&rows[0];
-      if(row && _isRealD(row.data)){ _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; save(); _cloudSuppress=false; try{render();}catch(e){} setSyncState('ok'); }
-      else { await cloudPush(); }
+      const cloudReal = row && _isRealD(row.data);
+      // Garde-fou migration : à la 1re entrée, si le local est plus riche que le cloud, on POUSSE (jamais écraser du vrai par du vide).
+      if(cloudReal && !(_freshEntry && _dataScore(D) > _dataScore(row.data))){
+        _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false; try{render();}catch(e){} setSyncState('ok');
+      } else {
+        await cloudPush();   // association neuve OU migration → on y verse les données locales
+      }
     } else { setSyncState('err'); }
   }catch(e){ setSyncState('off'); }
+  _freshEntry=false;
+  _bindSyncListeners();
+}
+let _syncListenersBound=false;
+function _bindSyncListeners(){ if(_syncListenersBound)return; _syncListenersBound=true;
   try{ document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') cloudPull(); }); }catch(e){}
   try{ window.addEventListener('focus',function(){ cloudPull(); }); }catch(e){}
   try{ setInterval(function(){ if(document.visibilityState==='visible') cloudPull(); },20000); }catch(e){}
+}
+
+// ============================================================
+//  ÉCRANS DE CONNEXION / ASSOCIATION (avant l'entrée dans l'app)
+// ============================================================
+let _gateBusy=false;
+const _GI='width:100%;box-sizing:border-box;padding:12px 14px;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:15px;font-family:var(--sans);background:var(--surface-2)';
+const _GB='width:100%;box-sizing:border-box;padding:13px;margin-top:14px;border:none;border-radius:var(--r-sm);font-size:15px;font-weight:600;background:var(--primary);color:#fff;cursor:pointer';
+const _GBg='width:100%;box-sizing:border-box;padding:13px;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:15px;font-weight:600;background:var(--surface);color:var(--ink);cursor:pointer';
+function _gateMsg(t,ok){ const el=document.getElementById('gate-msg'); if(el){ el.textContent=t||''; el.style.color=ok?'var(--green)':'var(--red)'; } }
+function _gateWrap(inner){ return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;font-family:var(--sans)">
+  <div style="width:100%;max-width:390px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-lg);padding:28px 24px">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-family:var(--serif);font-size:28px;color:var(--primary);font-weight:600;letter-spacing:-.5px">stepbystep</div>
+      <div style="color:var(--ink-soft);font-size:13px;margin-top:3px">Gestion d'association — pas à pas</div>
+    </div>
+    ${inner}
+    <div id="gate-msg" style="margin-top:14px;font-size:13px;text-align:center;min-height:17px;line-height:1.35"></div>
+  </div></div>`; }
+
+function renderGate(mode, msg){
+  mode = mode||'login';
+  const app=$('app'); if(!app) return;
+  let inner='';
+  if(mode==='loading'){
+    inner=`<div style="text-align:center;padding:24px 0;color:var(--ink-soft);font-size:14px">⟳ Chargement…</div>`;
+  } else if(mode==='login'){
+    inner=`<input id="g-email" type="email" autocomplete="username" placeholder="Email" style="${_GI}">
+      <input id="g-pwd" type="password" autocomplete="current-password" placeholder="Mot de passe" style="${_GI}">
+      <button style="${_GB}" data-act="gateLogin()">Se connecter</button>
+      <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-soft)">Pas encore de compte ?
+        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('signup')">Créer un compte</span></div>`;
+  } else if(mode==='signup'){
+    inner=`<input id="g-email" type="email" autocomplete="username" placeholder="Email" style="${_GI}">
+      <input id="g-pwd" type="password" autocomplete="new-password" placeholder="Mot de passe (min. 6 caractères)" style="${_GI}">
+      <button style="${_GB}" data-act="gateSignup()">Créer mon compte</button>
+      <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-soft)">Déjà inscrit ?
+        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('login')">Se connecter</span></div>`;
+  } else if(mode==='org-new'){
+    inner=`<div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:4px">Bienvenue 👋</div>
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;margin-bottom:6px">Crée ton association ou rejoins-en une avec un code.</div>
+      <div style="margin-top:16px;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Créer une association</div>
+      <input id="g-orgname" type="text" placeholder="Nom de l'association" style="${_GI}">
+      <button style="${_GB}" data-act="gateCreateOrg()">Créer</button>
+      <div style="margin-top:22px;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Rejoindre avec un code</div>
+      <input id="g-code" type="text" placeholder="Code d'invitation (ex. A1B2C3)" style="${_GI};text-transform:uppercase">
+      <button style="${_GBg}" data-act="gateJoinOrg()">Rejoindre</button>
+      <div style="text-align:center;margin-top:18px;font-size:12px;color:var(--ink-soft)"><span style="cursor:pointer;text-decoration:underline" data-act="authLogout()">Se déconnecter</span></div>`;
+  } else if(mode==='org-pick'){
+    const rows=_orgs.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:13px 14px;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;background:var(--surface-2)" data-act="gatePickOrg('${o.id}')">
+        <div style="width:34px;height:34px;border-radius:9px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--serif)">${esc((o.name||'?').charAt(0).toUpperCase())}</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:15px">${esc(o.name)}</div><div style="font-size:12px;color:var(--ink-soft)">${o.role==='owner'?'Propriétaire':'Collaborateur'}</div></div>
+        <div style="color:var(--ink-soft)">›</div></div>`).join('');
+    inner=`<div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:2px">Choisis une association</div>
+      ${rows}
+      <button style="${_GBg}" data-act="renderGate('org-new')">+ Nouvelle / rejoindre</button>
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--ink-soft)"><span style="cursor:pointer;text-decoration:underline" data-act="authLogout()">Se déconnecter</span></div>`;
+  }
+  app.innerHTML=_gateWrap(inner);
+  _gateMsg(msg||'');
+  try{ const f=document.getElementById('g-email')||document.getElementById('g-orgname'); if(f) f.focus(); }catch(e){}
+}
+function _gv(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
+async function gateLogin(){
+  if(_gateBusy)return; const email=_gv('g-email'), pwd=_gv('g-pwd');
+  if(!email||!pwd){ _gateMsg('Entre ton email et ton mot de passe.'); return; }
+  _gateBusy=true; _gateMsg('Connexion…',true);
+  try{ await authLogin(email,pwd); await bootAuthed(); }
+  catch(e){ _gateMsg(e.message||'Connexion impossible.'); }
+  _gateBusy=false;
+}
+async function gateSignup(){
+  if(_gateBusy)return; const email=_gv('g-email'), pwd=_gv('g-pwd');
+  if(!email||!pwd){ _gateMsg('Entre un email et un mot de passe.'); return; }
+  if(pwd.length<6){ _gateMsg('Le mot de passe doit faire au moins 6 caractères.'); return; }
+  _gateBusy=true; _gateMsg('Création du compte…',true);
+  try{
+    const r=await authSignup(email,pwd);
+    if(r.session){ await bootAuthed(); }
+    else { renderGate('login','Compte créé. Vérifie tes emails pour confirmer, puis connecte-toi.'); _gateMsg('Compte créé. Confirme ton email puis connecte-toi.',true); }
+  }
+  catch(e){ _gateMsg(e.message||'Inscription impossible.'); }
+  _gateBusy=false;
+}
+async function gateCreateOrg(){
+  if(_gateBusy)return; const name=_gv('g-orgname');
+  if(!name){ _gateMsg('Donne un nom à ton association.'); return; }
+  _gateBusy=true; _gateMsg('Création…',true);
+  try{ const o=await orgCreate(name); _org=_orgs.find(x=>x.id===o.id)||o; enterApp(); }
+  catch(e){ _gateMsg(e.message||'Création impossible.'); _gateBusy=false; }
+}
+async function gateJoinOrg(){
+  if(_gateBusy)return; const code=_gv('g-code');
+  if(!code){ _gateMsg('Entre le code d\'invitation.'); return; }
+  _gateBusy=true; _gateMsg('Recherche…',true);
+  try{ const o=await orgJoin(code); _org=_orgs.find(x=>x.id===o.id)||o; enterApp(); }
+  catch(e){ _gateMsg(/invalid_code/.test(e.message)?'Code invalide.':(e.message||'Impossible de rejoindre.')); _gateBusy=false; }
+}
+function gatePickOrg(id){ _org=_orgs.find(o=>o.id===id); if(_org) enterApp(); }
+function orgSwitch(id){ // depuis le menu : change d'association active
+  const o=_orgs.find(x=>x.id===id); if(!o||(_org&&o.id===_org.id)) return;
+  _cloudReady=false; _lastSyncStamp=null; _org=o; _closeOrgPanel(); toggleDrawer(false); enterApp();
+}
+
+// ---- Panneau Association / Collaborateurs / Admin (superposition) ----
+function _closeOrgPanel(){ const el=document.getElementById('org-panel'); if(el) el.remove(); }
+async function openOrgPanel(){
+  try{ toggleDrawer(false); }catch(e){}
+  let members=[];
+  const canRoster = _org && (_org.role==='owner' || _isAdmin);
+  if(canRoster){ try{ members=await orgMembers(_org.id); }catch(e){} }
+  _renderOrgPanel(members);
+}
+function _renderOrgPanel(members){
+  _closeOrgPanel();
+  if(!_org) return;
+  const owner = (_org.role==='owner');
+  const me = _auth&&_auth.user&&_auth.user.email || '';
+  const planLabel = _isAdmin ? 'Accès admin (gratuit)' : (_org.plan==='free'?'Gratuit':(_org.plan==='active'?'Abonnement actif':'Période d\'essai'));
+  const codeBlock = (owner||_isAdmin) ? `
+    <div style="margin-top:18px">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Code d'invitation</div>
+      <div style="font-size:12px;color:var(--ink-soft);margin:4px 0 8px">Partage ce code : tes collaborateurs le saisissent pour accéder à cette association.</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-family:var(--serif);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--primary);background:var(--primary-soft);padding:10px 14px;border-radius:var(--r-sm);text-align:center">${esc(_org.invite_code||'—')}</div>
+        <button id="org-copybtn" style="padding:11px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);font-weight:600;cursor:pointer" data-act="orgCopyCode()">Copier</button>
+      </div>
+    </div>` : '';
+  let roster='';
+  if((owner||_isAdmin) && members && members.length){
+    roster = `<div style="margin-top:18px">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Membres (${members.length})</div>`+
+      members.map(m=>{
+        const isMe = _auth&&_auth.user&&m.user_id===_auth.user.id;
+        const rm = (owner && m.role!=='owner' && !isMe) ? `<span style="color:var(--red);font-size:13px;cursor:pointer;padding:4px 6px" data-act="orgRemoveMember('${m.user_id}')">Retirer</span>` : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="flex:1;min-width:0"><div style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.email||'—')}${isMe?' <span style=\"color:var(--ink-soft)\">(moi)</span>':''}</div>
+          <div style="font-size:12px;color:var(--ink-soft)">${m.role==='owner'?'Propriétaire':'Collaborateur'}</div></div>${rm}</div>`;
+      }).join('')+`</div>`;
+  }
+  const others=_orgs.filter(o=>o.id!==_org.id);
+  const switcher = `<div style="margin-top:18px">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Mes associations</div>`+
+      _orgs.map(o=>`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line-soft)">
+        <div style="flex:1">${esc(o.name)} ${o.id===_org.id?'<span style=\"color:var(--green);font-size:12px\">• active</span>':''}</div>
+        ${o.id===_org.id?'':`<button style="padding:7px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer" data-act="orgSwitch('${o.id}')">Ouvrir</button>`}</div>`).join('')+
+      `<button style="${_GBg};margin-top:12px" data-act="_closeOrgPanel();renderGate('org-new')">+ Créer / rejoindre une association</button>
+    </div>`;
+  const leaveBtn = owner ? '' : `<button style="width:100%;box-sizing:border-box;padding:11px;margin-top:10px;border:1px solid var(--red);border-radius:var(--r-sm);background:var(--surface);color:var(--red);font-weight:600;cursor:pointer" data-act="orgLeave()">Quitter cette association</button>`;
+
+  const card = `<div data-act="event.stopPropagation()" style="width:100%;max-width:460px;max-height:92vh;overflow:auto;background:var(--surface);border-radius:16px 16px 0 0;padding:20px 20px 28px;box-shadow:var(--sh-lg)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--serif);font-size:19px">${esc((_org.name||'?').charAt(0).toUpperCase())}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:18px;font-family:var(--serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_org.name)}</div>
+        <div style="font-size:12px;color:var(--ink-soft)">${esc(me)}</div></div>
+        <div style="font-size:22px;color:var(--ink-soft);cursor:pointer;padding:4px 8px" data-act="_closeOrgPanel()">✕</div>
+      </div>
+      <div style="display:inline-block;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;background:${_isAdmin?'var(--gold-soft)':'var(--green-soft)'};color:${_isAdmin?'var(--gold)':'var(--green)'};margin-top:4px">${esc(planLabel)}</div>
+      ${codeBlock}
+      ${roster}
+      ${switcher}
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
+        ${leaveBtn}
+        <button style="width:100%;box-sizing:border-box;padding:11px;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);font-weight:600;cursor:pointer" data-act="authLogout()">Se déconnecter</button>
+      </div>
+    </div>`;
+  const div=document.createElement('div');
+  div.id='org-panel';
+  div.setAttribute('data-act','_closeOrgPanel()');
+  div.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center';
+  div.innerHTML=card;
+  document.body.appendChild(div);
+}
+async function orgCopyCode(){
+  try{ await navigator.clipboard.writeText(_org.invite_code); }catch(e){
+    try{ const t=document.createElement('textarea'); t.value=_org.invite_code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }catch(e2){}
+  }
+  const b=document.getElementById('org-copybtn'); if(b){ b.textContent='Copié ✓'; setTimeout(()=>{ if(b)b.textContent='Copier'; },1500); }
+}
+async function orgRemoveMember(uid){
+  if(!_org||!await _ensureToken()) return;
+  try{ if(!window.confirm('Retirer ce collaborateur de l\'association ?')) return; }catch(e){}
+  try{ await fetch(SUPA_URL+'/rest/v1/sbs_members?org_id=eq.'+_org.id+'&user_id=eq.'+uid,{method:'DELETE',headers:_authH({Prefer:'return=minimal'})}); }catch(e){}
+  openOrgPanel();
+}
+async function orgLeave(){
+  if(!_org||!await _ensureToken()) return;
+  try{ if(!window.confirm('Quitter cette association ? Tu perdras l\'accès à ses données (sauf si on te réinvite).')) return; }catch(e){}
+  const uid=_auth.user.id, oid=_org.id;
+  try{ await fetch(SUPA_URL+'/rest/v1/sbs_members?org_id=eq.'+oid+'&user_id=eq.'+uid,{method:'DELETE',headers:_authH({Prefer:'return=minimal'})}); }catch(e){}
+  _closeOrgPanel(); _org=null; _cloudReady=false; _lastSyncStamp=null;
+  try{ localStorage.removeItem('sbs_org'); }catch(e){}
+  await bootAuthed();
 }
 
 // ---------- TOAST ----------
@@ -560,6 +842,13 @@ function changeYear(y){ D.year=parseInt(y); ensureRecurring(D.year); save(); ren
 // ============================================================
 //  DONNÉES INITIALES (Tishri pré-rempli) + RÉCURRENCE
 // ============================================================
+// Association neuve (créée par n'importe quel utilisateur) : monde vierge, sans les données Beth Habad.
+function freshData(){
+  return { year:5787, schemaYear:5787,
+    people:[], stores:['Supermarché','Amazon'], locations:[],
+    months:{}, programs:[], journal:{},
+    themes:[], bdd:{cats:[]}, menuHidden:{}, eventTemplates:[], _v12cleared:true };
+}
 function seedData(){
   const D = {
     year:5787, schemaYear:5787,
@@ -780,7 +1069,7 @@ function render(){
 
 function headerHTML(){
   return `<div class="hdr">
-    <div class="hdr-logo"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">Beth Habad</span></span></div>
+    <div class="hdr-logo" data-act="openOrgPanel()"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">${esc((_org&&_org.name)||'')}</span></span></div>
     <div class="hdr-spacer"></div>
     <span id="sync-badge" title="Synchronisation" data-act="cloudPull()" style="font-size:16px;cursor:pointer;color:${_syncState==='ok'?'var(--green)':(_syncState==='err'?'var(--red)':'var(--ink-soft)')};padding:0 2px">${_syncState==='ok'?'☁':(_syncState==='sync'?'⟳':(_syncState==='err'?'⚠':'⊘'))}</span>
     <button class="hdr-year" data-act="openYearMenu()">${D.year} ▾</button>
@@ -1278,9 +1567,12 @@ function drawerHTML(){
   });
   return `<div class="overlay" data-act="toggleDrawer(false)"></div>
     <div class="drawer">
-      <div class="drawer-head"><div class="drawer-title"><span class="stars">✦</span> stepbystep</div>
-        <div class="drawer-sub">Beth Habad · ${t('Année','שנה','Year')} ${D.year}</div></div>
-      <div class="drawer-body">${body}</div>
+      <div class="drawer-head" data-act="openOrgPanel()" style="cursor:pointer"><div class="drawer-title"><span class="stars">✦</span> stepbystep</div>
+        <div class="drawer-sub">${esc((_org&&_org.name)||'stepbystep')} · ${t('Année','שנה','Year')} ${D.year} ›</div></div>
+      <div class="drawer-body">${body}
+        <button class="drawer-item" data-act="openOrgPanel()" style="margin-top:8px"><span class="ic">👥</span>${t('Association & collaborateurs','ארגון','Association')}</button>
+        <button class="drawer-item" data-act="authLogout()"><span class="ic">🚪</span>${t('Se déconnecter','התנתק','Log out')}</button>
+      </div>
     </div>`;
 }
 function allTasksFlat(){ const out=[]; const w=a=>(a||[]).forEach(t=>{out.push(t); if(t.subtasks)w(t.subtasks);}); Object.values(D.months||{}).forEach(m=>m.fetes.forEach(f=>f.events.forEach(e=>w(e.tasks)))); (D.programs||[]).forEach(p=>p.events.forEach(e=>w(e.tasks))); return out; }
@@ -3408,6 +3700,7 @@ function commitDragOrder(kind){
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
+ renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
@@ -3430,34 +3723,72 @@ function migrateMaterials(){
   doYear(D.months,D.programs);
   if(D.byYear) Object.values(D.byYear).forEach(y=>doYear(y.months,y.programs));
 }
+// Applique les valeurs par défaut / migrations sur D (après chargement local OU cloud).
+function ensureCollections(){
+  if(!D._activeYear) D._activeYear=D.year;
+  if(!D.journal) D.journal={};
+  if(!D.stores) D.stores=['Carrefour','Amazon'];
+  if(!D.eventTemplates) D.eventTemplates=[];
+  if(!D._v12cleared){ D.months={}; D.programs=[]; D._v12cleared=true; }
+  if(!Array.isArray(D.themes)) D.themes=[];
+  if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
+  if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
+  migrateMaterials();
+  syncCounters();
+  if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
+  if(!D.tsedaka) D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]};
+  if(!Array.isArray(D.ideas)) D.ideas=[];
+  if(!Array.isArray(D.persons)) D.persons=[];
+  if(!D.shabbat) D.shabbat={};
+  lang=D._lang||'fr'; document.documentElement.lang=lang; document.documentElement.dir=(lang==='he'?'rtl':'ltr');
+}
+// Données d'avant le multi-compte (à migrer une seule fois dans la 1re association créée).
+function _legacyData(){ try{ const s=localStorage.getItem('marbitz-v11'); if(s){ const o=JSON.parse(s); if(_isRealD(o)) return o; } }catch(e){} return null; }
+function _migrated(){ try{ return localStorage.getItem('sbs_legacy_migrated')==='1'; }catch(e){ return false; } }
+function _setMigrated(){ try{ localStorage.setItem('sbs_legacy_migrated','1'); }catch(e){} }
+
+// Entrée dans l'app une fois l'association choisie.
+function enterApp(){
+  try{ localStorage.setItem('sbs_org',_org.id); }catch(e){}
+  _isAdmin = !!_org.is_admin || (_orgs[0]&&!!_orgs[0].is_admin);
+  const hadLocal=load();
+  _freshEntry=!hadLocal;
+  if(!hadLocal){
+    // Pas encore de cache local pour cette association.
+    const legacy=_legacyData();
+    if(legacy && !_migrated()){ D=legacy; _setMigrated(); }   // migration des anciennes données (Beth Habad)
+    else { D=freshData(); D._activeYear=D.year; }              // nouvelle association : monde vierge
+  }
+  ensureCollections();
+  _cloudSuppress=true; save(); _cloudSuppress=false;   // écrit le cache local (sans pousser : _cloudReady est encore faux)
+  _gateBusy=false;
+  render();
+  try{ cloudStart(); }catch(e){}
+}
+
+// Après connexion : charger les associations et choisir la bonne.
+async function bootAuthed(){
+  renderGate('loading');
+  try{
+    if(!await _ensureToken()){ _auth=null; _authSave(); renderGate('login','Session expirée, reconnecte-toi.'); return; }
+    await loadOrgs();
+    let want=null; try{ want=localStorage.getItem('sbs_org'); }catch(e){}
+    _org = _orgs.find(o=>o.id===want) || (_orgs.length===1?_orgs[0]:null);
+    if(!_orgs.length){ renderGate('org-new'); return; }
+    if(!_org){ renderGate('org-pick'); return; }
+    enterApp();
+  }catch(e){
+    if(/not_authenticated|JWT|token/i.test(e.message||'')){ _auth=null; _authSave(); renderGate('login','Reconnecte-toi.'); }
+    else renderGate(_orgs.length?'org-pick':'org-new', 'Réessaie : '+(e.message||'erreur'));
+  }
+}
+
 function boot(){
   try{
-    if(!load()){ D=seedData(); D._activeYear=D.year; save(); }
-    if(!D._activeYear) D._activeYear=D.year;
-    if(!D.journal) D.journal={};
-    if(!D.stores) D.stores=['Carrefour','Amazon'];
-    if(!D.eventTemplates) D.eventTemplates=[];
-    // — Nettoyage unique v12 : on repart avec une base de tâches / fêtes / programmes vide,
-    //   MAIS on conserve prestataires, personnes, réglages, tsedaka, compteurs, publics, idées.
-    if(!D._v12cleared){
-      D.months={}; D.programs=[];
-      D._v12cleared=true;
-    }
-    // — Nouvelles collections v12 —
-    if(!Array.isArray(D.themes)) D.themes=[];
-    if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
-    if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
-    migrateMaterials();
-    syncCounters();
-    if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
-    if(!D.tsedaka) D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]};
-    if(!Array.isArray(D.ideas)) D.ideas=[];
-    if(!Array.isArray(D.persons)) D.persons=[];
-    if(!D.shabbat) D.shabbat={};
-    lang=D._lang||'fr'; document.documentElement.lang=lang; document.documentElement.dir=(lang==='he'?'rtl':'ltr');
-    render();
-    // Démarre la synchronisation cloud (partage téléphone ↔ ordinateur ↔ bénévoles)
-    try{ cloudStart(); }catch(e){}
+    _authLoad();
+    lang='fr'; document.documentElement.lang='fr'; document.documentElement.dir='ltr';
+    if(!_auth){ renderGate('login'); return; }
+    bootAuthed();
   }catch(err){
     document.getElementById('app').innerHTML='<div style="padding:40px;font-family:sans-serif;color:#1C2A3A">'+
       '<h2 style="font-family:Georgia,serif">stepbystep</h2>'+
