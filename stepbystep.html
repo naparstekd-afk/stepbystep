@@ -191,6 +191,15 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .tag-time{background:var(--gold-soft);color:var(--gold)}
 .tag-qty{background:#FDEEE0;color:#C2691A}
 .tag-sub{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line-soft)}
+/* Carte de tâche COMPACTE pour Ma Journée (avec mini-libellé de rattachement) */
+.jtask{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:7px;box-shadow:var(--sh)}
+.jtask .check{width:20px;height:20px;margin-top:1px;font-size:12px}
+.jtask-body{flex:1;min-width:0;cursor:pointer}
+.jtask-title{font-size:14px;font-weight:500;color:var(--ink);line-height:1.3}
+.jtask-title.done{text-decoration:line-through;color:var(--ink-soft)}
+.jtask-sub{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap}
+.jtask-where{font-size:11px;color:var(--ink-soft);font-weight:500;background:var(--surface-2);border:1px solid var(--line-soft);padding:1px 7px;border-radius:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jtask-sub .tag{padding:1px 6px;font-size:10.5px}
 .tag-note{background:var(--surface-2);color:var(--ink-soft);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .task-acts{display:flex;gap:3px;flex-shrink:0}
 .mini-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft);transition:.12s}
@@ -3257,12 +3266,18 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 Prioritaire</span>`:'';
   const subs=t.subtasks||[]; const isOpen=!!expanded[t.id]||opt.auto;
   const expBtn=subs.length?`<span class="exp-toggle" data-act="toggleExpand('${t.id}')">${isOpen?'▾':'▸'} ${subs.length}</span>`:'';
-  let h=`<div class="wrap-task"><div class="task"><div class="task-main">
-    <div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${t.status==='done'?'✓':''}</div>
-    <div class="task-content" data-act="openTask('${t.id}')"><div class="task-text ${t.status==='done'?'done':''}">${esc(t.text)}</div>
-      <div class="task-tags">${where?`<span class="tag tag-sub">${esc(where)}</span>`:''}${prio}${remTag}${dateTag}${t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:''}</div></div>
-    ${expBtn?`<div class="task-acts" style="align-items:center">${expBtn}</div>`:''}
-  </div></div>`;
+  const done=t.status==='done';
+  const partial=(t.subtasks&&t.subtasks.length&&countAllDone(t.subtasks)>0&&!done)?`<span style="color:${st.c};font-size:12px;font-weight:800;line-height:1">–</span>`:'';
+  const who=t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:'';
+  const subLine = where||prio||remTag||dateTag||who;
+  let h=`<div class="wrap-task"><div class="jtask">
+    <div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>
+    <div class="jtask-body" data-act="openTask('${t.id}')">
+      <div class="jtask-title ${done?'done':''}">${esc(t.text)}</div>
+      ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${prio}${remTag}${dateTag}${who}</div>`:''}
+    </div>
+    ${expBtn?`<div style="align-self:center">${expBtn}</div>`:''}
+  </div>`;
   if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${esc(s.text)}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
   h+=`</div>`; return h;
 }
