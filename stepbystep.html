@@ -3488,6 +3488,8 @@ function renderJournal(c){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
     const open=[]; const noDate=[];
     const _handle=(t,where,eff0)=>{ if(t.status==='done')return; const eff=t.date||eff0;
+      // ⭐ Tâche prioritaire : épinglée tout en haut, CHAQUE jour, tant qu'elle n'est pas cochée.
+      if(t.priority==='haute'){ open.push({t,where,eff,pinned:true}); return; }
       if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
       if(t.pinDay){ open.push({t,where,eff}); return; }
       if(!eff){ if(isJToday) noDate.push({t,where,eff:''}); return; }
