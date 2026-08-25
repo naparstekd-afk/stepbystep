@@ -1351,7 +1351,7 @@ function renderProgramHome(c){
 function renderContainerEvents(c,cont,ctx){
   let html=`<div class="sec"><div><div class="sec-eyebrow">${ctx==='program'?'Programme':'Fête'}</div><div class="sec-title"><span data-act="renameContainer()" style="cursor:pointer">${esc(cont.name)}</span></div><div class="sec-sub">${cont.events.length} événement(s)</div></div>
     </div>`;
-  html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('fete')">📅 + Ajouter une date</button>`}</div>`;
+  html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="cbtn" data-act="openDatePicker('fete')" title="Ajouter une date">🗓</button>`}</div>`;
   // (Récurrence de la fête : déplacée en bas, en bouton-icône 🔁)
   if(ctx==='program'){
     html+=`<div class="filters"><button class="chip" data-act="go({view:'programs'})" style="display:none"></button></div>`;
