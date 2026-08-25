@@ -2421,7 +2421,7 @@ function taskSheet(){
   const hasMat = (t.material&&((t.material.lines&&t.material.lines.length)||t.material.note))||t._showMat;
   const hasDeps = ((t.dependsOn||[]).length>0)||t._showDeps;
   const hasRec = t.recurring||t._showRec;
-  const hasRem = (t.reminders&&t.reminders.length)||t._showRem;
+  const hasRem = !!t._showRem;   // le rappel n'apparaît que via « + Ajouter un champ »
   // options restant à révéler via « + »
   const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
   return `
@@ -2429,6 +2429,7 @@ function taskSheet(){
   <div class="sheet-body">
     ${isTpl?'':`<div data-act="mvOpen()" style="font-size:12px;color:var(--ink-soft);cursor:pointer;margin-bottom:8px">${parentLabel(t._loc)||'—'} <span style="color:var(--primary)">▾ déplacer</span></div>${moveNav?moveExplorerHTML():''}`}
 
+    ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
 
     <div class="field"><label class="field-label">Description</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
@@ -2436,15 +2437,16 @@ function taskSheet(){
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
       <button class="tpill ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>
       ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date / heure / répétition">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):''}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
+      <button class="tpill ${t.duration?'on theme':''}" data-act="ebToggleDur()" title="Durée" style="font-size:17px;line-height:1;padding:6px 13px">🕐${t.duration?' '+fmtDurH(t.duration):''}</button>
     </div>
     ${(!isTpl&&t.repeat)?`<div style="font-size:12px;color:var(--primary);font-weight:600;margin:-8px 0 12px">${repeatLabel(t.repeat)}${t.repeat.endType==='after'?' · '+t.repeat.count+'×':(t.repeat.endType==='on'&&t.repeat.endDate?' · jusqu\'au '+fmtDate(t.repeat.endDate):'')}</div>`:''}
     ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
-    <div class="field"><label class="field-label">Durée</label>
+    ${(t._showDur||t.duration)?`<div class="field"><label class="field-label">🕐 Durée</label>
       ${(function(){ const pre=[5,15,30,45,60]; const cur=t.duration||0; const manual=t._durManual||(cur&&pre.indexOf(cur)<0);
         if(manual) return `<div style="display:flex;gap:8px;align-items:center"><input class="input" id="f-dur" value="${cur?fmtDurH(cur):''}" placeholder="ex. 20" style="max-width:140px"><button class="btn btn-ghost btn-sm" data-act="ebDurMode(false)">↩ Liste</button></div>`;
         return `<select class="select" style="max-width:220px" onchange="ebDurSelect(this.value)"><option value="0" ${!cur?'selected':''}>—</option>${pre.map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v} min</option>`).join('')}<option value="__manual">Saisir manuellement…</option></select>`;
-      })()}</div>
+      })()}</div>`:''}
 
     ${hasWho?`<div class="field"><label class="field-label">Responsable</label>
       <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
@@ -2522,6 +2524,7 @@ function ebDeleteTask(){ const id=editBuf&&editBuf.id; if(!id){ closeSheet(); re
 function parseDur(s){ if(s==null)return 0; s=String(s).toLowerCase().trim(); if(!s)return 0; const hm=s.match(/(\d+)\s*h\s*(\d+)/); if(hm)return parseInt(hm[1])*60+parseInt(hm[2]); const h=s.match(/(\d+)\s*h/); const mn=s.match(/(\d+)\s*(?:min|m)\b/); if(h||mn){ return (h?parseInt(h[1])*60:0)+(mn?parseInt(mn[1]):0); } const n=parseInt(s); return isNaN(n)?0:n; }
 function fmtDurH(min){ min=parseInt(min)||0; if(!min)return ''; const h=Math.floor(min/60),r=min%60; if(h&&r)return h+' h '+(r<10?'0'+r:r); if(h)return h+' h'; return min+' min'; }
 function ebTogglePrio(){ syncInputs(); editBuf.priority = (editBuf.priority==='haute')?'normale':'haute'; const prio=editBuf.priority==='haute'; const b=$('f-star'); if(b){ b.classList.toggle('on',prio); b.textContent=prio?'⭐':'☆'; } else { renderOverlay(); } }
+function ebToggleDur(){ syncInputs(); editBuf._showDur=!editBuf._showDur; renderOverlay(); }
 function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
 function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
 function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
@@ -4145,7 +4148,7 @@ function commitDragOrder(kind){
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDeleteTask,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDeleteTask,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
