@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-b">
+<meta name="app-build" content="b-2026-08-25-c">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2570,7 +2570,7 @@ function taskSheet(){
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${isTpl?'':`<button class="btn btn-soft btn-sm btn-block" data-act="mvOpen()" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font-size:12px">${esc(parentLabel(t._loc)||'Indépendante')}</span><span style="color:var(--primary);font-weight:600;white-space:nowrap">▾ déplacer / dupliquer</span></button>${moveNav?moveExplorerHTML():''}`}
+    ${isTpl?'':`<button class="btn btn-soft btn-sm btn-block" data-act="mvOpen()" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font-size:12px">${esc(parentLabel(t._loc)||'Indépendante')}</span><span style="color:var(--primary);font-weight:600;white-space:nowrap">▾ déplacer</span></button>${moveNav?moveExplorerHTML():''}`}
 
     ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
@@ -2644,15 +2644,13 @@ function taskSheet(){
     </div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      <div class="dd" style="flex:1">
-        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleMove()">↗ Déplacer ▾</button>
+      ${(promote||siblings.length)?`<div class="dd" style="flex:1">
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleMove()">↕ Hiérarchie ▾</button>
         ${t._moveOpen?`<div class="dd-menu" style="width:100%">
-          <button class="dd-item" data-act="ebToggleMove();openDatePicker('task')">📅 Vers une autre date</button>
-          <button class="dd-item" data-act="ebToggleMove();mvOpen()">🎯 Vers un autre thème / événement</button>
           ${promote?`<button class="dd-item" data-act="ebPromote()">⬆ En tâche principale</button>`:''}
           ${!promote&&siblings.length?siblings.filter(s=>!isDescendant(t,s.id)).slice(0,20).map(s=>`<button class="dd-item" data-act="ebDemote('${s.id}')">↳ Sous-tâche de : ${esc(s.text.slice(0,26))}</button>`).join(''):''}
         </div>`:''}
-      </div>
+      </div>`:''}
       <div class="dd" style="flex:1">
         <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ Exporter ▾</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
@@ -3077,11 +3075,11 @@ function moveExplorerHTML(){
            : '3 · Choisis l\'événement de destination';
 
   let h='<div class="mvbox">';
-  h+='<div class="mvbar"><div class="mvtitle">📂 Déplacer ou dupliquer</div><span class="mvcancel" data-act="mvClose()">Annuler ✕</span></div>';
+  h+='<div class="mvbar"><div class="mvtitle">📂 Déplacer la tâche</div><span class="mvcancel" data-act="mvClose()">Annuler ✕</span></div>';
   h+='<div class="mvcrumb">'+crumbs.map(esc).join(' <span style="opacity:.4">›</span> ')+'</div>';
   h+='<div class="mvstep">'+(moveNav.mId? '<span class="mvback" data-act="mvUp()">‹ Retour</span> ':'')+'<span>'+step+'</span></div>';
 
-  const destRow=(label,v)=>'<div class="mvdest"><div class="mvdest-name">'+esc(label)+'</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="mvMove(\''+v+'\')">↗ Déplacer ici</button><button class="btn btn-soft btn-sm" data-act="mvDup(\''+v+'\')">⧉ Dupliquer ici</button></div></div>';
+  const destRow=(label,v)=>'<div class="mvdest"><div class="mvdest-name">'+esc(label)+'</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="mvMove(\''+v+'\')">↗ Déplacer ici</button></div></div>';
   const navRow=(label,act)=>'<div class="mvnav" data-act="'+act+'"><div style="flex:1">'+esc(label)+'</div><span class="chev">›</span></div>';
 
   if(moveNav.mId&&moveNav.fId){
