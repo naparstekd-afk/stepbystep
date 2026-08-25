@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-a">
+<meta name="app-build" content="b-2026-08-25-b">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -949,7 +949,17 @@ function findTaskAnywhere(tid){
   const walk=(arr,loc)=>{ for(const t of arr){ if(t.id===tid){res={task:t,loc};return;} if(t.subtasks&&t.subtasks.length) walk(t.subtasks,{...loc,parent:t}); if(res)return; } };
   Object.entries(D.months).forEach(([mId,m])=>{ if(!res && m.tasks)walk(m.tasks,{mId,ctx:'month'}); m.fetes.forEach(f=>{ if(!res && f.tasks)walk(f.tasks,{mId,fId:f.id,ctx:'fete',contTask:true}); f.events.forEach(e=>{ if(!res)walk(e.tasks,{mId,fId:f.id,eId:e.id,ctx:'fete'}); }); }); });
   D.programs.forEach(p=>{ if(!res && p.tasks)walk(p.tasks,{pId:p.id,ctx:'program',contTask:true}); p.events.forEach(e=>{ if(!res)walk(e.tasks,{pId:p.id,eId:e.id,ctx:'program'}); }); });
+  if(!res && Array.isArray(D.inbox)) walk(D.inbox,{ctx:'inbox',inbox:true});
   return res;
+}
+// Tableau qui CONTIENT directement la tâche (pas ses sous-tâches) désignée par loc.
+function taskArrOfLoc(loc){
+  if(!loc) return null;
+  if(loc.parent) return loc.parent.subtasks;
+  if(loc.inbox){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
+  if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(m){ if(!Array.isArray(m.tasks))m.tasks=[]; return m.tasks; } return null; }
+  if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); return p?p.tasks:null; } const m=D.months[loc.mId]; const f=m&&m.fetes.find(x=>x.id===loc.fId); return f?f.tasks:null; }
+  const ev=eventOfLoc(loc); return ev?ev.tasks:null;
 }
 
 // navigation
@@ -1314,6 +1324,7 @@ function _normTasks(arr){ (arr||[]).forEach(t=>{ if(t.subtasks&&t.subtasks.lengt
 function normalizeAllTasks(){
   Object.values(D.months||{}).forEach(m=>{ if(m.tasks)_normTasks(m.tasks); (m.fetes||[]).forEach(f=>{ if(f.tasks)_normTasks(f.tasks); (f.events||[]).forEach(e=>{ if(e.tasks)_normTasks(e.tasks); }); }); });
   (D.programs||[]).forEach(p=>{ if(p.tasks)_normTasks(p.tasks); (p.events||[]).forEach(e=>{ if(e.tasks)_normTasks(e.tasks); }); });
+  if(Array.isArray(D.inbox)) _normTasks(D.inbox);
 }
 function remainingDur(t){ if(t.subtasks&&t.subtasks.length) return t.subtasks.reduce((a,s)=>a+remainingDur(s),0); return t.status==='done'?0:(t.duration||0); }
 const sumRemDur = arr => (arr||[]).reduce((a,t)=>a+remainingDur(t),0);
@@ -1391,17 +1402,6 @@ function renderMonth(c){
   }
   const mtasks=(md&&md.tasks)||[];
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ Tâches du mois</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
-  const progs=programsInMonth(nav.monthId);
-  if(progs.length){
-    html+=`<div class="section-label" style="margin-top:14px">📚 Programmes ce mois</div>`;
-    progs.forEach(p=>{ const cost=programCost(p);
-      html+=`<div class="card" data-act="go({view:'programs',feteId:'${p.id}',eventId:null,ctx:'program'})">
-        <div class="card-body"><div class="card-icon">📚</div>
-          <div class="card-main"><div class="card-name">${esc(p.name)}</div>
-            <div class="card-meta"><span>${civilDate(p.date)}</span>${cost?`<span class="pill pill-budget">${fmtE(cost)}</span>`:''}</div></div>
-          <span class="chev">›</span></div></div>`;
-    });
-  }
   c.innerHTML=html;
 }
 
@@ -2196,8 +2196,7 @@ function collectAllTasks(){ const out=[];
     (m.tasks||[]).forEach(t=>out.push({t,where:(mm?mm.name:'Mois')}));
     m.fetes.forEach(f=>{ (f.tasks||[]).forEach(t=>out.push({t,where:f.name})); f.events.forEach(e=>(e.tasks||[]).forEach(t=>out.push({t,where:f.name+' › '+e.name}))); });
   });
-  (D.programs||[]).filter(p=>!p._general).forEach(p=>{ (p.tasks||[]).forEach(t=>out.push({t,where:'📚 '+p.name})); p.events.forEach(e=>(e.tasks||[]).forEach(t=>out.push({t,where:'📚 '+p.name+' › '+e.name}))); });
-  const gen=(D.programs||[]).find(p=>p._general); if(gen) gen.events.forEach(e=>(e.tasks||[]).forEach(t=>out.push({t,where:'Indépendante'})));
+  (D.inbox||[]).forEach(t=>out.push({t,where:'Indépendante'}));
   return out;
 }
 function renderAllTasks(c){
@@ -2313,9 +2312,9 @@ function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.vie
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
-function generalContainer(){ let p=D.programs.find(x=>x._general); if(!p){ p=mkProgram('📌 Général'); p._general=true; p.events=[mkEvent('Divers')]; D.programs.push(p); } if(!p.events.length) p.events.push(mkEvent('Divers')); return p; }
-function qaTaskIndep(){ const p=generalContainer(); const e=p.events[0]; const t=mkTask(''); e.tasks.push(t); save(); openQuickTask(t.id); }
-function qaEventIndep(){ const p=generalContainer(); const e=mkEvent('Nouvel événement'); p.events.push(e); save(); go({view:'programs',feteId:p.id,eventId:e.id,ctx:'program'}); }
+// Boîte de réception (« Indépendantes ») — tâches libres, hors mois / fête / événement.
+function inboxTasks(){ if(!Array.isArray(D.inbox)) D.inbox=[]; return D.inbox; }
+function qaTaskIndep(){ const arr=inboxTasks(); const t=mkTask(''); arr.push(t); save(); openQuickTask(t.id); }
 function quickAddSheet(){
   const ev=curEvent(); const cont=curContainer();
   const head=`<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
@@ -2364,9 +2363,7 @@ function quickAddSheet(){
       <button class="btn btn-ghost btn-block" style="margin-top:6px" data-act="qaPickBack()">‹ Retour</button>
     </div>`;
   }
-  const progs=(D.programs||[]).filter(p=>!p._general);
   const moOpts=MONTHS.map(m=>`<option value="month|${m.id}">${m.emoji} ${m.name}</option>`).join('');
-  const prOpts=progs.map(p=>`<option value="program|${p.id}">📚 ${esc(p.name)}</option>`).join('');
   if(pick==='event'){
     const feteOpts=listFeteDests().filter(d=>d.v.slice(0,4)==='fete').map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('');
     return head+`<div class="sheet-body">
@@ -2451,8 +2448,7 @@ function monthAddSheet(){
   return `<div class="sheet-head"><div class="sheet-title">Ajouter dans ${m?m.emoji+' '+m.name:'ce mois'}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <button class="btn btn-primary btn-block" style="margin-bottom:10px" data-act="addFetePrompt()">🎉 Nouvelle fête</button>
-    <button class="btn btn-gold btn-block" data-act="addProgramHere()">📚 Nouveau programme</button>
-    <div class="hint" style="margin-top:14px">Pour ajouter un événement ou une tâche, ouvre d'abord une fête ou un programme (le + bleu s'adapte alors au niveau où tu es).</div>
+    <div class="hint" style="margin-top:14px">Pour ajouter un événement ou une tâche, ouvre d'abord une fête (le + bleu s'adapte alors au niveau où tu es).</div>
   </div>`;
 }
 function qaTaskHere(){ const ev=curEvent(); if(!ev)return; const t=mkTask(''); ev.tasks.push(t); save(); openQuickTask(t.id); }
@@ -2574,7 +2570,7 @@ function taskSheet(){
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${isTpl?'':`<div data-act="mvOpen()" style="font-size:12px;color:var(--ink-soft);cursor:pointer;margin-bottom:8px">${parentLabel(t._loc)||'—'} <span style="color:var(--primary)">▾ déplacer</span></div>${moveNav?moveExplorerHTML():''}`}
+    ${isTpl?'':`<button class="btn btn-soft btn-sm btn-block" data-act="mvOpen()" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font-size:12px">${esc(parentLabel(t._loc)||'Indépendante')}</span><span style="color:var(--primary);font-weight:600;white-space:nowrap">▾ déplacer / dupliquer</span></button>${moveNav?moveExplorerHTML():''}`}
 
     ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
@@ -2748,7 +2744,7 @@ function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
-function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
+function parentLabel(loc){ if(!loc) return ''; if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
@@ -2851,16 +2847,23 @@ function cloneTaskNewIds(t){
   const c=JSON.parse(JSON.stringify(t)); delete c._loc; delete c._isSub; delete c._parentId;
   const reid=(x)=>{ x.id=uid(); x.dependsOn=[]; (x.subtasks||[]).forEach(reid); }; reid(c); return c;
 }
+// Tableau .tasks de destination : boîte de réception · mois direct · événement.
+function destTaskArray(v){ if(!v) return null;
+  if(v==='inbox'){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
+  const pr=v.split('|');
+  if(pr[0]==='monthtasks'){ const mId=pr[1]; if(!D.months[mId])D.months[mId]={fetes:[]}; if(!Array.isArray(D.months[mId].tasks))D.months[mId].tasks=[]; return D.months[mId].tasks; }
+  const ev=destEvent(v); if(!ev) return null; if(!Array.isArray(ev.tasks))ev.tasks=[]; return ev.tasks;
+}
 function ebMoveTo(v){ if(!v) return; syncInputs(); saveTask(true);
-  const tgt=destEvent(v); if(!tgt){ toast('Destination introuvable'); return; }
+  const tgt=destTaskArray(v); if(!tgt){ toast('Destination introuvable'); return; }
   const r=findTaskAnywhere(editBuf.id); if(!r){ return; }
-  const arr=r.loc.parent? r.loc.parent.subtasks : eventOfLoc(r.loc).tasks;
+  const arr=taskArrOfLoc(r.loc); if(!arr){ toast('Source introuvable'); return; }
   const i=arr.findIndex(x=>x.id===editBuf.id); if(i<0) return; const moved=arr.splice(i,1)[0];
-  tgt.tasks.push(moved); save(); closeSheet(); render(); toast('Tâche déplacée ✓');
+  tgt.push(moved); save(); closeSheet(); render(); toast('Tâche déplacée ✓');
 }
 function ebDuplicateTo(v){ if(!v) return; syncInputs(); saveTask(true);
-  const tgt=destEvent(v); if(!tgt){ toast('Destination introuvable'); return; }
-  const copy=cloneTaskNewIds(editBuf); tgt.tasks.push(copy); save(); toast('Tâche dupliquée ✓');
+  const tgt=destTaskArray(v); if(!tgt){ toast('Destination introuvable'); return; }
+  const copy=cloneTaskNewIds(editBuf); tgt.push(copy); save(); toast('Tâche dupliquée ✓');
 }
 function openDatePicker(target){
   if(target==='task'||target==='reminder') syncInputs();
@@ -3067,36 +3070,35 @@ function mvCreateProgram(){ const n=prompt('Nom du nouveau programme :','Nouveau
 function moveExplorerHTML(){
   // fil d'Ariane de la navigation en cours
   let crumbs=['Tout'];
-  if(moveNav.pId){ const p=D.programs.find(x=>x.id===moveNav.pId); crumbs=['📚 '+(p?p.name:'Programme')]; }
-  else if(moveNav.mId){ const mm=MONTHS.find(x=>x.id===moveNav.mId); let c=[(mm?mm.emoji+' '+mm.name:'Mois')]; if(moveNav.fId){ const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); c.push(f?f.name:'Fête'); } crumbs=c; }
+  if(moveNav.mId){ const mm=MONTHS.find(x=>x.id===moveNav.mId); let c=[(mm?mm.emoji+' '+mm.name:'Mois')]; if(moveNav.fId){ const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); c.push(f?f.name:'Fête'); } crumbs=c; }
   // étape courante
-  let step = (!moveNav.mId&&!moveNav.pId) ? '1 · Choisis un mois ou un programme'
-           : (moveNav.mId&&!moveNav.fId) ? '2 · Choisis une fête'
+  let step = (!moveNav.mId) ? '1 · Choisis un mois (ou la boîte indépendante)'
+           : (moveNav.mId&&!moveNav.fId) ? '2 · Dépose dans le mois, ou ouvre une fête'
            : '3 · Choisis l\'événement de destination';
 
   let h='<div class="mvbox">';
   h+='<div class="mvbar"><div class="mvtitle">📂 Déplacer ou dupliquer</div><span class="mvcancel" data-act="mvClose()">Annuler ✕</span></div>';
   h+='<div class="mvcrumb">'+crumbs.map(esc).join(' <span style="opacity:.4">›</span> ')+'</div>';
-  h+='<div class="mvstep">'+(moveNav.mId||moveNav.pId? '<span class="mvback" data-act="mvUp()">‹ Retour</span> ':'')+'<span>'+step+'</span></div>';
+  h+='<div class="mvstep">'+(moveNav.mId? '<span class="mvback" data-act="mvUp()">‹ Retour</span> ':'')+'<span>'+step+'</span></div>';
 
   const destRow=(label,v)=>'<div class="mvdest"><div class="mvdest-name">'+esc(label)+'</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="mvMove(\''+v+'\')">↗ Déplacer ici</button><button class="btn btn-soft btn-sm" data-act="mvDup(\''+v+'\')">⧉ Dupliquer ici</button></div></div>';
   const navRow=(label,act)=>'<div class="mvnav" data-act="'+act+'"><div style="flex:1">'+esc(label)+'</div><span class="chev">›</span></div>';
 
-  if(moveNav.pId){
-    const p=D.programs.find(x=>x.id===moveNav.pId); if(p) p.events.forEach(e=>h+=destRow(e.name,'program|'+p.id+'||'+e.id));
-    h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateEvent()">➕ Nouvel événement ici</button>';
-  } else if(moveNav.mId&&moveNav.fId){
+  if(moveNav.mId&&moveNav.fId){
     const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); if(f) f.events.forEach(e=>h+=destRow(e.name,'fete|'+moveNav.mId+'|'+f.id+'|'+e.id));
     h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateEvent()">➕ Nouvel événement ici</button>';
   } else if(moveNav.mId){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
-    if(m&&m.fetes.length) m.fetes.forEach(f=>h+=navRow(f.name+' · '+f.events.length+' évén.',"mvFete('"+f.id+"')"));
-    else h+='<div class="hint">Aucune fête dans ce mois.</div>';
+    // dépôt DIRECT dans le mois, sans fête
+    h+=destRow('📌 Directement dans le mois (hors fête)','monthtasks|'+moveNav.mId);
+    const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
+    if(real.length){ h+='<div class="section-label" style="margin-top:8px">Ou dans une fête</div>'; real.forEach(f=>h+=navRow(f.name+' · '+f.events.length+' évén.',"mvFete('"+f.id+"')")); }
     h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" data-act="mvCreateFete()">➕ Nouvelle fête ici</button>';
   } else {
-    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; if(m&&m.fetes.length) h+=navRow(mo.emoji+' '+mo.name+' · '+m.fetes.length+' fête(s)',"mvMonth('"+mo.id+"')"); });
-    if(D.programs.length){ h+='<div class="section-label" style="margin-top:10px">Programmes</div>'; D.programs.forEach(p=>h+=navRow('📚 '+p.name,"mvProgram('"+p.id+"')")); }
-    h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px" data-act="mvCreateProgram()">➕ Nouveau programme</button>';
+    // boîte de réception (indépendantes)
+    h+=destRow('📥 Indépendante (boîte de réception)','inbox');
+    h+='<div class="section-label" style="margin-top:8px">Dans un mois</div>';
+    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; h+=navRow(mo.emoji+' '+mo.name+(n?' · '+n+' fête(s)':''),"mvMonth('"+mo.id+"')"); });
   }
   h+='</div>';
   return h;
@@ -3574,10 +3576,7 @@ function renderJournal(c){
       (f.tasks||[]).forEach(t=>_handle(t,f.name,f.date||''));   // tâches DIRECTES de la fête (manquaient !)
     }));
     Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); (m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),'')); });
-    D.programs.forEach(p=>{
-      p.events.forEach(e=>{ const eff0=e.date||p.date||''; (e.tasks||[]).forEach(t=>_handle(t,p._general?'':(p.name+' › '+e.name),eff0)); });
-      (p.tasks||[]).forEach(t=>_handle(t,p.name,p.date||''));   // tâches DIRECTES du programme
-    });
+    (D.inbox||[]).forEach(t=>_handle(t,'',''));   // tâches indépendantes (boîte de réception)
     open.sort((a,b)=>(b.t.priority==='haute'?1:0)-(a.t.priority==='haute'?1:0));
     // fêtes / événements du jour
     const evs=datedAll().filter(x=>(x.kind==='fete'||x.kind==='event')&&x.iso===jKey);
@@ -4034,6 +4033,7 @@ function expGather(scope){
   const rows=[];
   Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); if((m.fetes&&m.fetes.length)||(m.tasks&&m.tasks.length)){ rows.push({lvl:0,type:'Mois',nom:(mm?mm.name:mId),statut:'',resp:'',date:'',duree:'',budget:'',note:''}); (m.fetes||[]).forEach(f=>_rowsContainer(f,'Fête').forEach(r=>{r.lvl+=1;rows.push(r);})); (m.tasks||[]).forEach(t=>_pushTaskRow(rows,t,1)); } });
   (D.programs||[]).filter(p=>!p._general).forEach(p=>_rowsContainer(p,'Programme').forEach(r=>rows.push(r)));
+  if(Array.isArray(D.inbox)&&D.inbox.length){ rows.push({lvl:0,type:'Indépendantes',nom:'📥 Boîte de réception',statut:'',resp:'',date:'',duree:'',budget:'',note:''}); D.inbox.forEach(t=>_pushTaskRow(rows,t,1)); }
   return {title:'stepbystep', rows};
 }
 function _cell(s){ s=(s==null?'':String(s)); return '"'+s.replace(/"/g,'""')+'"'; }
@@ -4351,7 +4351,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
@@ -4379,6 +4379,34 @@ function migrateMaterials(){
   doYear(D.months,D.programs);
   if(D.byYear) Object.values(D.byYear).forEach(y=>doYear(y.months,y.programs));
 }
+// Suppression de la fonctionnalité « Programmes » : on récupère TOUTES les tâches
+// qui vivaient dans un programme (y compris le conteneur caché « 📌 Général ») et
+// on les range dans la boîte de réception globale D.inbox. Les programmes réels
+// (avec présences/salaires) sont archivés dans D._archivedPrograms par sécurité,
+// jamais supprimés. Migration idempotente (une fois les programmes vidés, no-op).
+function migratePrograms(){
+  if(!Array.isArray(D.inbox)) D.inbox=[];
+  const drainTasks=(pp)=>{ (pp||[]).forEach(p=>{
+    (p.tasks||[]).forEach(t=>D.inbox.push(t));
+    (p.events||[]).forEach(e=>(e.tasks||[]).forEach(t=>D.inbox.push(t)));
+  }); };
+  if(Array.isArray(D.programs) && D.programs.length){
+    const real=D.programs.filter(p=>!p._general);
+    if(real.length){ if(!Array.isArray(D._archivedPrograms))D._archivedPrograms=[]; real.forEach(p=>{ if(!D._archivedPrograms.some(x=>x.id===p.id)) D._archivedPrograms.push(JSON.parse(JSON.stringify(p))); }); }
+    drainTasks(D.programs);
+    D.programs=[];
+  }
+  if(D.byYear) Object.values(D.byYear).forEach(y=>{
+    if(Array.isArray(y.programs) && y.programs.length){
+      const real=y.programs.filter(p=>!p._general);
+      if(real.length){ if(!Array.isArray(D._archivedPrograms))D._archivedPrograms=[]; real.forEach(p=>{ if(!D._archivedPrograms.some(x=>x.id===p.id)) D._archivedPrograms.push(JSON.parse(JSON.stringify(p))); }); }
+      drainTasks(y.programs);
+      y.programs=[];
+    }
+  });
+  // dédoublonnage (D.programs et byYear[activeYear].programs partagent souvent le même tableau)
+  const seen={}; D.inbox=D.inbox.filter(t=>{ if(!t||!t.id) return true; if(seen[t.id]) return false; seen[t.id]=1; return true; });
+}
 // Applique les valeurs par défaut / migrations sur D (après chargement local OU cloud).
 function ensureCollections(){
   if(!D._activeYear) D._activeYear=D.year;
@@ -4390,6 +4418,8 @@ function ensureCollections(){
   if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
   if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
   migrateMaterials();
+  if(!Array.isArray(D.inbox)) D.inbox=[];
+  migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
   normalizeAllTasks();   // cohérence parent/sous-tâches (le parent = fait ssi toutes ses feuilles le sont)
   syncCounters();
   if(!Array.isArray(D.publics)) D.publics=['Tout public','Hommes','Femmes','Enfants','Jeunes','Familles','Étudiants'];
