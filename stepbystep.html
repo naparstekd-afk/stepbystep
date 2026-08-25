@@ -1340,8 +1340,7 @@ function renderContainerEvents(c,cont,ctx){
       <div class="card-meta">${(cont.participants||[]).length} enfant(s)</div></div><span class="chev">›</span></div></div>`;
   }
   if(!cont.events.length){
-    // Pas d'événement : pas de gros encart vide — juste un petit bouton, les tâches directes remontent.
-    html+=`<button class="btn btn-ghost btn-sm" style="margin-bottom:6px" data-act="addEventPrompt()">＋ Ajouter un événement</button>`;
+    // Pas d'événement : rien n'est affiché ici (ajout via le bouton + en bas à droite).
   } else {
     sortByDate(cont.events).forEach(e=>{
       const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0;
