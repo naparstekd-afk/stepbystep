@@ -1321,7 +1321,8 @@ function renderContainerEvents(c,cont,ctx){
       <div class="card-meta">${(cont.participants||[]).length} enfant(s)</div></div><span class="chev">›</span></div></div>`;
   }
   if(!cont.events.length){
-    html+=emptyHTML('📌','Aucun événement','Ajoute un événement (ex. Préparation, Jour J, Rangement).','+ Ajouter','addEventPrompt()');
+    // Pas d'événement : pas de gros encart vide — juste un petit bouton, les tâches directes remontent.
+    html+=`<button class="btn btn-ghost btn-sm" style="margin-bottom:6px" data-act="addEventPrompt()">＋ Ajouter un événement</button>`;
   } else {
     sortByDate(cont.events).forEach(e=>{
       const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0;
@@ -2488,15 +2489,9 @@ function taskSheet(){
         <button class="toggle-opt ${t.recurring?'active':''}" data-act="ebSet('recurring',true)">Chaque année</button>
       </div></div>`:''}
 
-    ${more.length?`<div class="dd" style="margin:6px 0 4px">
-      <button class="dd-btn" data-act="ebToggleMore()">＋ Ajouter un champ ▾</button>
-      ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}</div>`:''}
-    </div>`:''}
-
     <div class="divider"></div>
-    <div class="section-label">Sous-tâches</div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
-    <button class="btn btn-ghost btn-block" data-act="ebAddSub()">+ Ajouter une sous-tâche</button>
+    <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ Sous-tâche</button>
 
     ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
       <div style="display:flex;gap:7px;align-items:center">
@@ -2506,6 +2501,11 @@ function taskSheet(){
         <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
       </div>
       ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ajoute un rappel (ex. J-30).</div>'}</div>`:''}
+
+    ${more.length?`<div class="dd" style="margin:16px 0 4px">
+      <button class="dd-btn" data-act="ebToggleMore()">＋ Ajouter un champ ▾</button>
+      ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}</div>`:''}
+    </div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
       <div class="dd" style="flex:1">
