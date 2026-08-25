@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
+<meta name="app-build" content="b-2026-08-25-a">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -4483,6 +4484,29 @@ try{
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
 else boot();
+
+// ---------- DÉTECTION DE NOUVELLE VERSION (fin des soucis de cache) ----------
+// L'appli compare sa version à celle publiée ; si elles diffèrent, elle propose de recharger.
+const APP_BUILD=((document.querySelector('meta[name="app-build"]')||{}).content)||'';
+let _updShown=false, _updLast=0;
+function _showUpdateBanner(){
+  if(_updShown||document.getElementById('upd-banner'))return; _updShown=true;
+  const d=document.createElement('div'); d.id='upd-banner';
+  d.style.cssText='position:fixed;left:12px;right:12px;bottom:78px;z-index:99999;background:#1E3A6E;color:#fff;padding:12px 14px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;align-items:center;gap:10px;font-size:14px;font-family:inherit';
+  d.innerHTML='<span style="flex:1">🔄 Nouvelle version disponible</span><button style="background:#fff;color:#1E3A6E;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer" onclick="try{location.reload()}catch(e){location.href=location.pathname}">Recharger</button>';
+  document.body.appendChild(d);
+}
+async function checkForUpdate(){
+  try{
+    const now=Date.now(); if(now-_updLast<90*1000) return; _updLast=now;
+    const html=await fetch('/?u='+now,{cache:'no-store'}).then(r=>r.text());
+    const m=html.match(/name="app-build" content="([^"]+)"/);
+    if(m && m[1] && APP_BUILD && m[1]!==APP_BUILD) _showUpdateBanner();
+  }catch(e){}
+}
+setTimeout(checkForUpdate, 4000);
+setInterval(checkForUpdate, 10*60*1000);
+try{ document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') checkForUpdate(); }); }catch(e){}
 
 // PWA : enregistre le service worker s'il est présent (met l'app à jour toute seule quand elle est en ligne).
 // PWA : service worker « réseau d'abord » → l'app récupère toujours la dernière version quand elle est en ligne,
