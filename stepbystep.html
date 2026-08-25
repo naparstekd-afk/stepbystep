@@ -1580,15 +1580,16 @@ function taskHTML(t,ev,idx,total,reorder){
     <div class="task-main">
       ${reorder&&total>1?`<div class="drag-handle" data-drag="${t.id}" title="Glisser pour déplacer">⠿</div>`:''}
       <div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')" title="${t.subtasks&&t.subtasks.length?'Tout cocher / décocher':''}">${t.status==='done'?'✓':((t.subtasks&&t.subtasks.length&&countAllDone(t.subtasks)>0)?`<span style="color:${st.c};font-size:12px;font-weight:800;line-height:1">–</span>`:(t.status==='inprogress'||t.status==='waiting'?`<span style="color:${st.c};font-size:9px">●</span>`:''))}</div>
-      <div class="task-content" data-act="openTask('${t.id}')">
-        <div class="task-text ${t.status==='done'?'done':''}">${esc(t.text)}</div>
+      <div class="task-content" data-act="${(t.subtasks&&t.subtasks.length)?`toggleExpand('${t.id}')`:`openTask('${t.id}')`}">
+        <div class="task-text ${t.status==='done'?'done':''}" data-act="openTask('${t.id}')">${esc(t.text)}</div>
         ${tags?`<div class="task-tags">${tags}</div>`:''}
       </div>
       <div class="task-acts">
+        ${(t.subtasks&&t.subtasks.length)?`<button class="mini-btn" data-act="toggleExpand('${t.id}')" title="Déplier / replier les sous-tâches">${expanded[t.id]?'▾':'▸'}</button>`:''}
         <button class="mini-btn danger" data-act="delTask('${t.id}')">🗑</button>
       </div>
     </div>
-    ${t.subtasks&&t.subtasks.length?`<div class="subs">${t.subtasks.map(s=>subHTML(s,t)).join('')}</div>`:''}
+    ${(t.subtasks&&t.subtasks.length&&expanded[t.id])?`<div class="subs">${t.subtasks.map(s=>subHTML(s,t)).join('')}</div>`:''}
   </div>`;
 }
 function subHTML(s,parent){
