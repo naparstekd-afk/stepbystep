@@ -517,13 +517,14 @@ function save(){
   const key=_stateKey();
   try{ if(_lsOK) localStorage.setItem(key, JSON.stringify(D)); else _memStore[key]=JSON.stringify(D); }
   catch(e){ _memStore[key]=JSON.stringify(D); }
+  try{ snapshotBackup('auto'); }catch(e){}   // sauvegarde locale tournante (throttlée)
   if(!_cloudSuppress){ scheduleCloudPush(); scheduleGcalPush(); }
 }
 function load(){
   const key=_stateKey();
   try{
     const s = _lsOK ? localStorage.getItem(key) : _memStore[key];
-    if(s){ D=JSON.parse(s); return true; }
+    if(s){ D=JSON.parse(s); try{ snapshotBackup('chargement'); }catch(e){} return true; }
   }catch(e){}
   return false;
 }
@@ -608,7 +609,7 @@ async function cloudPush(){
     const stamp=new Date().toISOString();
     const body=[{org_id:_org.id, data:D, updated_at:stamp, updated_by:(_auth&&_auth.user&&_auth.user.id)||null}];
     const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?on_conflict=org_id',{method:'POST',headers:_authH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
-    if(r.ok){ _lastSyncStamp=stamp; setSyncState('ok'); } else { setSyncState('err'); }
+    if(r.ok){ _lastSyncStamp=stamp; setSyncState('ok'); try{ cloudBackup('auto'); }catch(e){} } else { setSyncState('err'); }
   }catch(e){ setSyncState('off'); }
   _cloudBusy=false;
 }
@@ -622,6 +623,7 @@ async function cloudPull(){
     if(!row){ setSyncState('ok'); return false; }
     if(row.updated_at===_lastSyncStamp){ setSyncState('ok'); return false; }
     if(_isRealD(row.data)){
+      try{ snapshotBackup('avant synchro entrante',true); }catch(e){}   // protège l'état local avant de le remplacer
       _lastSyncStamp=row.updated_at;
       _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false;
       if(!sheet && !drawerOpen){ try{ render(); }catch(e){} }
@@ -639,6 +641,71 @@ function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
   }catch(e){}
   return n;
 }
+// ============================================================
+//  SAUVEGARDES / RESTAURATION — filet de sécurité anti-perte de données
+//  1) Sauvegardes locales tournantes par association (localStorage).
+//  2) Export / import d'un fichier JSON (copie hors-appareil).
+//  3) Sauvegardes cloud (table sbs_org_backups) si présente — historique par association.
+//  Aucune de ces opérations ne peut écraser des données réelles par du vide (_isRealD).
+// ============================================================
+const _BAK_KEEP=8, _BAK_MIN_MS=9*60*1000;
+function _bakKey(){ return 'sbs_bak_'+(_org?_org.id:'anon'); }
+function _readBaks(){ try{ return JSON.parse((_lsOK?localStorage.getItem(_bakKey()):_memStore[_bakKey()])||'[]')||[]; }catch(e){ return []; } }
+function _writeBaks(list){ const k=_bakKey(); const put=(l)=>{ if(_lsOK) localStorage.setItem(k,JSON.stringify(l)); else _memStore[k]=JSON.stringify(l); };
+  try{ put(list); return true; }catch(e){ try{ while(list.length>1){ list.shift(); put(list); return true; } }catch(_){ } return false; } }
+function snapshotBackup(reason,force){
+  try{
+    if(!_org || !_isRealD(D)) return;                 // jamais sauvegarder du vide
+    const list=_readBaks(); const last=list[list.length-1]; const now=Date.now();
+    if(!force && last && (now-(last.t||0)) < _BAK_MIN_MS) return;   // throttle
+    const json=JSON.stringify(D);
+    if(last && last.json===json) return;              // pas de doublon exact
+    list.push({ t:now, iso:new Date().toISOString(), reason:reason||'', score:_dataScore(D), json:json });
+    while(list.length>_BAK_KEEP) list.shift();
+    _writeBaks(list);
+  }catch(e){}
+}
+function _bakLabel(b){ try{ return new Date(b.iso).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return b.iso||''; } }
+function restoreBackup(i){ const list=_readBaks(); const b=list[list.length-1-i]; if(!b)return;
+  if(!confirm('Restaurer la sauvegarde du '+_bakLabel(b)+' ?\nL\'état actuel sera remplacé (une sauvegarde de sécurité est prise juste avant).'))return;
+  snapshotBackup('avant restauration',true);
+  try{ D=JSON.parse(b.json); ensureCollections(); save(); closeSheet(); render(); toast('Sauvegarde restaurée ✓'); }catch(e){ toast('Échec de la restauration'); } }
+function backupDownload(){ try{ const nm='stepbystep-'+String((_org&&_org.name)||'sauvegarde').replace(/[^\w-]+/g,'_')+'-'+todayKey()+'.json';
+  const blob=new Blob([JSON.stringify({_export:'stepbystep',org:(_org&&_org.name)||'',at:new Date().toISOString(),data:D})],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nm; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(_){ } },200); toast('Sauvegarde téléchargée ✓'); }catch(e){ toast('Échec du téléchargement'); } }
+function backupImportFile(input){ const f=input&&input.files&&input.files[0]; if(!f)return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const o=JSON.parse(rd.result); const d=(o&&o._export==='stepbystep'&&o.data)?o.data:o;
+    if(!_isRealD(d)){ toast('Fichier non reconnu'); return; }
+    if(!confirm('Importer ces données ? L\'état actuel sera remplacé (une sauvegarde de sécurité est prise avant).')) return;
+    snapshotBackup('avant import',true); D=d; ensureCollections(); save(); closeSheet(); render(); toast('Données importées ✓');
+  }catch(e){ toast('Fichier illisible'); } }; rd.readAsText(f); try{ input.value=''; }catch(_){ } }
+// Sauvegarde cloud (historique par association) — inopérante mais sans erreur si la table n'existe pas encore.
+let _cloudBakStamp=0;
+async function cloudBackup(reason,force){
+  try{
+    if(!_cloudReady||!_org||!_isRealD(D)) return;
+    const now=Date.now(); if(!force && (now-_cloudBakStamp)<30*60*1000) return; _cloudBakStamp=now;
+    if(!await _ensureToken()) return;
+    const body=[{org_id:_org.id, data:D, note:reason||'', score:_dataScore(D), updated_by:(_auth&&_auth.user&&_auth.user.id)||null}];
+    await fetch(SUPA_URL+'/rest/v1/sbs_org_backups',{method:'POST',headers:_authH({Prefer:'return=minimal'}),body:JSON.stringify(body)});
+  }catch(e){}
+}
+function openBackups(){ sheet={type:'backups'}; renderOverlay(); }
+function backupSheet(){
+  const list=_readBaks().slice().reverse();
+  return `<div class="sheet-head"><div class="sheet-title">🛟 Sauvegardes & sécurité</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="hint" style="margin-bottom:10px">Tes données sont enregistrées en local <b>et</b> dans le cloud de ton association. Voici des sauvegardes de secours pour tout récupérer en cas de problème.</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-primary btn-sm" style="flex:1" data-act="backupDownload()">⬇ Télécharger (fichier)</button>
+      <label class="btn btn-soft btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0">⬆ Importer un fichier<input type="file" accept="application/json,.json" style="display:none" onchange="backupImportFile(this)"></label>
+    </div>
+    <div class="section-label">Sauvegardes automatiques (cet appareil)</div>
+    ${list.length?list.map((b,i)=>`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${_bakLabel(b)}</div><div style="font-size:12px;color:var(--ink-soft)">${b.reason?esc(b.reason)+' · ':''}${b.score} éléments</div></div><button class="btn btn-soft btn-sm" data-act="restoreBackup(${i})">↩ Restaurer</button></div></div>`).join(''):'<div class="hint" style="margin-bottom:8px">Aucune sauvegarde locale pour l\'instant (elles se créent automatiquement au fil de ton travail).</div>'}
+    <div class="hint" style="margin-top:12px">Astuce : télécharge un fichier de temps en temps et garde-le ailleurs (email, Drive) — c'est ta copie de secours ultime, indépendante de l'appareil et du cloud.</div>
+  </div>`;
+}
 async function cloudStart(){
   if(!_org) return;
   _cloudReady=true; setSyncState('sync');
@@ -649,6 +716,7 @@ async function cloudStart(){
       const cloudReal = row && _isRealD(row.data);
       // Garde-fou migration : à la 1re entrée, si le local est plus riche que le cloud, on POUSSE (jamais écraser du vrai par du vide).
       if(cloudReal && !(_freshEntry && _dataScore(D) > _dataScore(row.data))){
+        try{ snapshotBackup('avant 1re synchro',true); }catch(e){}
         _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false; try{render();}catch(e){} setSyncState('ok');
       } else {
         await cloudPush();   // association neuve OU migration → on y verse les données locales
@@ -1720,16 +1788,17 @@ function drawerHTML(){
       ['_soon','👥',t('Collaboration temps réel','שיתוף בזמן אמת','Real-time Collaboration'),'SaaS'],
     ]],
     [t('SYSTÈME','מערכת','SYSTEM'),[
+      ['_backups','🛟',t('Sauvegardes & sécurité','גיבויים','Backups & Safety'),null],
       ['settings','⚙️',t('Réglages','הגדרות','Settings'),null],
     ]],
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_soon'||v==='coach'||v==='templates'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='coach'||v==='templates'||menuVisible(v));
     if(!vis.length) return;
     body+=`<div class="drawer-sec">${sec}</div>`;
     vis.forEach(([v,ic,label,badge])=>{
-      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
+      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
     });
   });
@@ -2430,6 +2499,7 @@ function sheetHTML(){
   else if(sheet.type==='timer') inner=timerSheet();
   else if(sheet.type==='debrief') inner=debriefSheet();
   else if(sheet.type==='themeAssign') inner=themeAssignSheet();
+  else if(sheet.type==='backups') inner=backupSheet();
   return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
 // Tap sur le fond : si l'explorateur de rattachement est ouvert (ou le calendrier),
@@ -4278,6 +4348,7 @@ function commitDragOrder(kind){
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
+ openBackups,restoreBackup,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
