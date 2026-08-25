@@ -483,6 +483,7 @@ let sheet = null;       // {type, ...}
 let editBuf = null;     // buffer d'édition de tâche
 let tplBuf=null;        // buffer d'édition de modèle
 let moveNav=null;       // explorateur de réattribution {mId,fId,pId}
+let _themeAssign=null;  // {themeId,name} — attribution d'une activité de thème à un mois
 let datePicker=null;    // sélecteur de date hébraïque
 let progYM=null;        // mois affiché dans Présences & Salaires
 let progGen=false;      // formulaire de génération de journées
@@ -2377,6 +2378,7 @@ function sheetHTML(){
   else if(sheet.type==='bulkMove') inner=bulkMoveSheet();
   else if(sheet.type==='timer') inner=timerSheet();
   else if(sheet.type==='debrief') inner=debriefSheet();
+  else if(sheet.type==='themeAssign') inner=themeAssignSheet();
   return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
 // Tap sur le fond : si l'explorateur de rattachement est ouvert (ou le calendrier),
@@ -2531,9 +2533,13 @@ function taskSheet(){
       </div>
     </div>`}
 
-    <button class="btn btn-primary btn-block" style="margin-top:14px" data-act="saveTask()">Enregistrer</button>
+    <div style="display:flex;gap:9px;margin-top:14px;align-items:stretch">
+      <button class="btn btn-primary" style="flex:1" data-act="saveTask()">Enregistrer</button>
+      ${isTpl?'':`<button class="btn btn-ghost" style="color:var(--red);padding:0 16px;font-size:18px" data-act="ebDeleteTask()" title="Supprimer la tâche">🗑</button>`}
+    </div>
   </div>`;
 }
+function ebDeleteTask(){ const id=editBuf&&editBuf.id; if(!id){ closeSheet(); return; } const r=findTaskAnywhere(id); if(!r){ closeSheet(); render(); return; } if(!confirm('Supprimer « '+(r.task.text||'cette tâche')+' » ?'))return; const arr=r.loc.parent?r.loc.parent.subtasks:containerTasks(r.loc); const i=arr.findIndex(x=>x.id===id); if(i>=0)arr.splice(i,1); save(); closeSheet(); render(); toast('Tâche supprimée'); }
 // durée : parseur et formateur « humains »
 function parseDur(s){ if(s==null)return 0; s=String(s).toLowerCase().trim(); if(!s)return 0; const hm=s.match(/(\d+)\s*h\s*(\d+)/); if(hm)return parseInt(hm[1])*60+parseInt(hm[2]); const h=s.match(/(\d+)\s*h/); const mn=s.match(/(\d+)\s*(?:min|m)\b/); if(h||mn){ return (h?parseInt(h[1])*60:0)+(mn?parseInt(mn[1]):0); } const n=parseInt(s); return isNaN(n)?0:n; }
 function fmtDurH(min){ min=parseInt(min)||0; if(!min)return ''; const h=Math.floor(min/60),r=min%60; if(h&&r)return h+' h '+(r<10?'0'+r:r); if(h)return h+' h'; return min+' min'; }
@@ -3360,12 +3366,12 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   let h=`<div class="wrap-task"><div class="jtask">
     <div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>
     <div class="jtask-body" data-act="openTask('${t.id}')">
-      <div class="jtask-title ${done?'done':''}">${esc(t.text)}</div>
+      <div class="jtask-title ${done?'done':''}">${(t.text&&t.text.trim())?esc(t.text):'<span style="color:var(--ink-soft);font-style:italic">Tâche sans titre — ouvrir pour modifier / supprimer</span>'}</div>
       ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${prio}${remTag}${dateTag}${who}</div>`:''}
     </div>
     ${expBtn?`<div style="align-self:center">${expBtn}</div>`:''}
   </div>`;
-  if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${esc(s.text)}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
+  if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${(s.text&&s.text.trim())?esc(s.text):'<span style="color:var(--ink-soft);font-style:italic">Sous-tâche sans titre</span>'}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
   h+=`</div>`; return h;
 }
 function renderJournal(c){
@@ -3386,8 +3392,7 @@ function renderJournal(c){
     <button class="cbtn" data-act="jNav(1)" title="Suivant">▶</button>
   </div>
   ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`:''}`;
-  // — Bandeau thèmes (rappel visuel sur Ma Journée) —
-  if((D.themes||[]).length){ html+=`<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px">${D.themes.map(th=>`<button class="tpill theme on" style="flex-shrink:0" data-act="setView('themes');openTheme('${th.id}')"><span>${th.icon||'🎯'}</span>${esc(th.name)}</button>`).join('')}</div>`; }
+  // (Bandeau thèmes retiré de Ma Journée à la demande de l'utilisateur)
 
   if(jPeriod==='today'){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
@@ -3486,9 +3491,23 @@ function eventThemeToggle(){ const ev=curEvent(); if(!ev)return; if(ev.themeId){
 function eventLinkTheme(tid){ const ev=curEvent(); if(!ev)return; openDD=null; if(tid==='__new'){ const n=prompt('Nom du thème :',ev.name||''); if(n===null||!n.trim())return; if(!Array.isArray(D.themes))D.themes=[]; let th=D.themes.find(x=>x.name.toLowerCase()===n.trim().toLowerCase()); if(!th){ th={id:uid(),name:n.trim(),icon:'🎯',color:'#1E3A6E'}; D.themes.push(th);} ev.themeId=th.id; } else { ev.themeId=tid; } save(); render(); }
 function renameTheme(id){ const th=themeById(id); if(!th)return; const n=prompt('Nom du thème :',th.name); if(n&&n.trim())th.name=n.trim(); const ic=prompt('Icône (emoji) :',th.icon); if(ic!==null&&ic.trim())th.icon=ic.trim(); save(); render(); }
 function delTheme(id){ if(!confirm('Supprimer ce thème ? (les activités du calendrier sont conservées, simplement détachées)'))return; themeEvents(id).forEach(x=>{ delete x.e.themeId; }); D.themes=(D.themes||[]).filter(x=>x.id!==id); themeNav=null; save(); render(); }
-function addActivityToTheme(tid){ const th=themeById(tid); if(!th)return; const name=prompt('Nom de l\'activité (ex. '+th.name+' — décembre) :',th.name+' — '); if(name===null||!name.trim())return;
-  const mId=hebMonthIdOf(todayKey())||'tishri'; const f=monthFete(mId); const e=mkEvent(name.trim()); e.themeId=tid; f.events.push(e); save();
-  go({view:'calendar',monthId:mId,feteId:f.id,eventId:e.id,ctx:'fete'}); toast('Activité créée dans le calendrier ✓'); }
+// Attribuer une activité du thème à un MOIS choisi du calendrier (ouvre un sélecteur de mois).
+function addActivityToTheme(tid){ const th=themeById(tid); if(!th)return; _themeAssign={themeId:tid, name:th.name+' — '}; sheet={type:'themeAssign'}; renderOverlay(); setTimeout(()=>{ const e=$('ta-name'); if(e){ e.focus(); try{ e.setSelectionRange(e.value.length,e.value.length); }catch(_){} } },50); }
+function themeAssignSync(){ const el=$('ta-name'); if(el&&_themeAssign) _themeAssign.name=el.value; }
+function themeAssignSheet(){ const th=_themeAssign&&themeById(_themeAssign.themeId); if(!th) return '<div class="sheet-head"><div class="sheet-title">—</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>';
+  const cur=hebMonthIdOf(todayKey())||'tishri';
+  return `<div class="sheet-head"><div class="sheet-title">Attribuer au calendrier</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="field"><label class="field-label">Activité — thème « ${esc(th.name)} »</label>
+      <input class="input" id="ta-name" value="${esc(_themeAssign.name||'')}" placeholder="Nom de l'activité" style="font-size:16px"></div>
+    <div class="field"><label class="field-label">Dans quel mois ?</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${MONTHS.map(m=>`<button class="btn ${m.id===cur?'btn-soft':'btn-ghost'} btn-sm" style="border:1.5px solid var(--line)" data-act="themeAssignTo('${m.id}')">${m.emoji}<br>${m.name}</button>`).join('')}
+      </div></div>
+    <div class="hint">L'activité est créée dans le mois choisi et reliée au thème. Tu pourras y ajouter dates et tâches ensuite.</div>
+  </div>`;
+}
+function themeAssignTo(mId){ themeAssignSync(); if(!_themeAssign)return; const tid=_themeAssign.themeId; const th=themeById(tid); const name=(_themeAssign.name||'').trim()||(th?th.name:'Activité'); const f=monthFete(mId); const e=mkEvent(name); e.themeId=tid; f.events.push(e); save(); _themeAssign=null; closeSheet(); go({view:'calendar',monthId:mId,feteId:f.id,eventId:e.id,ctx:'fete'}); const mm=MONTHS.find(x=>x.id===mId); toast('Activité ajoutée à '+(mm?mm.name:'ce mois')+' ✓'); }
 function renderThemes(c){
   if(themeNav){
     const th=themeById(themeNav);
@@ -4141,9 +4160,9 @@ function commitDragOrder(kind){
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
- newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDeleteTask,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
