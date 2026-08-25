@@ -1497,12 +1497,13 @@ function renderEvent(c){
       <select class="select" style="flex:1;min-width:140px" onchange="evMoveTo(this.value);this.value=''"><option value="">↗ Déplacer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
       <select class="select" style="flex:1;min-width:140px" onchange="evDupTo(this.value);this.value=''"><option value="">⧉ Dupliquer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
     </div></div>`;
-  // Récurrence : liste déroulante compacte (remplace les deux boutons).
-  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:13px;color:var(--ink-soft)">Récurrence :</span>
-    <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="setEventRecurring(this.value==='1')">
-      <option value="0" ${!ev.recurring?'selected':''}>Événement unique</option>
-      <option value="1" ${ev.recurring?'selected':''}>🔁 Chaque année</option>
-    </select></div>`;
+  // Récurrence : même rond-icône que la fête (1️⃣ unique / 🔁 chaque année), sans texte à côté.
+  html+=`<div style="margin-bottom:12px">
+    <span class="dd" style="position:relative">
+      <button class="cbtn" data-act="toggleDD('evrec')" title="Récurrence : ${ev.recurring?'chaque année':'unique'}" style="${ev.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${ev.recurring?'🔁':'1️⃣'}</button>
+      ${openDD==='evrec'?`<div class="dd-menu"><button class="dd-item ${!ev.recurring?'sel':''}" data-act="setEventRecurring(false);closeDD()">1️⃣ Événement unique</button><button class="dd-item ${ev.recurring?'sel':''}" data-act="setEventRecurring(true);closeDD()">🔁 Chaque année</button></div>`:''}
+    </span>
+  </div>`;
   html+=`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('event')">⬇ Exporter / Importer</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentEvent()" title="Supprimer cet événement">🗑 Supprimer</button></div>`;
   c.innerHTML=html;
 }
@@ -2552,10 +2553,10 @@ function taskSheet(){
       <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ Choisir une tâche…</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
 
     ${hasRec?`<div class="section-label">🔁 Récurrence${trash('rec')}</div>
-      <div class="field"><div class="toggle-group">
-        <button class="toggle-opt ${!t.recurring?'active':''}" data-act="ebSet('recurring',false)">Unique</button>
-        <button class="toggle-opt ${t.recurring?'active':''}" data-act="ebSet('recurring',true)">Chaque année</button>
-      </div></div>`:''}
+      <div class="field"><span class="dd" style="position:relative">
+        <button class="cbtn" data-act="toggleDD('taskrec')" title="Récurrence : ${t.recurring?'chaque année':'unique'}" style="${t.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${t.recurring?'🔁':'1️⃣'}</button>
+        ${openDD==='taskrec'?`<div class="dd-menu"><button class="dd-item ${!t.recurring?'sel':''}" data-act="ebSet('recurring',false);closeDD()">1️⃣ Unique</button><button class="dd-item ${t.recurring?'sel':''}" data-act="ebSet('recurring',true);closeDD()">🔁 Chaque année</button></div>`:''}
+      </span></div>`:''}
 
     <div class="divider"></div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
