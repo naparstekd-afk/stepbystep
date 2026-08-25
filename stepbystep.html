@@ -3568,9 +3568,15 @@ function renderJournal(c){
       if(eff===jKey || (eff<realToday)){ open.push({t,where,eff}); return; }
       if(_subMatch(t,jKey,jKey)) open.push({t,where,eff,auto:true});
     };
-    Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ const eff0=e.date||f.date||''; (e.tasks||[]).forEach(t=>_handle(t,f.name+' › '+e.name,eff0)); })));
+    Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>{
+      f.events.forEach(e=>{ const eff0=e.date||f.date||''; (e.tasks||[]).forEach(t=>_handle(t,f.name+' › '+e.name,eff0)); });
+      (f.tasks||[]).forEach(t=>_handle(t,f.name,f.date||''));   // tâches DIRECTES de la fête (manquaient !)
+    }));
     Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); (m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),'')); });
-    D.programs.forEach(p=>p.events.forEach(e=>{ const eff0=e.date||p.date||''; (e.tasks||[]).forEach(t=>_handle(t,p._general?'':(p.name+' › '+e.name),eff0)); }));
+    D.programs.forEach(p=>{
+      p.events.forEach(e=>{ const eff0=e.date||p.date||''; (e.tasks||[]).forEach(t=>_handle(t,p._general?'':(p.name+' › '+e.name),eff0)); });
+      (p.tasks||[]).forEach(t=>_handle(t,p.name,p.date||''));   // tâches DIRECTES du programme
+    });
     open.sort((a,b)=>(b.t.priority==='haute'?1:0)-(a.t.priority==='haute'?1:0));
     // fêtes / événements du jour
     const evs=datedAll().filter(x=>(x.kind==='fete'||x.kind==='event')&&x.iso===jKey);
