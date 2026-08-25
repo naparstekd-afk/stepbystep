@@ -3357,7 +3357,12 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const remTag=opt.reminder?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🔔 ${remLabel(opt.reminder)}</span>`:'';
   const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ ':'📅 '}${fmtDate(eff)}</span>`:'';
   const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 Prioritaire</span>`:'';
-  const subs=t.subtasks||[]; const isOpen=!!expanded[t.id]||opt.auto;
+  // En vue « Ma journée » (opt.jKey), on masque les sous-tâches datées PLUS TARD et non faites :
+  // elles apparaissent à leur date prévue, pas dans la liste du jour. Les sous-tâches faites restent visibles.
+  const jk=opt.jKey||'';
+  const allSubs=t.subtasks||[];
+  const subs = jk ? allSubs.filter(s=> s.status==='done' || !(s.date && s.date>jk)) : allSubs;
+  const isOpen=!!expanded[t.id]||opt.auto;
   const expBtn=subs.length?`<span class="exp-toggle" data-act="toggleExpand('${t.id}')">${isOpen?'▾':'▸'} ${subs.length}</span>`:'';
   const done=t.status==='done';
   const partial=(t.subtasks&&t.subtasks.length&&countAllDone(t.subtasks)>0&&!done)?`<span style="color:${st.c};font-size:12px;font-weight:800;line-height:1">–</span>`:'';
@@ -3414,8 +3419,8 @@ function renderJournal(c){
       html+=emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','');
     } else {
       if(evs.length){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
-      if(open.length){ html+=`<div class="section-label">✅ À faire (${open.length})</div>`; open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto})); }
-      if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'')); }
+      if(open.length){ html+=`<div class="section-label">✅ À faire (${open.length})</div>`; open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
     }
   } else {
     // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
