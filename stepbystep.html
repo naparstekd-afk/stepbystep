@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-d">
+<meta name="app-build" content="b-2026-08-25-e">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1561,10 +1561,9 @@ function renderEvent(c){
   }
 
   // Bas de page : déplacer / dupliquer (y compris vers un autre MOIS), récurrence, export, suppression.
-  html+=`<div class="divider"></div><div class="card" style="padding:10px 12px;margin-bottom:10px"><div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">Déplacer / dupliquer cet événement vers un mois ou une fête…</div>
+  html+=`<div class="divider"></div><div class="card" style="padding:10px 12px;margin-bottom:10px"><div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">Déplacer cet événement vers un mois ou une fête…</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap">
       <select class="select" style="flex:1;min-width:140px" onchange="evMoveTo(this.value);this.value=''"><option value="">↗ Déplacer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
-      <select class="select" style="flex:1;min-width:140px" onchange="evDupTo(this.value);this.value=''"><option value="">⧉ Dupliquer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
     </div></div>`;
   // Récurrence : même rond-icône que la fête (1️⃣ unique / 🔁 chaque année), sans texte à côté.
   html+=`<div style="margin-bottom:12px">
@@ -2570,7 +2569,7 @@ function taskSheet(){
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${isTpl?'':`<button class="btn btn-soft btn-sm btn-block" data-act="mvOpen()" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font-size:12px">${esc(parentLabel(t._loc)||'Indépendante')}</span><span style="color:var(--primary);font-weight:600;white-space:nowrap">▾ déplacer</span></button>${moveNav?moveExplorerHTML():''}`}
+    ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||'📥 Indépendante')}</div>`}
 
     ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
@@ -2644,13 +2643,7 @@ function taskSheet(){
     </div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      ${(promote||siblings.length)?`<div class="dd" style="flex:1">
-        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleMove()">↕ Hiérarchie ▾</button>
-        ${t._moveOpen?`<div class="dd-menu" style="width:100%">
-          ${promote?`<button class="dd-item" data-act="ebPromote()">⬆ En tâche principale</button>`:''}
-          ${!promote&&siblings.length?siblings.filter(s=>!isDescendant(t,s.id)).slice(0,20).map(s=>`<button class="dd-item" data-act="ebDemote('${s.id}')">↳ Sous-tâche de : ${esc(s.text.slice(0,26))}</button>`).join(''):''}
-        </div>`:''}
-      </div>`:''}
+      <button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ Déplacer</button>
       <div class="dd" style="flex:1">
         <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ Exporter ▾</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
@@ -2661,7 +2654,8 @@ function taskSheet(){
           <button class="dd-item" data-act="taskExport('wa')">💬 WhatsApp</button>
         </div>`:''}
       </div>
-    </div>`}
+    </div>
+    ${moveNav?moveExplorerHTML():''}`}
 
     <div style="display:flex;gap:9px;margin-top:14px;align-items:stretch">
       <button class="btn btn-primary" style="flex:1" data-act="saveTask()">Enregistrer</button>
@@ -3060,6 +3054,7 @@ function mvUp(){ syncInputs(); if(moveNav&&moveNav.fId){ moveNav={mId:moveNav.mI
 function mvMonth(mId){ syncInputs(); moveNav={mId:mId}; renderOverlay(); }
 function mvProgram(pId){ syncInputs(); moveNav={pId:pId}; renderOverlay(); }
 function mvFete(fId){ syncInputs(); moveNav={mId:moveNav.mId,fId:fId}; renderOverlay(); }
+function mvTheme(thId){ syncInputs(); moveNav={thId:thId}; renderOverlay(); }
 function mvMove(v){ moveNav=null; ebMoveTo(v); }
 function mvDup(v){ ebDuplicateTo(v); moveNav=null; renderOverlay(); }
 function mvCreateEvent(){ let cont=null, prefix=''; if(moveNav.pId){ cont=D.programs.find(x=>x.id===moveNav.pId); prefix='program|'+moveNav.pId+'||'; } else if(moveNav.mId&&moveNav.fId){ const m=D.months[moveNav.mId]; cont=m&&m.fetes.find(x=>x.id===moveNav.fId); prefix='fete|'+moveNav.mId+'|'+moveNav.fId+'|'; } if(!cont)return; const n=prompt('Nom du nouvel événement :','Nouvel événement'); if(n===null)return; const e=mkEvent(n.trim()||'Nouvel événement'); cont.events.push(e); mvMove(prefix+e.id); }
@@ -3068,21 +3063,28 @@ function mvCreateProgram(){ const n=prompt('Nom du nouveau programme :','Nouveau
 function moveExplorerHTML(){
   // fil d'Ariane de la navigation en cours
   let crumbs=['Tout'];
-  if(moveNav.mId){ const mm=MONTHS.find(x=>x.id===moveNav.mId); let c=[(mm?mm.emoji+' '+mm.name:'Mois')]; if(moveNav.fId){ const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); c.push(f?f.name:'Fête'); } crumbs=c; }
+  if(moveNav.thId){ const th=themeById(moveNav.thId); crumbs=[(th?(th.icon||'🎯')+' '+th.name:'Thème')]; }
+  else if(moveNav.mId){ const mm=MONTHS.find(x=>x.id===moveNav.mId); let c=[(mm?mm.emoji+' '+mm.name:'Mois')]; if(moveNav.fId){ const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); c.push(f?f.name:'Fête'); } crumbs=c; }
   // étape courante
-  let step = (!moveNav.mId) ? '1 · Choisis un mois (ou la boîte indépendante)'
+  let step = moveNav.thId ? '2 · Choisis l\'activité du thème'
+           : (!moveNav.mId) ? '1 · Choisis une destination'
            : (moveNav.mId&&!moveNav.fId) ? '2 · Dépose dans le mois, ou ouvre une fête'
            : '3 · Choisis l\'événement de destination';
 
   let h='<div class="mvbox">';
   h+='<div class="mvbar"><div class="mvtitle">📂 Déplacer la tâche</div><span class="mvcancel" data-act="mvClose()">Annuler ✕</span></div>';
   h+='<div class="mvcrumb">'+crumbs.map(esc).join(' <span style="opacity:.4">›</span> ')+'</div>';
-  h+='<div class="mvstep">'+(moveNav.mId? '<span class="mvback" data-act="mvUp()">‹ Retour</span> ':'')+'<span>'+step+'</span></div>';
+  h+='<div class="mvstep">'+((moveNav.mId||moveNav.thId)? '<span class="mvback" data-act="mvUp()">‹ Retour</span> ':'')+'<span>'+step+'</span></div>';
 
   const destRow=(label,v)=>'<div class="mvdest"><div class="mvdest-name">'+esc(label)+'</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="mvMove(\''+v+'\')">↗ Déplacer ici</button></div></div>';
   const navRow=(label,act)=>'<div class="mvnav" data-act="'+act+'"><div style="flex:1">'+esc(label)+'</div><span class="chev">›</span></div>';
 
-  if(moveNav.mId&&moveNav.fId){
+  if(moveNav.thId){
+    // activités (événements) rattachées à ce thème → on dépose dans l'une d'elles
+    const evs=themeEvents(moveNav.thId); const mmOf=id=>MONTHS.find(x=>x.id===id);
+    if(evs.length) evs.forEach(x=>{ const mm=mmOf(x.mId); h+=destRow((mm?mm.name+' › ':'')+x.fName+' › '+x.e.name,'fete|'+x.mId+'|'+x.fId+'|'+x.e.id); });
+    else h+='<div class="hint">Aucune activité rattachée à ce thème. Relie d\'abord un événement à ce thème (page de l\'événement → 🎯).</div>';
+  } else if(moveNav.mId&&moveNav.fId){
     const m=D.months[moveNav.mId]; const f=m&&m.fetes.find(x=>x.id===moveNav.fId); if(f) f.events.forEach(e=>h+=destRow(e.name,'fete|'+moveNav.mId+'|'+f.id+'|'+e.id));
     h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateEvent()">➕ Nouvel événement ici</button>';
   } else if(moveNav.mId){
@@ -3093,10 +3095,22 @@ function moveExplorerHTML(){
     if(real.length){ h+='<div class="section-label" style="margin-top:8px">Ou dans une fête</div>'; real.forEach(f=>h+=navRow(f.name+' · '+f.events.length+' évén.',"mvFete('"+f.id+"')")); }
     h+='<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" data-act="mvCreateFete()">➕ Nouvelle fête ici</button>';
   } else {
-    // boîte de réception (indépendantes)
-    h+=destRow('📥 Indépendante (boîte de réception)','inbox');
-    h+='<div class="section-label" style="margin-top:8px">Dans un mois</div>';
+    // RACINE : deux voies — dans un mois, ou dans un thème — + boîte indépendante
+    h+='<div class="section-label">Dans un mois</div>';
     MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; h+=navRow(mo.emoji+' '+mo.name+(n?' · '+n+' fête(s)':''),"mvMonth('"+mo.id+"')"); });
+    const ths=(D.themes||[]).filter(th=>(th.name||'').trim());
+    if(ths.length){ h+='<div class="section-label" style="margin-top:10px">Dans un thème</div>'; ths.forEach(th=>{ const n=themeEvents(th.id).length; h+=navRow((th.icon||'🎯')+' '+th.name+(n?' · '+n+' activité(s)':''),"mvTheme('"+th.id+"')"); }); }
+    h+='<div class="section-label" style="margin-top:10px">Autre</div>';
+    h+=destRow('📥 Indépendante (boîte de réception)','inbox');
+    // hiérarchie (rendre principale / sous-tâche d'une autre) — conservée ici, sans bouton séparé
+    const tb=editBuf;
+    if(tb){ const prom=tb._isSub; let sibs=[]; const ev=eventOfLoc(tb._loc); if(ev) sibs=flattenTasks(ev.tasks).filter(x=>x.id!==tb.id&&!isDescendant(tb,x.id));
+      if(prom||sibs.length){ const actRow=(label,act)=>'<div class="mvnav" data-act="'+act+'"><div style="flex:1">'+esc(label)+'</div></div>';
+        h+='<div class="section-label" style="margin-top:10px">Hiérarchie</div>';
+        if(prom) h+=actRow('⬆ En tâche principale','ebPromote()');
+        sibs.slice(0,20).forEach(s=>h+=actRow('↳ Sous-tâche de : '+s.text.slice(0,26),"ebDemote('"+s.id+"')"));
+      }
+    }
   }
   h+='</div>';
   return h;
@@ -4358,7 +4372,7 @@ function commitDragOrder(kind){
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,contactCall,contactWA,taskExport,expWA,setMenuHidden,
- addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
+ addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
 function migrateMaterials(){
