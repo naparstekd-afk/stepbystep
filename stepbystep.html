@@ -1372,14 +1372,14 @@ function renderContainerEvents(c,cont,ctx){
     html+=`<div class="section-label" style="margin-top:16px">✅ Tâches directes (${_ctasks.length})</div>`;
     _ctasks.forEach((t,i)=>html+=taskHTML(t,null,i,_ctasks.length,false));
   }
-  // Récurrence (fête) — bouton-icône 🔁 : clic → choisir unique / chaque année.
+  // Récurrence (fête) — un simple rond dont l'icône EST l'état : 1️⃣ = unique, 🔁 = chaque année.
+  // Aucun texte à côté. Clic → liste déroulante ; le choix change l'icône du rond.
   if(ctx==='fete'){
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin-top:16px">
+    html+=`<div style="margin-top:16px">
       <span class="dd" style="position:relative">
-        <button class="cbtn" data-act="toggleDD('feterec')" title="Récurrence : ${cont.recurring?'chaque année':'unique'}" style="${cont.recurring?'background:var(--gold-soft);border-color:var(--gold);color:var(--gold)':''}">🔁</button>
-        ${openDD==='feterec'?`<div class="dd-menu"><button class="dd-item ${!cont.recurring?'sel':''}" data-act="setContainerRecurring(false);closeDD()">Fête unique</button><button class="dd-item ${cont.recurring?'sel':''}" data-act="setContainerRecurring(true);closeDD()">🔁 Chaque année</button></div>`:''}
+        <button class="cbtn" data-act="toggleDD('feterec')" title="Récurrence : ${cont.recurring?'chaque année':'unique'}" style="${cont.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${cont.recurring?'🔁':'1️⃣'}</button>
+        ${openDD==='feterec'?`<div class="dd-menu"><button class="dd-item ${!cont.recurring?'sel':''}" data-act="setContainerRecurring(false);closeDD()">1️⃣ Fête unique</button><button class="dd-item ${cont.recurring?'sel':''}" data-act="setContainerRecurring(true);closeDD()">🔁 Chaque année</button></div>`:''}
       </span>
-      <span style="font-size:12.5px;color:var(--ink-soft)">${cont.recurring?'🔁 Revient chaque année (cases remises à zéro)':'Fête unique'}</span>
     </div>`;
   }
   // Exporter/Importer + Supprimer — côte à côte (compact)
