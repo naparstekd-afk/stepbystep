@@ -2496,6 +2496,8 @@ function taskSheet(){
   const hasContact = (t.contact&&(t.contact.name||t.contact.phone))||t._showContact;
   // options restant à révéler via « + »
   const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!hasContact)more.push(['contact','📞 Contact / Prestataire']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
+  // petite poubelle à placer à côté du nom d'un champ ajouté, pour le retirer
+  const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="Retirer ce champ" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
@@ -2519,11 +2521,11 @@ function taskSheet(){
     ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
 
-    ${hasWho?`<div class="field"><label class="field-label">Responsable</label>
+    ${hasWho?`<div class="field"><label class="field-label">Responsable${trash('who')}</label>
       <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
       <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>`:''}
 
-    ${hasContact?`<div class="field"><label class="field-label">📞 Contact / Prestataire</label>
+    ${hasContact?`<div class="field"><label class="field-label">📞 Contact / Prestataire${trash('contact')}</label>
       <div class="row2" style="gap:7px">
         <input class="input" id="f-cname" list="dl-suppliers" value="${esc((t.contact&&t.contact.name)||'')}" placeholder="Nom (ou choisir un prestataire)" onchange="ebContactPickByName(this.value)">
         <input class="input" id="f-cphone" type="tel" value="${esc((t.contact&&t.contact.phone)||'')}" placeholder="Téléphone" onchange="ebContactRefresh()">
@@ -2535,20 +2537,20 @@ function taskSheet(){
       </span>`:''}</div>`:''}
 
     ${hasBudget?`<div class="row2">
-      <div class="field"><label class="field-label">Budget</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
+      <div class="field"><label class="field-label">Budget${trash('budget')}</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
       <div class="field"><label class="field-label">Thème budgétaire</label><input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="Thème"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
     </div>`:''}
 
-    ${hasMat?`<div class="section-label">🛒 Matériel</div>
+    ${hasMat?`<div class="section-label">🛒 Matériel${trash('mat')}</div>
       <div id="mat-lines">${((t.material&&t.material.lines)||[]).map((ln,i)=>matLineHTML(ln,i)).join('')}</div>
       <datalist id="dl-stores">${D.stores.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
       <button class="btn btn-ghost btn-sm btn-block" data-act="ebAddMatLine()">＋ Ajouter une ligne (produit / quantité / magasin)</button>`:''}
 
-    ${hasDeps&&siblings.length?`<div class="section-label">🔗 Cette tâche dépend de</div>
+    ${hasDeps&&siblings.length?`<div class="section-label">🔗 Cette tâche dépend de${trash('deps')}</div>
       <div class="field"><div class="deps">${(t.dependsOn||[]).map(id=>{const d=siblings.find(s=>s.id===id);return d?`<span class="dep">${esc(d.text.slice(0,28))}<span class="dep-x" data-act="ebRmDep('${id}')">✕</span></span>`:''}).join('')}</div>
       <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ Choisir une tâche…</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
 
-    ${hasRec?`<div class="section-label">🔁 Récurrence</div>
+    ${hasRec?`<div class="section-label">🔁 Récurrence${trash('rec')}</div>
       <div class="field"><div class="toggle-group">
         <button class="toggle-opt ${!t.recurring?'active':''}" data-act="ebSet('recurring',false)">Unique</button>
         <button class="toggle-opt ${t.recurring?'active':''}" data-act="ebSet('recurring',true)">Chaque année</button>
@@ -2558,7 +2560,7 @@ function taskSheet(){
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
     <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ Sous-tâche</button>
 
-    ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
+    ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance${trash('rem')}</label>
       <div style="display:flex;gap:7px;align-items:center">
         <span style="font-size:13px;color:var(--ink-soft)">J-</span>
         <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
@@ -2609,6 +2611,16 @@ function ebToggleDur(){ syncInputs(); editBuf._showDur=!editBuf._showDur; render
 function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
 function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
 function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
+function ebRemoveField(k){ syncInputs();
+  if(k==='who'){ editBuf.responsible=''; editBuf._showWho=false; }
+  else if(k==='contact'){ editBuf.contact=null; editBuf._showContact=false; }
+  else if(k==='rem'){ editBuf.reminders=[]; editBuf._showRem=false; }
+  else if(k==='budget'){ editBuf.budget={amount:0,theme:'Divers'}; editBuf._showBudget=false; }
+  else if(k==='mat'){ editBuf.material={type:'buy',note:'',lines:[]}; editBuf._showMat=false; }
+  else if(k==='deps'){ editBuf.dependsOn=[]; editBuf._showDeps=false; }
+  else if(k==='rec'){ editBuf.recurring=false; editBuf._showRec=false; }
+  renderOverlay();
+}
 function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='contact')editBuf._showContact=true; else if(k==='rem')editBuf._showRem=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
 // --- Contact / prestataire d'une tâche ---
 function _extractPhone(s){ const m=String(s||'').match(/\+?\d[\d\s().\-]{5,}\d/); return m?m[0].trim():''; }
@@ -4265,7 +4277,7 @@ function commitDragOrder(kind){
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,contactCall,contactWA,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
