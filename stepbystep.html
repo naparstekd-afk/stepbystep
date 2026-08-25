@@ -1302,8 +1302,10 @@ function renderMonth(c){
   // — Événements libres du mois (rattachés à aucune fête) —
   const _mg = md ? md.fetes.find(f=>f._monthGeneral) : null;
   const _free = (_mg&&_mg.events)||[];
-  html+=`<div class="section-label" style="margin-top:16px">📌 Événements${_free.length?' ('+_free.length+')':''} <span style="font-weight:400;color:var(--ink-soft);text-transform:none">— hors fête</span></div>`;
+  // Événements hors fête : n'afficher la section (titre + cartes + bouton) QUE s'il y en a.
+  // Rien du tout quand il n'y en a pas — on ajoute via le bouton + en bas à droite.
   if(_free.length){
+    html+=`<div class="section-label" style="margin-top:16px">📌 Événements (${_free.length}) <span style="font-weight:400;color:var(--ink-soft);text-transform:none">— hors fête</span></div>`;
     sortByDate(_free).forEach(e=>{
       const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0;
       html+=`<div class="card drag-row" data-dragid="${e.id}" data-dragkind="event" data-act="go({feteId:'${_mg.id}',eventId:'${e.id}',ctx:'fete'})">
@@ -1315,10 +1317,8 @@ function renderMonth(c){
         </div>
       </div>`;
     });
-  } else {
-    html+=`<div class="hint" style="margin-bottom:6px">Un événement qui n'appartient à aucune fête (réunion, activité ponctuelle…).</div>`;
+    html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:6px" data-act="qaEventInMonthNamed()">＋ Ajouter un événement</button>`;
   }
-  html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:6px" data-act="qaEventInMonthNamed()">＋ Ajouter un événement</button>`;
   const mtasks=(md&&md.tasks)||[];
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ Tâches du mois</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
   const progs=programsInMonth(nav.monthId);
