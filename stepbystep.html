@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-c">
+<meta name="app-build" content="b-2026-08-25-d">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -4510,8 +4510,63 @@ try{
   window.addEventListener('popstate', function(){ handleBack(); history.pushState(null,''); }); // re-amorce → le retour ne quitte jamais
 }catch(e){}
 
+// ============================================================
+//  Tirer vers le bas pour recharger (pull-to-refresh)
+//  Le corps est en overflow:hidden ; le défilement se fait dans #main,
+//  donc le geste natif du navigateur n'est jamais déclenché. On le
+//  reproduit : à partir du HAUT de la liste, tirer vers le bas recharge.
+// ============================================================
+function installPullToRefresh(){
+  if(window._ptrInstalled) return; window._ptrInstalled=true;
+  const ind=document.createElement('div');
+  ind.id='ptr-ind';
+  ind.style.cssText='position:fixed;top:0;left:50%;transform:translate(-50%,-52px);width:40px;height:40px;border-radius:50%;background:var(--surface,#fff);box-shadow:0 4px 16px rgba(0,0,0,.20);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary,#1E3A6E);z-index:400;opacity:0;pointer-events:none;font-weight:700';
+  ind.textContent='↓';
+  const mount=()=>{ if(document.body && !ind.isConnected) document.body.appendChild(ind); };
+  mount();
+  let startY=0, pulling=false, ready=false, refreshing=false;
+  const mainEl=()=>document.getElementById('main');
+  const blocked=()=>refreshing || document.querySelector('.overlay,.sheet,.drawer,.dd-menu,.dd-scrim');
+  document.addEventListener('touchstart',function(e){
+    if(refreshing || e.touches.length!==1){ pulling=false; return; }
+    const m=mainEl();
+    if(m && m.scrollTop<=0 && !blocked()){ startY=e.touches[0].clientY; pulling=true; ready=false; mount(); }
+    else pulling=false;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    if(!pulling) return;
+    const m=mainEl(); if(!m){ pulling=false; return; }
+    const dy=e.touches[0].clientY - startY;
+    if(dy>0 && m.scrollTop<=0){
+      e.preventDefault();
+      const dist=Math.min(dy*0.5,80);
+      ready=dist>=58;
+      ind.style.transition='transform .04s linear';
+      ind.style.opacity='1';
+      ind.style.transform='translate(-50%,'+(dist-16)+'px) rotate('+(ready?180:0)+'deg)';
+      ind.textContent= ready ? '↑' : '↓';
+    } else if(dy<-4){
+      pulling=false;
+      ind.style.transition='opacity .18s,transform .2s'; ind.style.opacity='0'; ind.style.transform='translate(-50%,-52px)';
+    }
+  },{passive:false});
+  const end=function(){
+    if(!pulling) return; pulling=false;
+    if(ready){
+      refreshing=true; ind.textContent='⟳';
+      ind.style.transition='transform .18s'; ind.style.transform='translate(-50%,22px)'; ind.style.opacity='1';
+      setTimeout(function(){ try{ location.reload(); }catch(e){ try{ location.href=location.href; }catch(_){} } }, 180);
+    } else {
+      ind.style.transition='opacity .2s,transform .25s'; ind.style.opacity='0'; ind.style.transform='translate(-50%,-52px)';
+    }
+  };
+  document.addEventListener('touchend',end,{passive:true});
+  document.addEventListener('touchcancel',end,{passive:true});
+}
+
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
 else boot();
+try{ installPullToRefresh(); }catch(e){}
 
 // ---------- DÉTECTION DE NOUVELLE VERSION (fin des soucis de cache) ----------
 // L'appli compare sa version à celle publiée ; si elles diffèrent, elle propose de recharger.
