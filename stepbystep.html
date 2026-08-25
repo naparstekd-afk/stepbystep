@@ -200,6 +200,9 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .jtask-sub{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap}
 .jtask-where{font-size:11px;color:var(--ink-soft);font-weight:500;background:var(--surface-2);border:1px solid var(--line-soft);padding:1px 7px;border-radius:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jtask-sub .tag{padding:1px 6px;font-size:10.5px}
+/* Barre d'icônes de « Nouvelle tâche » (façon Google Tasks) */
+.qt-ic{width:42px;height:42px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font-size:19px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);flex-shrink:0}
+.qt-ic.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
 .tag-note{background:var(--surface-2);color:var(--ink-soft);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .task-acts{display:flex;gap:3px;flex-shrink:0}
 .mini-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft);transition:.12s}
@@ -2404,15 +2407,20 @@ function openQuickTask(tid){
   setTimeout(()=>{ const e=$('qt-text'); if(e){ e.focus(); } },60);
 }
 function quickTaskSheet(){
-  const t=editBuf;
+  const t=editBuf; const prio=t.priority==='haute';
   return `<div class="sheet-head"><div class="sheet-title">Nouvelle tâche</div><button class="sheet-close" data-act="quickTaskCancel()">✕</button></div>
   <div class="sheet-body">
     <input class="input" id="qt-text" value="${esc(t.text||'')}" placeholder="Qu'y a-t-il à faire ?" style="font-size:16px" onkeydown="if(event.key==='Enter'){event.preventDefault();quickTaskSave();}">
-    <div class="hint" style="margin-top:8px">Astuce : Entrée pour ajouter. Rappel J-30 mis par défaut.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <button class="qt-ic" data-act="quickTaskMore()" title="Toutes les options (fiche complète)">☰</button>
+      <button class="qt-ic ${t.date?'on':''}" data-act="quickTaskSync();openDatePicker('task')" title="Choisir une date">🗓</button>
+      <button class="qt-ic ${prio?'on':''}" data-act="quickTaskTogglePrio()" title="Prioritaire">${prio?'⭐':'☆'}</button>
+      ${t.date?`<span style="font-size:12.5px;color:var(--primary);font-weight:600">${fmtDate(t.date)}</span>`:''}
+    </div>
     <button class="btn btn-primary btn-block" style="margin-top:14px" data-act="quickTaskSave()">Ajouter</button>
-    <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="quickTaskMore()">⌄ Plus d'options</button>
   </div>`;
 }
+function quickTaskTogglePrio(){ quickTaskSync(); editBuf.priority=(editBuf.priority==='haute')?'normale':'haute'; renderOverlay(); setTimeout(()=>{ const e=$('qt-text'); if(e){ e.focus(); try{ e.setSelectionRange(e.value.length,e.value.length); }catch(_){} } },20); }
 function quickTaskSync(){ const el=$('qt-text'); if(el) editBuf.text=el.value; }
 function quickTaskSave(){ quickTaskSync(); saveTask(true); closeSheet(); render(); toast('Tâche ajoutée ✓'); }
 function quickTaskMore(){ quickTaskSync(); sheet={type:'task'}; renderOverlay(); }
@@ -3996,7 +4004,7 @@ function commitDragOrder(kind){
 // ---------- EXPOSITION GLOBALE (garantit l'accès depuis la délégation de clics) ----------
 // On expose sur window toutes les fonctions appelées par les data-act, pour que
 // l'app fonctionne quel que soit le contexte d'exécution du script.
-[setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
+[setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,quickTaskTogglePrio,quickTaskSync,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
