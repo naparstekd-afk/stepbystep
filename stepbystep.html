@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-e">
+<meta name="app-build" content="b-2026-08-25-f">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1725,6 +1725,7 @@ function delTask(tid){
   save(); render(); toast('Tâche supprimée');
 }
 function containerTasks(loc){
+  if(loc.inbox||loc.ctx==='inbox'){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
   if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); if(!p.tasks)p.tasks=[]; return p.tasks; } const m=D.months[loc.mId]; const f=m.fetes.find(x=>x.id===loc.fId); if(!f.tasks)f.tasks=[]; return f.tasks; }
   if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(!m.tasks)m.tasks=[]; return m.tasks; }
   if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const e=p.events.find(x=>x.id===loc.eId); return e.tasks; }
@@ -2663,7 +2664,7 @@ function taskSheet(){
     </div>
   </div>`;
 }
-function ebDeleteTask(){ const id=editBuf&&editBuf.id; if(!id){ closeSheet(); return; } const r=findTaskAnywhere(id); if(!r){ closeSheet(); render(); return; } if(!confirm('Supprimer « '+(r.task.text||'cette tâche')+' » ?'))return; const arr=r.loc.parent?r.loc.parent.subtasks:containerTasks(r.loc); const i=arr.findIndex(x=>x.id===id); if(i>=0)arr.splice(i,1); save(); closeSheet(); render(); toast('Tâche supprimée'); }
+function ebDeleteTask(){ const id=editBuf&&editBuf.id; if(!id){ closeSheet(); return; } const r=findTaskAnywhere(id); if(!r){ closeSheet(); render(); return; } if(!confirm('Supprimer « '+(r.task.text||'cette tâche')+' » ?'))return; try{ const arr=r.loc.parent?r.loc.parent.subtasks:containerTasks(r.loc); const i=arr?arr.findIndex(x=>x.id===id):-1; if(i>=0)arr.splice(i,1); }catch(e){} save(); closeSheet(); render(); toast('Tâche supprimée'); }
 // durée : parseur et formateur « humains »
 function parseDur(s){ if(s==null)return 0; s=String(s).toLowerCase().trim(); if(!s)return 0; const hm=s.match(/(\d+)\s*h\s*(\d+)/); if(hm)return parseInt(hm[1])*60+parseInt(hm[2]); const h=s.match(/(\d+)\s*h/); const mn=s.match(/(\d+)\s*(?:min|m)\b/); if(h||mn){ return (h?parseInt(h[1])*60:0)+(mn?parseInt(mn[1]):0); } const n=parseInt(s); return isNaN(n)?0:n; }
 function fmtDurH(min){ min=parseInt(min)||0; if(!min)return ''; const h=Math.floor(min/60),r=min%60; if(h&&r)return h+' h '+(r<10?'0'+r:r); if(h)return h+' h'; return min+' min'; }
