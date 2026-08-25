@@ -1046,20 +1046,44 @@ function mkProgramSeed(){
 function ensureRecurring(year){
   // On stocke par année dans D.byYear ; D.months pointe vers l'année courante.
   if(!D.byYear) D.byYear = {};
+  if(year===D._activeYear) return;   // déjà sur cette année : ne rien clobbérer
   // Sauver l'état courant dans l'année précédemment active
-  if(D._activeYear && D._activeYear!==year){
+  if(D._activeYear){
     D.byYear[D._activeYear] = {months:D.months, programs:D.programs, journal:D.journal};
   }
   if(D.byYear[year]){
-    const y=D.byYear[year]; D.months=y.months; D.programs=y.programs; D.journal=y.journal||{};
+    const y=D.byYear[year]; D.months=y.months||{}; D.programs=y.programs||[]; D.journal=y.journal||{};
   } else {
     // créer l'année à partir des récurrents de l'année modèle active
-    const src = D._activeYear ? (D.byYear[D._activeYear]||{months:D.months,programs:D.programs}) : {months:D.months,programs:D.programs};
+    const src = D._activeYear ? (D.byYear[D._activeYear]||{months:{},programs:[]}) : {months:D.months,programs:D.programs};
     D.months = cloneRecurringMonths(src.months);
     D.programs = (src.programs||[]).map(cloneProgramShell);
     D.journal = {};
   }
+  // RÉCONCILIATION : une récurrence marquée DANS N'IMPORTE QUELLE année doit se retrouver ici,
+  // même si cette année existait déjà (ex. créée vide avant de cocher « récurrent »).
+  Object.entries(D.byYear).forEach(([yy,s])=>{ if(yy!==String(year) && s && s.months){ mergeRecurring({months:D.months}, s); } });
+  D.byYear[year] = {months:D.months, programs:D.programs, journal:D.journal};  // persister l'année (fusionnée)
   D._activeYear = year;
+}
+// Fusionne les éléments RÉCURRENTS d'une année source dans l'année cible, sans doublon
+// (appariement par nom / libellé), en réinitialisant les cases des éléments ajoutés.
+function _findFeteByName(tm, sf){ return (tm.fetes||[]).find(f=> f.name===sf.name && (!!f._monthGeneral)===(!!sf._monthGeneral)); }
+function _mergeTasksInto(container, srcTasks){ if(!container.tasks) container.tasks=[]; (srcTasks||[]).forEach(st=>{ if(!container.tasks.some(t=>t.text===st.text)) container.tasks.push(st); }); }
+function _mergeEventsInto(tf, rf){ if(!tf.events) tf.events=[]; (rf.events||[]).forEach(re=>{ const te=(tf.events||[]).find(e=>e.name===re.name); if(!te){ tf.events.push(re); } else { _mergeTasksInto(te, re.tasks); } }); _mergeTasksInto(tf, rf.tasks); }
+function mergeRecurring(target, source){
+  const sm=source.months||{}, tgt=target.months||{};
+  Object.entries(sm).forEach(([mId,smonth])=>{
+    (smonth.fetes||[]).forEach(sf=>{
+      const rf=_clFete(sf); if(!rf) return;   // rien de récurrent dans cette fête
+      if(!tgt[mId]) tgt[mId]={fetes:[],tasks:[]};
+      if(!tgt[mId].fetes) tgt[mId].fetes=[];
+      const tf=_findFeteByName(tgt[mId], sf);
+      if(!tf){ tgt[mId].fetes.push(rf); } else { _mergeEventsInto(tf, rf); }
+    });
+    const rmt=(smonth.tasks||[]).map(t=>_clTask(t,false)).filter(Boolean);
+    if(rmt.length){ if(!tgt[mId]) tgt[mId]={fetes:[],tasks:[]}; _mergeTasksInto(tgt[mId], rmt); }
+  });
 }
 function resetStatus(t){ const c={...t,status:'todo'}; if(t.subtasks) c.subtasks=t.subtasks.map(resetStatus); c.id=uid(); return c; }
 // --- Propagation annuelle des éléments récurrents ---
