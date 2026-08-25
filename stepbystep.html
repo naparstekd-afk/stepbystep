@@ -2493,8 +2493,9 @@ function taskSheet(){
   const hasDeps = ((t.dependsOn||[]).length>0)||t._showDeps;
   const hasRec = t.recurring||t._showRec;
   const hasRem = !!t._showRem;   // le rappel n'apparaît que via « + Ajouter un champ »
+  const hasContact = (t.contact&&(t.contact.name||t.contact.phone))||t._showContact;
   // options restant à révéler via « + »
-  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
+  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!hasContact)more.push(['contact','📞 Contact / Prestataire']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
@@ -2521,6 +2522,17 @@ function taskSheet(){
     ${hasWho?`<div class="field"><label class="field-label">Responsable</label>
       <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
       <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>`:''}
+
+    ${hasContact?`<div class="field"><label class="field-label">📞 Contact / Prestataire</label>
+      <div class="row2" style="gap:7px">
+        <input class="input" id="f-cname" list="dl-suppliers" value="${esc((t.contact&&t.contact.name)||'')}" placeholder="Nom (ou choisir un prestataire)" onchange="ebContactPickByName(this.value)">
+        <input class="input" id="f-cphone" type="tel" value="${esc((t.contact&&t.contact.phone)||'')}" placeholder="Téléphone" onchange="ebContactRefresh()">
+      </div>
+      <datalist id="dl-suppliers">${(D.suppliers||[]).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist>
+      ${(t.contact&&t.contact.phone)?`<span class="dd" style="position:relative;display:inline-block;margin-top:8px">
+        <button class="btn btn-soft btn-sm" data-act="ebContactSync();toggleDD('contactact')">📞 ${esc(t.contact.phone)} ▾</button>
+        ${openDD==='contactact'?`<div class="dd-menu"><button class="dd-item" data-act="contactCall()">📞 Appeler</button><button class="dd-item" data-act="contactWA()">💬 WhatsApp</button></div>`:''}
+      </span>`:''}</div>`:''}
 
     ${hasBudget?`<div class="row2">
       <div class="field"><label class="field-label">Budget</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
@@ -2597,7 +2609,14 @@ function ebToggleDur(){ syncInputs(); editBuf._showDur=!editBuf._showDur; render
 function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
 function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
 function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
-function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='rem')editBuf._showRem=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='contact')editBuf._showContact=true; else if(k==='rem')editBuf._showRem=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+// --- Contact / prestataire d'une tâche ---
+function _extractPhone(s){ const m=String(s||'').match(/\+?\d[\d\s().\-]{5,}\d/); return m?m[0].trim():''; }
+function ebContactSync(){ const n=$('f-cname'), p=$('f-cphone'); if(n||p){ if(!editBuf.contact)editBuf.contact={}; if(n)editBuf.contact.name=n.value; if(p)editBuf.contact.phone=p.value; } }
+function ebContactRefresh(){ ebContactSync(); renderOverlay(); }
+function ebContactPickByName(name){ ebContactSync(); if(!editBuf.contact)editBuf.contact={}; editBuf.contact.name=name; const s=(D.suppliers||[]).find(x=>(x.name||'').toLowerCase()===String(name||'').trim().toLowerCase()); if(s){ editBuf.contact.supplierId=s.id; const ph=_extractPhone(s.info); if(ph && !(editBuf.contact.phone&&editBuf.contact.phone.trim())) editBuf.contact.phone=ph; } renderOverlay(); }
+function contactCall(){ ebContactSync(); openDD=null; const p=(editBuf.contact&&editBuf.contact.phone)||''; const d=p.replace(/[^\d+]/g,''); if(d){ try{ location.href='tel:'+d; }catch(e){} } else { toast('Aucun numéro'); renderOverlay(); } }
+function contactWA(){ ebContactSync(); openDD=null; const p=(editBuf.contact&&editBuf.contact.phone)||''; const d=p.replace(/[^\d]/g,''); if(d){ try{ window.open('https://wa.me/'+d,'_blank'); }catch(e){} } else { toast('Aucun numéro'); } renderOverlay(); }
 function ebDurSelect(v){ syncInputs(); if(v==='__manual'){ editBuf._durManual=true; } else { editBuf.duration=parseInt(v)||0; editBuf._durManual=false; } renderOverlay(); }
 function ebDurMode(m){ syncInputs(); editBuf._durManual=m; renderOverlay(); }
 function ebDurPick(v){ syncInputs(); editBuf.duration=parseInt(v)||0; editBuf._durManual=false; openDD=null; renderOverlay(); }
@@ -2689,6 +2708,7 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
   if($('f-matnote')!=null){ if(!editBuf.material)editBuf.material={type:'buy'}; editBuf.material.note=g('f-matnote'); }
   if($('f-notes')!=null) editBuf.notes=g('f-notes');
   if($('f-date')!=null) editBuf.date=g('f-date');
+  if($('f-cname')!=null||$('f-cphone')!=null){ if(!editBuf.contact)editBuf.contact={}; if($('f-cname')!=null)editBuf.contact.name=g('f-cname'); if($('f-cphone')!=null)editBuf.contact.phone=g('f-cphone'); }
 }
 function ebAddDep(id){ syncInputs(); if(!editBuf.dependsOn)editBuf.dependsOn=[]; if(id&&!editBuf.dependsOn.includes(id))editBuf.dependsOn.push(id); renderOverlay(); }
 function ebRmDep(id){ syncInputs(); editBuf.dependsOn=(editBuf.dependsOn||[]).filter(x=>x!==id); renderOverlay(); }
@@ -4245,7 +4265,7 @@ function commitDragOrder(kind){
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
