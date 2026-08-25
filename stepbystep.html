@@ -1267,13 +1267,14 @@ function programsInMonth(mId){ return (D.programs||[]).filter(p=>p.date && hebMo
 function renderMonth(c){
   const m=MONTHS.find(x=>x.id===nav.monthId);
   const md=D.months[nav.monthId];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${m.emoji} ${m.name} · ${m.heb}</div><div class="sec-title">Fêtes & événements</div>`;
-  if(md&&md.fetes.length){
-    const tb=md.fetes.reduce((a,f)=>a+f.events.reduce((b,e)=>b+sumBud(e.tasks),0),0);
-    html+=`<div class="sec-sub">${md.fetes.length} fête(s)${tb?' · '+fmtE(tb):''}</div>`;
+  const realFetes = md ? md.fetes.filter(f=>!f._monthGeneral) : [];
+  // Pas de rappel du nom du mois au-dessus du titre : il est déjà dans le fil d'Ariane.
+  let html=`<div class="sec"><div><div class="sec-title">Fêtes & événements</div>`;
+  if(realFetes.length){
+    const tb=realFetes.reduce((a,f)=>a+f.events.reduce((b,e)=>b+sumBud(e.tasks),0),0);
+    html+=`<div class="sec-sub">${realFetes.length} fête(s)${tb?' · '+fmtE(tb):''}</div>`;
   }
   html+=`</div></div>`;
-  const realFetes = md ? md.fetes.filter(f=>!f._monthGeneral) : [];
   if(!realFetes.length){
     html+=emptyHTML(m.emoji,'Aucune fête ce mois','Ajoute une fête (bouton + en bas), ou un événement libre ci-dessous.','','');
   } else {
