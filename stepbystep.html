@@ -1386,11 +1386,6 @@ function renderEvent(c){
 
   // Description propre à l'événement (même sans tâche)
   html+=`<div class="field" style="margin-bottom:12px"><textarea class="textarea" style="min-height:54px" placeholder="Description de l'événement (facultatif)…" onchange="setEventDesc(this.value)">${esc(ev.desc||'')}</textarea></div>`;
-  // Événement unique ou récurrent chaque année
-  html+=`<div class="toggle-group" style="margin-bottom:12px">
-    <button class="toggle-opt${!ev.recurring?' active':''}" style="padding:9px" data-act="setEventRecurring(false)">Événement unique</button>
-    <button class="toggle-opt${ev.recurring?' active':''}" style="padding:9px" data-act="setEventRecurring(true)">🔁 Chaque année</button>
-  </div>`;
 
   if(tot){
     html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -1398,64 +1393,47 @@ function renderEvent(c){
       <span style="font-size:13px;font-weight:700;color:var(--primary);white-space:nowrap">${pct}%</span>
       <button class="btn btn-soft btn-sm" data-act="openSmartSort()" title="Tri intelligent">✨ Trier</button>
     </div>`;
+    if(!selMode){ html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-ghost btn-sm" data-act="selStart()">☑️ Sélectionner</button></div>`; }
+    if(selMode){
+      const n=Object.keys(selSet).filter(k=>selSet[k]).length;
+      html+=`<div class="selbar">
+        <div class="selbar-top"><span><b>${n}</b> sélectionnée(s)</span>
+          <span style="display:flex;gap:12px;align-items:center"><span class="sellink" data-act="selAllEvent()">Tout</span><span class="sellink" data-act="selClear()">Aucune</span><span class="sellink" data-act="selStop()" style="font-size:16px">✕</span></span></div>
+        <div class="selbar-acts">
+          <button class="btn btn-soft btn-sm" data-act="bulkStatus('done')">✓ Fait</button>
+          <button class="btn btn-soft btn-sm" data-act="bulkStatus('todo')">↺ À faire</button>
+          <button class="btn btn-soft btn-sm" data-act="bulkMoveOpen()">↗ Déplacer</button>
+          <button class="btn btn-soft btn-sm" style="color:var(--red)" data-act="bulkDelete()">🗑</button>
+        </div>
+      </div>`;
+    }
+    if(groupedView){
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="pill pill-mut">✨ Trié par ${groupedView.mode==='theme'?'thème':'priorité'}</span>
+        <button class="btn btn-ghost btn-sm" data-act="clearGroup()">✕ Affichage normal</button></div>`;
+      groupedView.groups.forEach(g=>{
+        html+=`<div class="group-title">${esc(g.title)}</div>`;
+        g.items.forEach((t,i)=>html+=taskHTML(t,ev,i,g.items.length,false));
+      });
+    } else {
+      const list=sortByDeps(tasks);
+      list.forEach((t,i)=>html+=taskHTML(t,ev,i,list.length,true));
+    }
   }
 
-  // filtres — un seul menu déroulant compact (statut + matériel)
-  const _fl={all:'Toutes',todo:'À faire',inprogress:'En cours',done:'Fait',buy:'🛒 Acheter',bring:'🏠 Apporter',onsite:'🏛️ Sur place'};
-  html+=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-    <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="setFilter(this.value)">
-      <optgroup label="Statut"><option value="all" ${taskFilter==='all'?'selected':''}>Toutes</option>${STATUSES.map(s=>`<option value="${s.id}" ${taskFilter===s.id?'selected':''}>${s.label}</option>`).join('')}</optgroup>
-      <optgroup label="Matériel"><option value="buy" ${taskFilter==='buy'?'selected':''}>🛒 Acheter</option><option value="bring" ${taskFilter==='bring'?'selected':''}>🏠 Apporter</option><option value="onsite" ${taskFilter==='onsite'?'selected':''}>🏛️ Sur place</option></optgroup>
-    </select>
-    ${!selMode?`<button class="btn btn-ghost btn-sm" data-act="selStart()">☑️ Sélectionner</button>`:''}
-  </div>`;
-
-  if(tot && selMode){
-    const n=Object.keys(selSet).filter(k=>selSet[k]).length;
-    html+=`<div class="selbar">
-      <div class="selbar-top"><span><b>${n}</b> sélectionnée(s)</span>
-        <span style="display:flex;gap:12px;align-items:center"><span class="sellink" data-act="selAllEvent()">Tout</span><span class="sellink" data-act="selClear()">Aucune</span><span class="sellink" data-act="selStop()" style="font-size:16px">✕</span></span></div>
-      <div class="selbar-acts">
-        <button class="btn btn-soft btn-sm" data-act="bulkStatus('done')">✓ Fait</button>
-        <button class="btn btn-soft btn-sm" data-act="bulkStatus('todo')">↺ À faire</button>
-        <button class="btn btn-soft btn-sm" data-act="bulkMoveOpen()">↗ Déplacer</button>
-        <button class="btn btn-soft btn-sm" style="color:var(--red)" data-act="bulkDelete()">🗑</button>
-      </div>
-    </div>`;
-  }
-
-  if(!tot){
-    html+=emptyHTML('✓','Aucune tâche','Ajoute une tâche, ou applique un modèle d\'événement.','+ Ajouter une tâche','openAddTask()');
-    html+=`<button class="btn btn-ghost btn-block" style="margin-top:10px" data-act="openTemplates()">📋 Utiliser un modèle</button>`;
-    c.innerHTML=html; return;
-  }
-
-  const filt=t=>{
-    if(taskFilter==='all')return true;
-    if(['todo','inprogress','done'].includes(taskFilter))return t.status===taskFilter;
-    if(['buy','bring','onsite'].includes(taskFilter))return t.material&&t.material.type===taskFilter&&(t.material.value||t.material.note||t.material.store);
-    return true;
-  };
-
-  if(groupedView){
-    // affichage groupé (résultat tri intelligent)
-    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <span class="pill pill-mut">✨ Trié par ${groupedView.mode==='theme'?'thème':'priorité'}</span>
-      <button class="btn btn-ghost btn-sm" data-act="clearGroup()">✕ Affichage normal</button></div>`;
-    groupedView.groups.forEach(g=>{
-      html+=`<div class="group-title">${esc(g.title)}</div>`;
-      g.items.filter(filt).forEach((t,i)=>html+=taskHTML(t,ev,i,g.items.length,false));
-    });
-  } else {
-    const list=sortByDeps(tasks.filter(filt));
-    list.forEach((t,i)=>html+=taskHTML(t,ev,i,list.length,taskFilter==='all'));
-  }
-  html+=`<div class="divider"></div><div class="card" style="padding:10px 12px;margin-bottom:10px"><div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">Déplacer / dupliquer cet événement vers…</div>
+  // Bas de page : déplacer / dupliquer (y compris vers un autre MOIS), récurrence, export, suppression.
+  html+=`<div class="divider"></div><div class="card" style="padding:10px 12px;margin-bottom:10px"><div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">Déplacer / dupliquer cet événement vers un mois ou une fête…</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap">
       <select class="select" style="flex:1;min-width:140px" onchange="evMoveTo(this.value);this.value=''"><option value="">↗ Déplacer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
       <select class="select" style="flex:1;min-width:140px" onchange="evDupTo(this.value);this.value=''"><option value="">⧉ Dupliquer vers…</option>${listFeteDests().map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('')}</select>
     </div></div>`;
-  html+=`<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('event')">⬇ Exporter / Importer</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentEvent()" title="Supprimer cet événement">🗑 Supprimer</button></div>`;
+  // Récurrence : liste déroulante compacte (remplace les deux boutons).
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:13px;color:var(--ink-soft)">Récurrence :</span>
+    <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="setEventRecurring(this.value==='1')">
+      <option value="0" ${!ev.recurring?'selected':''}>Événement unique</option>
+      <option value="1" ${ev.recurring?'selected':''}>🔁 Chaque année</option>
+    </select></div>`;
+  html+=`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('event')">⬇ Exporter / Importer</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentEvent()" title="Supprimer cet événement">🗑 Supprimer</button></div>`;
   c.innerHTML=html;
 }
 
@@ -2342,8 +2320,8 @@ function delEventById(eid){ const c=curContainer(); if(!c)return; const e=(c.eve
 function delEventInMonth(eid){ const md=D.months[nav.monthId]; if(!md)return; const mg=md.fetes.find(f=>f._monthGeneral); if(!mg)return; const e=(mg.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » ?'))return; mg.events=mg.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
 function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); go({eventId:null}); toast('Événement supprimé'); }
 function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
-function listFeteDests(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:(mm?mm.name:mId)+' › '+f.name})); }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
-function destContainer(v){ const pr=v.split('|'); if(pr[0]==='program'){ return D.programs.find(x=>x.id===pr[1]); } const m=D.months[pr[1]]; return m?m.fetes.find(x=>x.id===pr[2]):null; }
+function listFeteDests(){ const out=[]; MONTHS.forEach(mm=>{ const mId=mm.id; const m=D.months[mId]; out.push({v:'month|'+mId,label:mm.emoji+' '+mm.name+' › 📌 Événements (hors fête)'}); if(m){ m.fetes.filter(f=>!f._monthGeneral).forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:mm.name+' › '+f.name})); } }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
+function destContainer(v){ const pr=v.split('|'); if(pr[0]==='program'){ return D.programs.find(x=>x.id===pr[1]); } if(pr[0]==='month'){ return monthFete(pr[1]); } const m=D.months[pr[1]]; return m?m.fetes.find(x=>x.id===pr[2]):null; }
 function cloneEventNewIds(ev){ const c=JSON.parse(JSON.stringify(ev)); c.id=uid(); const reid=(t)=>{ t.id=uid(); t.dependsOn=[]; (t.subtasks||[]).forEach(reid); }; (c.tasks||[]).forEach(reid); return c; }
 function evMoveTo(v){ if(!v)return; const ev=curEvent(); const cont=curContainer(); const tgt=destContainer(v); if(!ev||!cont||!tgt){toast('Destination introuvable');return;} const i=cont.events.findIndex(e=>e.id===ev.id); if(i<0)return; const moved=cont.events.splice(i,1)[0]; tgt.events.push(moved); save(); go({eventId:null}); toast('Événement déplacé ✓'); }
 function evDupTo(v){ if(!v)return; const ev=curEvent(); const tgt=destContainer(v); if(!ev||!tgt){toast('Destination introuvable');return;} tgt.events.push(cloneEventNewIds(ev)); save(); toast('Événement dupliqué ✓'); render(); }
