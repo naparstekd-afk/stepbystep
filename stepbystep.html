@@ -1381,9 +1381,22 @@ function renderEvent(c){
     <div class="sec-sub">${dn}/${tot} fait${bud?' · '+fmtE(bud):''}${dur?' · '+fmtM(dur):''}</div></div></div>`;
   const hasDeb=!!(ev.report)||flattenTasks(ev.tasks).some(t=>t.debrief);
   const evTh=ev.themeId?themeById(ev.themeId):null;
-  html+=`<div style="margin-bottom:10px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">${ev.date?`<span data-act="openDatePicker('event')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">${civilDate(ev.date)} · ${hebrewDate(ev.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('event')">+ Ajouter une date</button>`}<button class="btn btn-soft btn-sm" data-act="openDebrief()" title="Débrief">📝${hasDeb?' <span style="color:var(--green)">✓</span>':''}</button>
-    <span class="dd"><button class="tpill theme ${evTh?'on':''}" data-act="eventThemeToggle()"><span class="dotmark"></span>🎯 ${evTh?esc(evTh.name):'Thème'}</button>${(D.themes||[]).length?`<button class="btn btn-ghost btn-sm" style="padding:6px 9px" data-act="toggleDD('evtheme')">▾</button>${openDD==='evtheme'?`<div class="dd-menu right">${D.themes.map(th=>`<button class="dd-item ${ev.themeId===th.id?'sel':''}" data-act="eventLinkTheme('${th.id}')">${th.icon||'🎯'} ${esc(th.name)}</button>`).join('')}<button class="dd-item" data-act="eventLinkTheme('__new')">＋ Nouveau thème…</button></div>`:''}`:''}</span></div>`;
-  html+=`<div style="margin-bottom:12px;display:flex;gap:7px;align-items:center"><select class="select" style="flex:1;padding:8px 12px" onchange="setEventPublic(this.value)"><option value="">Public…</option>${(D.publics||[]).map(p=>`<option value="${esc(p)}" ${ev.public===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__new">＋ Nouveau public…</option></select>${ev.public?`<button class="mini-btn" data-act="openPublics()" title="Gérer les publics">⚙️</button>`:''}</div>`;
+  // En-tête compact : tout en icônes rondes ; chaque icône ouvre son menu / son sélecteur.
+  html+=`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    ${ev.date
+      ? `<span data-act="openDatePicker('event')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:7px 12px;border-radius:20px;font-size:13px;cursor:pointer">🗓 ${civilDate(ev.date)} · ${hebrewDate(ev.date)}</span>`
+      : `<button class="cbtn" data-act="openDatePicker('event')" title="Ajouter une date / heure">🗓</button>`}
+    <button class="cbtn" data-act="openDebrief()" title="Débrief" style="position:relative">📝${hasDeb?`<span style="position:absolute;top:-3px;right:-3px;color:var(--green);font-size:12px">✓</span>`:''}</button>
+    <span class="dd" style="position:relative">
+      <button class="cbtn" data-act="toggleDD('evtheme')" title="Thème${evTh?' : '+esc(evTh.name):''}" style="${evTh?'background:'+(evTh.color||'#1E3A6E')+';color:#fff;border-color:'+(evTh.color||'#1E3A6E'):''}">🎯</button>
+      ${openDD==='evtheme'?`<div class="dd-menu">${(D.themes||[]).map(th=>`<button class="dd-item ${ev.themeId===th.id?'sel':''}" data-act="eventLinkTheme('${th.id}')">${th.icon||'🎯'} ${esc(th.name)}</button>`).join('')}<button class="dd-item" data-act="eventLinkTheme('__new')">＋ Nouveau thème…</button>${evTh?`<button class="dd-item" style="color:var(--red)" data-act="eventThemeToggle()">✕ Détacher</button>`:''}</div>`:''}
+    </span>
+    <span class="dd" style="position:relative">
+      <button class="cbtn" data-act="toggleDD('evpublic')" title="Public${ev.public?' : '+esc(ev.public):''}" style="${ev.public?'background:var(--primary-soft);color:var(--primary);border-color:var(--primary)':''}">👥</button>
+      ${openDD==='evpublic'?`<div class="dd-menu">${(D.publics||[]).map((p,i)=>`<button class="dd-item ${ev.public===p?'sel':''}" data-act="setEventPublicI(${i})">${esc(p)}</button>`).join('')}${(D.publics||[]).length?'':`<div style="padding:8px 12px;font-size:12px;color:var(--ink-soft)">Aucun public défini</div>`}<button class="dd-item" data-act="setEventPublic('__new')">＋ Nouveau public…</button>${ev.public?`<button class="dd-item" style="color:var(--red)" data-act="setEventPublic('')">✕ Retirer</button>`:''}<button class="dd-item" data-act="openPublics()">⚙️ Gérer les publics</button></div>`:''}
+    </span>
+    ${ev.public?`<span style="font-size:12.5px;color:var(--primary);font-weight:600">${esc(ev.public)}</span>`:''}
+  </div>`;
 
   // Description propre à l'événement — repliée tant qu'elle est vide (gain de place).
   html+=`${(ev.desc&&ev.desc.trim())||ev._showDesc
@@ -1396,7 +1409,7 @@ function renderEvent(c){
       <span style="font-size:13px;font-weight:700;color:var(--primary);white-space:nowrap">${pct}%</span>
       <button class="btn btn-soft btn-sm" data-act="openSmartSort()" title="Tri intelligent">✨ Trier</button>
     </div>`;
-    if(!selMode){ html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-ghost btn-sm" data-act="selStart()">☑️ Sélectionner</button></div>`; }
+    // Sélection : plus de bouton — appui long (~0,6 s) sur une tâche pour l'activer.
     if(selMode){
       const n=Object.keys(selSet).filter(k=>selSet[k]).length;
       html+=`<div class="selbar">
@@ -1870,6 +1883,7 @@ function editPublic(name){ const i=(D.publics||[]).indexOf(name); if(i<0)return;
 function delPublic(name){ if(!confirm('Supprimer le public « '+name+' » ? (les événements ne seront plus rattachés à ce public)'))return; D.publics=(D.publics||[]).filter(p=>p!==name); allEventsList().forEach(x=>{ if(x.e.public===name)x.e.public=''; }); if(publicFilter===name)publicFilter='all'; save(); render(); }
 function setPublicFilter(v){ publicFilter=v; render(); }
 function allEventsList(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>f.events.forEach(e=>out.push({e,where:(mm?mm.emoji+' '+mm.name:'')+' › '+f.name,date:e.date||f.date||'',mId,fId:f.id,ctx:'fete'}))); }); (D.programs||[]).filter(p=>!p._general).forEach(p=>p.events.forEach(e=>out.push({e,where:'📚 '+p.name,date:e.date||p.date||'',pId:p.id,ctx:'program'}))); return out; }
+function setEventPublicI(i){ const p=(D.publics||[])[i]; if(p!=null) setEventPublic(p); }
 function openPublics(){ setView('publics'); }
 // ---------- TSEDAKAH ----------
 function tsData(){ if(!D.tsedaka)D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]}; if(!D.tsedaka.done)D.tsedaka.done={}; if(!Array.isArray(D.tsedaka.days))D.tsedaka.days=[0,1,2,3,4,5,6]; return D.tsedaka; }
@@ -4121,6 +4135,31 @@ function _endDrag(){
   if(moved){ _dragSuppressClick=true; setTimeout(()=>{ _dragSuppressClick=false; },500); commitDragOrder(kind); }
 }
 document.addEventListener('pointerup', _endDrag);
+
+// ---------- APPUI LONG SUR UNE TÂCHE → MODE SÉLECTION (remplace le bouton « Sélectionner ») ----------
+let _lpTimer=null, _lpStart=null;
+document.addEventListener('pointerdown', function(ev){
+  if(typeof selMode!=='undefined' && selMode) return;      // déjà en sélection
+  if(ev.target.closest('[data-drag]')) return;             // poignée de glissement
+  const content=ev.target.closest('.drag-row[data-dragkind="task"] .task-content');
+  if(!content) return;
+  const row=content.closest('.drag-row'); const id=row&&row.getAttribute('data-taskid'); if(!id) return;
+  _lpStart={x:ev.clientX,y:ev.clientY};
+  if(_lpTimer)clearTimeout(_lpTimer);
+  _lpTimer=setTimeout(function(){
+    _lpTimer=null;
+    selMode=true; selSet={}; selSet[id]=true;
+    _dragSuppressClick=true; setTimeout(function(){ _dragSuppressClick=false; },700);
+    try{ if(navigator.vibrate)navigator.vibrate(30); }catch(e){}
+    render();
+  }, 600);
+}, {passive:true});
+document.addEventListener('pointermove', function(ev){
+  if(_lpTimer&&_lpStart){ const dx=Math.abs(ev.clientX-_lpStart.x),dy=Math.abs(ev.clientY-_lpStart.y); if(dx>10||dy>10){ clearTimeout(_lpTimer); _lpTimer=null; } }
+}, {passive:true});
+function _lpEnd(){ if(_lpTimer){ clearTimeout(_lpTimer); _lpTimer=null; } }
+document.addEventListener('pointerup', _lpEnd);
+document.addEventListener('pointercancel', _lpEnd);
 document.addEventListener('pointercancel', _endDrag);
 function commitDragOrder(kind){
   let arr=null;
@@ -4144,7 +4183,7 @@ function commitDragOrder(kind){
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
- openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
+ openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaEventIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
