@@ -2430,8 +2430,9 @@ function taskSheet(){
   const hasMat = (t.material&&((t.material.lines&&t.material.lines.length)||t.material.note))||t._showMat;
   const hasDeps = ((t.dependsOn||[]).length>0)||t._showDeps;
   const hasRec = t.recurring||t._showRec;
+  const hasRem = (t.reminders&&t.reminders.length)||t._showRem;
   // options restant à révéler via « + »
-  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
+  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
@@ -2441,17 +2442,17 @@ function taskSheet(){
 
     <div class="field"><label class="field-label">Description</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-      <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="ebSet('status',this.value)">
-        ${STATUSES.map(s=>`<option value="${s.id}" ${t.status===s.id?'selected':''}>${s.label}</option>`).join('')}
-      </select>
-      <button class="tpill ${prio?'on':''}" data-act="ebTogglePrio()"><span class="dotmark"></span>Prioritaire</button>
-      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date">🗓 ${t.date?fmtDate(t.date):'Date'}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      <button class="tpill ${prio?'on':''}" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>
+      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date">🗓${t.date?' '+fmtDate(t.date):''}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
     </div>
     ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
     <div class="field"><label class="field-label">Durée</label>
-      <input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="5 min" style="max-width:170px"></div>
+      ${(function(){ const pre=[5,15,30,45,60]; const cur=t.duration||0; const manual=t._durManual||(cur&&pre.indexOf(cur)<0);
+        if(manual) return `<div style="display:flex;gap:8px;align-items:center"><input class="input" id="f-dur" value="${cur?fmtDurH(cur):''}" placeholder="ex. 20" style="max-width:140px"><button class="btn btn-ghost btn-sm" data-act="ebDurMode(false)">↩ Liste</button></div>`;
+        return `<select class="select" style="max-width:220px" onchange="ebDurSelect(this.value)"><option value="0" ${!cur?'selected':''}>—</option>${pre.map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v} min</option>`).join('')}<option value="__manual">Saisir manuellement…</option></select>`;
+      })()}</div>
 
     ${hasWho?`<div class="field"><label class="field-label">Responsable</label>
       <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
@@ -2487,14 +2488,14 @@ function taskSheet(){
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
     <button class="btn btn-ghost btn-block" data-act="ebAddSub()">+ Ajouter une sous-tâche</button>
 
-    ${isTpl?'':`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
+    ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance</label>
       <div style="display:flex;gap:7px;align-items:center">
         <span style="font-size:13px;color:var(--ink-soft)">J-</span>
         <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
         <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">Ajouter</button>
         <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
       </div>
-      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Par défaut : J-30.</div>'}</div>`}
+      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ajoute un rappel (ex. J-30).</div>'}</div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
       <div class="dd" style="flex:1">
@@ -2528,7 +2529,9 @@ function ebTogglePrio(){ syncInputs(); editBuf.priority = (editBuf.priority==='h
 function ebToggleMore(){ syncInputs(); editBuf._moreOpen=!editBuf._moreOpen; renderOverlay(); }
 function ebToggleMove(){ syncInputs(); editBuf._moveOpen=!editBuf._moveOpen; editBuf._expOpen=false; renderOverlay(); }
 function ebToggleExport(){ syncInputs(); editBuf._expOpen=!editBuf._expOpen; editBuf._moveOpen=false; renderOverlay(); }
-function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='rem')editBuf._showRem=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+function ebDurSelect(v){ syncInputs(); if(v==='__manual'){ editBuf._durManual=true; } else { editBuf.duration=parseInt(v)||0; editBuf._durManual=false; } renderOverlay(); }
+function ebDurMode(m){ syncInputs(); editBuf._durManual=m; renderOverlay(); }
 function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'){ const txt=taskWAtext(editBuf); window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); return; } _expScope='task'; expRun(fmt); }
 function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); return s; }
 function subEditHTML(s,i){
@@ -4006,7 +4009,7 @@ function commitDragOrder(kind){
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebDurSelect,ebDurMode,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
