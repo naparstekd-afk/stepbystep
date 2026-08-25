@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-f">
+<meta name="app-build" content="b-2026-08-25-g">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -470,6 +470,8 @@ function mkTask(text=''){
     material:{type:'buy',note:'',lines:[]},
     recurring:false,reminders:[30],debrief:'',priority:'normale'};   // debrief : note post-événement ; priority : haute/normale/basse
 }
+// Rendez-vous / invitation : élément daté personnel (mariage, brit…), séparé des tâches à faire.
+function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',time:'',place:'',notes:'',reminders:[3],subtasks:[],duration:0,priority:'normale',responsible:'',dependsOn:[],budget:{amount:0,theme:'Divers'},material:{type:'buy',note:'',lines:[]},recurring:false,debrief:''}; }
 function mkEvent(name=''){ return {id:uid(),name,date:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
 function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',recurring:false,events:[]}; }
 function mkProgram(name='',color='#2C5B8E'){ return {id:uid(),name,color,date:'',events:[],sessions:[],animateurs:[],absences:{}}; }
@@ -950,6 +952,7 @@ function findTaskAnywhere(tid){
   Object.entries(D.months).forEach(([mId,m])=>{ if(!res && m.tasks)walk(m.tasks,{mId,ctx:'month'}); m.fetes.forEach(f=>{ if(!res && f.tasks)walk(f.tasks,{mId,fId:f.id,ctx:'fete',contTask:true}); f.events.forEach(e=>{ if(!res)walk(e.tasks,{mId,fId:f.id,eId:e.id,ctx:'fete'}); }); }); });
   D.programs.forEach(p=>{ if(!res && p.tasks)walk(p.tasks,{pId:p.id,ctx:'program',contTask:true}); p.events.forEach(e=>{ if(!res)walk(e.tasks,{pId:p.id,eId:e.id,ctx:'program'}); }); });
   if(!res && Array.isArray(D.inbox)) walk(D.inbox,{ctx:'inbox',inbox:true});
+  if(!res && Array.isArray(D.rdv)) walk(D.rdv,{ctx:'rdv',rdv:true});
   return res;
 }
 // Tableau qui CONTIENT directement la tâche (pas ses sous-tâches) désignée par loc.
@@ -957,6 +960,7 @@ function taskArrOfLoc(loc){
   if(!loc) return null;
   if(loc.parent) return loc.parent.subtasks;
   if(loc.inbox){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
+  if(loc.rdv){ if(!Array.isArray(D.rdv))D.rdv=[]; return D.rdv; }
   if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(m){ if(!Array.isArray(m.tasks))m.tasks=[]; return m.tasks; } return null; }
   if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); return p?p.tasks:null; } const m=D.months[loc.mId]; const f=m&&m.fetes.find(x=>x.id===loc.fId); return f?f.tasks:null; }
   const ev=eventOfLoc(loc); return ev?ev.tasks:null;
@@ -1726,6 +1730,7 @@ function delTask(tid){
 }
 function containerTasks(loc){
   if(loc.inbox||loc.ctx==='inbox'){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
+  if(loc.rdv||loc.ctx==='rdv'){ if(!Array.isArray(D.rdv))D.rdv=[]; return D.rdv; }
   if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); if(!p.tasks)p.tasks=[]; return p.tasks; } const m=D.months[loc.mId]; const f=m.fetes.find(x=>x.id===loc.fId); if(!f.tasks)f.tasks=[]; return f.tasks; }
   if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(!m.tasks)m.tasks=[]; return m.tasks; }
   if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const e=p.events.find(x=>x.id===loc.eId); return e.tasks; }
@@ -1861,6 +1866,8 @@ function datedAll(){
     });
     flattenTasks(p.tasks||[]).forEach(t=>{ const iso=t.date||p.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name,color:p.color}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name,n:n,color:p.color})); } });
   });
+  // Rendez-vous / invitations (datés) — pour le calendrier et l'agenda.
+  (D.rdv||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'rdv',t:t,label:t.text||'Rendez-vous',color:'#B87A1F'}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:'Rendez-vous',n:n,color:'#B87A1F'})); } });
   return out;
 }
 // Couleur/thème d'un élément daté (pour le calendrier coloré).
@@ -1887,9 +1894,10 @@ function agShift(dir){
 function openDayTasks(iso){ sheet={type:'dayTasks',iso:iso}; renderOverlay(); }
 function dayTasksSheet(){
   const iso=sheet.iso; const all=datedAll().filter(x=>x.iso===iso);
-  const fetes=all.filter(x=>x.kind==='fete'), events=all.filter(x=>x.kind==='event'), tasks=all.filter(x=>x.kind==='task'), reminders=all.filter(x=>x.kind==='reminder'&&x.t.status!=='done');
+  const fetes=all.filter(x=>x.kind==='fete'), events=all.filter(x=>x.kind==='event'), tasks=all.filter(x=>x.kind==='task'), reminders=all.filter(x=>x.kind==='reminder'&&x.t.status!=='done'); const rdvs=all.filter(x=>x.kind==='rdv');
   let h=`<div class="sheet-head"><div class="sheet-title">${fmtDate(iso)} · 🕎 ${hebrewDate(iso)}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">`;
   if(!all.length) h+='<div class="hint">Rien de daté ce jour.</div>';
+  if(rdvs.length){ h+='<div class="section-label">📅 Rendez-vous / Invitations</div>'; rdvs.forEach(x=>{ h+=`<div class="shop-item" data-act="openTask('${x.t.id}')" style="cursor:pointer;border-left:4px solid #B87A1F"><div class="shop-item-main"><div class="shop-item-name">📅 ${esc(x.t.text||'Rendez-vous')}</div><div class="shop-item-meta">${x.t.time?'🕐 '+esc(x.t.time)+' · ':''}${x.t.place?'📍 '+esc(x.t.place):''}</div></div><span class="chev">›</span></div>`; }); }
   if(fetes.length){ h+='<div class="section-label">🎉 Fêtes</div>'; fetes.forEach(x=>{ const act=x.isProgram?`closeSheet();go({view:'programs',feteId:'${x.pId}',eventId:null,ctx:'program'})`:`closeSheet();go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:null,ctx:'fete'})`; h+=`<div class="shop-item" data-act="${act}" style="cursor:pointer"><div class="shop-item-main"><div class="shop-item-name">${esc(x.label)}</div></div><span class="chev">›</span></div>`; }); }
   if(events.length){ h+='<div class="section-label">📌 Événements</div>'; events.forEach(x=>{ const act=x.isProgram?`closeSheet();go({view:'programs',feteId:'${x.pId}',eventId:'${x.eId}',ctx:'program'})`:`closeSheet();go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.eId}',ctx:'fete'})`; h+=`<div class="shop-item" data-act="${act}" style="cursor:pointer"><div class="shop-item-main"><div class="shop-item-name">${esc(x.label)}</div></div><span class="chev">›</span></div>`; }); }
   if(tasks.length){ h+='<div class="section-label">✅ Tâches</div>'; tasks.forEach(x=>{ const st=stOf(x.t.status); h+=`<div class="shop-item"><div class="check" style="width:22px;height:22px;border-color:${st.c};background:${x.t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${x.t.id}')">${x.t.status==='done'?'✓':''}</div><div class="shop-item-main" data-act="openTask('${x.t.id}')"><div class="shop-item-name">${esc(x.t.text)}</div><div class="shop-item-meta">${esc(x.where)}${x.t.budget&&x.t.budget.amount?' · '+fmtE(x.t.budget.amount):''}</div></div></div>`; }); }
@@ -1900,8 +1908,8 @@ function icsEsc(s){ return String(s||'').replace(/[,;]/g,' ').replace(/[\r\n]+/g
 function exportICS(){
   const items=datedAll(); const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//stepbystep//Beth Habad//FR','CALSCALE:GREGORIAN']; const seen={};
   items.forEach(x=>{ if(x.kind==='reminder') return; const iso=x.iso; if(!iso) return;
-    const title=(x.kind==='fete'?'🎉 ':x.kind==='event'?'📌 ':'✅ ')+(x.kind==='task'?x.t.text:x.label);
-    const uid=(x.kind==='task'?x.t.id:(x.fId||x.eId||x.pId||'x'))+'-'+iso+'@stepbystep';
+    const title=(x.kind==='fete'?'🎉 ':x.kind==='event'?'📌 ':x.kind==='rdv'?'📅 ':'✅ ')+((x.kind==='task'||x.kind==='rdv')?x.t.text:x.label);
+    const uid=((x.kind==='task'||x.kind==='rdv')?x.t.id:(x.fId||x.eId||x.pId||'x'))+'-'+iso+'@stepbystep';
     if(seen[uid]) return; seen[uid]=1;
     const d=iso.replace(/-/g,''); const dEnd=todayKey(new Date(new Date(iso+'T12:00:00').getTime()+86400000)).replace(/-/g,'');
     lines.push('BEGIN:VEVENT'); lines.push('UID:'+uid); lines.push('DTSTART;VALUE=DATE:'+d); lines.push('DTEND;VALUE=DATE:'+dEnd); lines.push('SUMMARY:'+icsEsc(title));
@@ -2315,6 +2323,7 @@ function closeDD(){ openDD=null; render(); }
 // Boîte de réception (« Indépendantes ») — tâches libres, hors mois / fête / événement.
 function inboxTasks(){ if(!Array.isArray(D.inbox)) D.inbox=[]; return D.inbox; }
 function qaTaskIndep(){ const arr=inboxTasks(); const t=mkTask(''); arr.push(t); save(); openQuickTask(t.id); }
+function qaRdv(){ if(!Array.isArray(D.rdv))D.rdv=[]; const t=mkRdv(''); D.rdv.push(t); save(); openTask(t.id); }
 function quickAddSheet(){
   const ev=curEvent(); const cont=curContainer();
   const head=`<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
@@ -2351,6 +2360,7 @@ function quickAddSheet(){
   if(!pick){
     return head+`<div class="sheet-body">
       <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 Rendez-vous / Invitation <span style="opacity:.7;font-weight:400;font-size:12px">— je suis invité</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 Nouvel événement</button>
       <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
@@ -2555,6 +2565,7 @@ function taskSheet(){
   const ev=eventOfLoc(t._loc);
   if(ev) siblings=flattenTasks(ev.tasks).filter(x=>x.id!==t.id);
   const promote = t._isSub;
+  const isRdv = t.type==='rdv';
   const st=stOf(t.status); const prio=t.priority==='haute';
   const hasWho = (t.responsible&&t.responsible.trim())||t._showWho;
   const hasBudget = (t.budget&&t.budget.amount>0)||t._showBudget;
@@ -2568,18 +2579,19 @@ function taskSheet(){
   // petite poubelle à placer à côté du nom d'un champ ajouté, pour le retirer
   const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="Retirer ce champ" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
   return `
-  <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(t._isSub?'Sous-tâche':'Tâche')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(isRdv?'📅 Rendez-vous':(t._isSub?'Sous-tâche':'Tâche'))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||'📥 Indépendante')}</div>`}
 
     ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
-    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="Que faut-il faire ?" style="font-size:16px;font-weight:500"></div>
+    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?'Nom du rendez-vous (ex. Mariage de …)':'Que faut-il faire ?'}" style="font-size:16px;font-weight:500"></div>
 
-    <div class="field"><label class="field-label">Description</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
+    ${isRdv?`<div class="field"><label class="field-label">📍 Lieu</label><input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="Salle, adresse…"></div>`:''}
+    <div class="field"><label class="field-label">${isRdv?'Détails':'Description'}</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-      <button class="tpill ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>
-      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date / heure / répétition">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):''}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
+      ${isRdv?'':`<button class="tpill ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>`}
+      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date / heure / répétition">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):' Date / heure'}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
       <span class="dd" style="position:relative">
         <button class="tpill ${t.duration?'on theme':''}" data-act="toggleDD('ebdur')" title="Durée" style="font-size:16px;line-height:1;padding:6px 13px">🕐${t.duration?' '+fmtDurH(t.duration):' Durée'}</button>
         ${openDD==='ebdur'?`<div class="dd-menu">${[5,15,30,45,60].map(v=>`<button class="dd-item ${t.duration===v?'sel':''}" data-act="ebDurPick(${v})">${v} min</button>`).join('')}<button class="dd-item" data-act="ebDurManual()">✏️ Saisir manuellement…</button>${t.duration?`<button class="dd-item" style="color:var(--red)" data-act="ebDurPick(0)">✕ Aucune</button>`:''}</div>`:''}
@@ -2625,9 +2637,9 @@ function taskSheet(){
         ${openDD==='taskrec'?`<div class="dd-menu"><button class="dd-item ${!t.recurring?'sel':''}" data-act="ebSet('recurring',false);closeDD()">1️⃣ Unique</button><button class="dd-item ${t.recurring?'sel':''}" data-act="ebSet('recurring',true);closeDD()">🔁 Chaque année</button></div>`:''}
       </span></div>`:''}
 
-    <div class="divider"></div>
+    ${isRdv?'':`<div class="divider"></div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
-    <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ Sous-tâche</button>
+    <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ Sous-tâche</button>`}
 
     ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance${trash('rem')}</label>
       <div style="display:flex;gap:7px;align-items:center">
@@ -2644,7 +2656,7 @@ function taskSheet(){
     </div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      <button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ Déplacer</button>
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ Déplacer</button>`}
       <div class="dd" style="flex:1">
         <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ Exporter ▾</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
@@ -2737,7 +2749,7 @@ function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
-function parentLabel(loc){ if(!loc) return ''; if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
+function parentLabel(loc){ if(!loc) return ''; if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
@@ -2781,6 +2793,7 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
   ebSyncMatLines();
   if($('f-matnote')!=null){ if(!editBuf.material)editBuf.material={type:'buy'}; editBuf.material.note=g('f-matnote'); }
   if($('f-notes')!=null) editBuf.notes=g('f-notes');
+  if($('f-place')!=null) editBuf.place=g('f-place');
   if($('f-date')!=null) editBuf.date=g('f-date');
   if($('f-cname')!=null||$('f-cphone')!=null){ if(!editBuf.contact)editBuf.contact={}; if($('f-cname')!=null)editBuf.contact.name=g('f-cname'); if($('f-cphone')!=null)editBuf.contact.phone=g('f-cphone'); }
 }
@@ -3591,11 +3604,20 @@ function renderJournal(c){
     Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); (m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),'')); });
     (D.inbox||[]).forEach(t=>_handle(t,'',''));   // tâches indépendantes (boîte de réception)
     open.sort((a,b)=>(b.t.priority==='haute'?1:0)-(a.t.priority==='haute'?1:0));
+    // Rendez-vous / invitations : le jour dit (visible même en revenant en arrière), ou en rappel « dans X j ».
+    const rdvs=[];
+    (D.rdv||[]).forEach(t=>{
+      if(!t.date){ if(isJToday) rdvs.push({t,noDate:true}); return; }
+      if(t.date===jKey){ rdvs.push({t}); return; }
+      if(jKey<t.date && Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ if(remIso(t.date,n)===jKey) rem=n; }); if(rem!=null) rdvs.push({t,rem}); }
+    });
+    rdvs.sort((a,b)=>((a.t.time||'zzz').localeCompare(b.t.time||'zzz')));
     // fêtes / événements du jour
     const evs=datedAll().filter(x=>(x.kind==='fete'||x.kind==='event')&&x.iso===jKey);
-    if(!open.length && !noDate.length && !evs.length){
+    if(!open.length && !noDate.length && !evs.length && !rdvs.length){
       html+=emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','');
     } else {
+      if(rdvs.length){ html+=`<div class="section-label" style="margin-top:4px">📅 Rendez-vous / Invitations (${rdvs.length})</div>`; rdvs.forEach(o=>html+=jRdvRow(o)); }
       if(evs.length){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
       if(open.length){ html+=`<div class="section-label">✅ À faire (${open.length})</div>`; open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
       if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
@@ -3615,8 +3637,14 @@ function renderJournal(c){
   c.innerHTML=html;
 }
 function jEventRow(x){
+  if(x.kind==='rdv'){ return jRdvRow({t:x.t}); }
   const go=x.isProgram?`setView('journal')`:(x.kind==='fete'?`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:null})`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.eId}'})`);
   return `<div class="card" style="margin-bottom:8px" data-act="${go}"><div class="card-body" style="padding:12px 14px"><span class="card-icon">${x.kind==='fete'?'🎉':'📌'}</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(x.label)}</div></div><span class="chev">›</span></div></div>`;
+}
+function jRdvRow(o){ const t=o.t; const meta=[]; if(t.date) meta.push('🗓 '+fmtDate(t.date)+(t.time?' · '+t.time:'')); if(t.place) meta.push('📍 '+t.place);
+  const tail = o.noDate ? '<span style="color:#B87A1F;font-weight:600">à dater</span>' : (o.rem!=null ? `<span style="color:#B87A1F;font-weight:600">rappel · dans ${o.rem} j</span>` : '');
+  const metaHtml = (meta.length||tail) ? `<div class="card-meta" style="font-size:12px;color:var(--ink-soft)">${meta.map(esc).join(' · ')}${meta.length&&tail?' · ':''}${tail}</div>` : '';
+  return `<div class="card" style="margin-bottom:8px;border-left:4px solid #B87A1F" data-act="openTask('${t.id}')"><div class="card-body" style="padding:12px 14px"><span class="card-icon">📅</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(t.text||'Rendez-vous / invitation')}</div>${metaHtml}</div><span class="chev">›</span></div></div>`;
 }
 function renderReport(c){
   const now=new Date();
@@ -3846,7 +3874,7 @@ function computeRange(mode){
   notes.sort((a,b)=>a.date<b.date?1:-1);
   // compteurs de tâches (missions) sur la plage
   let taskTotal=0, taskDone=0;
-  datedAll().forEach(x=>{ if(x.kind==='reminder'||!x.t)return; const iso=x.iso; if(iso&&iso>=from&&iso<=to){ taskTotal++; if(x.t.status==='done') taskDone++; } });
+  datedAll().forEach(x=>{ if(x.kind==='reminder'||x.kind==='rdv'||!x.t)return; const iso=x.iso; if(iso&&iso>=from&&iso<=to){ taskTotal++; if(x.t.status==='done') taskDone++; } });
   return {from,to,label,totals,notes,days,taskTotal,taskDone};
 }
 function fmtDate(k){ try{return new Date(k).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}catch(e){return k;} }
@@ -4364,7 +4392,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
@@ -4432,6 +4460,7 @@ function ensureCollections(){
   if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
   migrateMaterials();
   if(!Array.isArray(D.inbox)) D.inbox=[];
+  if(!Array.isArray(D.rdv)) D.rdv=[];
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
   normalizeAllTasks();   // cohérence parent/sous-tâches (le parent = fait ssi toutes ses feuilles le sont)
   syncCounters();
