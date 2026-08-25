@@ -3904,18 +3904,65 @@ try{ window.addEventListener('resize', function(){ if(_rzT)clearTimeout(_rzT); _
 let _gcalTimer=null;
 function _gcal(){ if(!D.gcal||typeof D.gcal!=='object') D.gcal={url:'',secret:'',auto:true,lastSync:''}; if(!D.gcal.secret) D.gcal.secret=_randSecret(); return D.gcal; }
 function _randSecret(){ var s='',c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; for(var i=0;i<18;i++){ s+=c.charAt(Math.floor(Math.random()*c.length)); } return s; }
+// Développe une tâche répétée en occurrences concrètes dans [fromIso, toIso].
+// Approche volontairement côté client : Google reçoit des dates fermes (robuste,
+// pas de dépendance aux séries récurrentes de l'API Agenda).
+function expandOccurrences(startIso, rep, fromIso, toIso, cap){
+  cap=cap||366; const out=[]; if(!startIso||!rep||!rep.freq) return out;
+  const start=new Date(startIso+'T12:00:00');
+  const from=new Date(fromIso+'T12:00:00'), to=new Date(toIso+'T12:00:00');
+  const iv=Math.max(1, parseInt(rep.interval)||1);
+  const endCount = rep.endType==='after' ? Math.max(1, parseInt(rep.count)||1) : Infinity;
+  const endDate = (rep.endType==='on' && rep.endDate) ? new Date(rep.endDate+'T12:00:00') : null;
+  let produced=0, guard=0;
+  if(rep.freq==='week'){
+    const map={SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+    const days=new Set((rep.byday&&rep.byday.length?rep.byday:['MO']).map(c=>map[c]));
+    const startMon=new Date(start); startMon.setDate(start.getDate()-((start.getDay()+6)%7));
+    let d=new Date(start);
+    while(produced<endCount && guard<3000){ guard++;
+      if(endDate && d>endDate) break; if(d>to) break;
+      if(days.has(d.getDay())){
+        const wkMon=new Date(d); wkMon.setDate(d.getDate()-((d.getDay()+6)%7));
+        const wkIdx=Math.round((wkMon-startMon)/(7*864e5));
+        if(wkIdx%iv===0){ if(d>=from) out.push(todayKey(d)); produced++; if(out.length>=cap) break; }
+      }
+      d.setDate(d.getDate()+1);
+    }
+  } else {
+    let d=new Date(start);
+    while(produced<endCount && guard<5000){ guard++;
+      if(endDate && d>endDate) break; if(d>to) break;
+      if(d>=from) out.push(todayKey(d)); produced++; if(out.length>=cap) break;
+      if(rep.freq==='day') d.setDate(d.getDate()+iv);
+      else if(rep.freq==='month') d.setMonth(d.getMonth()+iv);
+      else d.setFullYear(d.getFullYear()+iv);
+    }
+  }
+  return out;
+}
 function _gcalItems(){
   const seen={}, out=[];
+  const fromIso=todayKey(new Date(Date.now()-31*864e5));
+  const toIso=todayKey(new Date(Date.now()+400*864e5));
   datedAll().forEach(function(x){
     if(x.kind==='reminder') return;
     if(x.kind==='task' && x.t && x.t.status==='done') return;
     const iso=x.iso; if(!iso) return;
-    let uid,title,desc='';
-    if(x.kind==='task'){ uid='t'+(x.t.id||''); title='✅ '+(x.t.text||'Tâche'); desc=x.where||''; }
+    let uid,title,desc='',time='';
+    if(x.kind==='task'){ uid='t'+(x.t.id||''); title='✅ '+(x.t.text||'Tâche'); desc=x.where||''; time=x.t.time||'';
+      if(x.t.repeat && x.t.repeat.freq){
+        expandOccurrences(iso, x.t.repeat, fromIso, toIso, 366).forEach(function(od){
+          const u=uid+'@'+od; if(seen[u])return; seen[u]=1;
+          out.push({uid:u,title:title,date:od,desc:desc,time:time});
+        });
+        return; // tâche répétée : gérée via ses occurrences
+      }
+    }
     else if(x.kind==='event'){ uid='e'+(x.eId||''); title='📌 '+String(x.label||'').split(' › ').pop(); desc=x.label||''; }
     else { uid='f'+(x.fId||x.pId||''); title='🎉 '+(x.label||'Fête'); }
     if(seen[uid]) return; seen[uid]=1;
-    out.push({uid:uid,title:title,date:iso,desc:desc});
+    out.push({uid:uid,title:title,date:iso,desc:desc,time:time});
   });
   return out;
 }
@@ -3935,17 +3982,20 @@ const GCAL_SCRIPT = [
 "    var byUid = {}; existing.forEach(function(ev){ var u=ev.getTag('sbsUid'); if(u) byUid[u]=ev; });",
 "    var created=0, updated=0, deleted=0;",
 "    items.forEach(function(it){",
+"      var allDay = !it.time;",
+"      var sig = it.date+'|'+(it.time||'')+'|'+it.title;",
 "      var ex = byUid[it.uid];",
-"      var d  = new Date(it.date+'T00:00:00');",
 "      if(ex){",
-"        var exd = ex.getAllDayStartDate();",
-"        var exs = exd ? Utilities.formatDate(exd, tz, 'yyyy-MM-dd') : '';",
-"        if(exs !== it.date){ ex.deleteEvent(); var nv=cal.createAllDayEvent(it.title,d); nv.setTag('sbsSync','1'); nv.setTag('sbsUid',it.uid); if(it.desc)nv.setDescription(it.desc); updated++; }",
-"        else { if(ex.getTitle()!==it.title) ex.setTitle(it.title); if(it.desc)ex.setDescription(it.desc); updated++; }",
 "        delete byUid[it.uid];",
-"      } else {",
-"        var nv2=cal.createAllDayEvent(it.title,d); nv2.setTag('sbsSync','1'); nv2.setTag('sbsUid',it.uid); if(it.desc)nv2.setDescription(it.desc); created++;",
+"        if(ex.getTag('sbsSig')===sig){ if(it.desc && ex.getDescription()!==it.desc){ try{ex.setDescription(it.desc);}catch(_){} } updated++; return; }",
+"        try{ ex.deleteEvent(); }catch(_){}",
 "      }",
+"      var nv;",
+"      if(allDay){ nv=cal.createAllDayEvent(it.title, new Date(it.date+'T00:00:00')); }",
+"      else { var s=new Date(it.date+'T'+it.time+':00'); var en=new Date(s.getTime()+60*60000); nv=cal.createEvent(it.title, s, en); }",
+"      nv.setTag('sbsSync','1'); nv.setTag('sbsUid', it.uid); nv.setTag('sbsSig', sig);",
+"      if(it.desc) nv.setDescription(it.desc);",
+"      created++;",
 "    });",
 "    Object.keys(byUid).forEach(function(u){ try{ byUid[u].deleteEvent(); deleted++; }catch(_){} });",
 "    return _out({ok:true, created:created, updated:updated, deleted:deleted});",
