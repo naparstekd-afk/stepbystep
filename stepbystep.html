@@ -1062,21 +1062,46 @@ function ensureRecurring(year){
   D._activeYear = year;
 }
 function resetStatus(t){ const c={...t,status:'todo'}; if(t.subtasks) c.subtasks=t.subtasks.map(resetStatus); c.id=uid(); return c; }
+// --- Propagation annuelle des éléments récurrents ---
+// Règle : si un élément (fête / événement / tâche) est marqué « récurrent », lui ET
+// tous ses descendants reviennent l'année suivante (au même endroit), cases remises à zéro.
+// Un descendant récurrent fait aussi revenir ses parents (comme contenants) pour qu'il ait sa place.
+function _clTask(t, inherited){
+  if(inherited || t.recurring===true) return resetStatus(t);   // sous-arbre entier, réinitialisé
+  const subs=(t.subtasks||[]).map(s=>_clTask(s,false)).filter(Boolean);
+  if(subs.length){ return {...t,status:'todo',id:uid(),subtasks:subs}; }
+  return null;
+}
+function _clEvent(e, feteRec){
+  if(feteRec || e.recurring===true) return {...e,id:uid(),tasks:(e.tasks||[]).map(t=>resetStatus(t))};
+  const tasks=(e.tasks||[]).map(t=>_clTask(t,false)).filter(Boolean);
+  if(tasks.length){ return {...e,id:uid(),tasks}; }
+  return null;
+}
+function _clFete(f){
+  if(f.recurring===true){
+    return {...f,id:uid(),events:(f.events||[]).map(e=>_clEvent(e,true)),tasks:(f.tasks||[]).map(t=>resetStatus(t))};
+  }
+  const events=(f.events||[]).map(e=>_clEvent(e,false)).filter(Boolean);
+  const tasks=(f.tasks||[]).map(t=>_clTask(t,false)).filter(Boolean);
+  if(events.length||tasks.length){ return {...f,id:uid(),events,tasks}; }
+  return null;
+}
 function cloneRecurringMonths(months){
   const out={};
   Object.entries(months||{}).forEach(([mId,m])=>{
-    const fetes=(m.fetes||[]).filter(f=>f.recurring).map(f=>({
-      ...f,id:uid(),
-      events:f.events.filter(e=>e.recurring!==false).map(e=>({
-        ...e,id:uid(),
-        tasks:e.tasks.filter(t=>t.recurring).map(resetStatus)
-      }))
-    }));
-    if(fetes.length) out[mId]={fetes};
+    const fetes=(m.fetes||[]).map(_clFete).filter(Boolean);
+    const tasks=(m.tasks||[]).map(t=>_clTask(t,false)).filter(Boolean);
+    if(fetes.length||tasks.length) out[mId]={fetes,tasks};
   });
   return out;
 }
-function cloneProgramShell(p){ return {...p,id:uid(),events:[],sessions:[],absences:{}}; }
+function cloneProgramShell(p){
+  const rec=p.recurring===true;
+  const events=(p.events||[]).map(e=>_clEvent(e,rec)).filter(Boolean);
+  const tasks=(p.tasks||[]).map(t=>_clTask(t,rec)).filter(Boolean);
+  return {...p,id:uid(),events,tasks,sessions:[],absences:{}};
+}
 
 // ============================================================
 //  RENDU PRINCIPAL
@@ -1303,13 +1328,7 @@ function renderContainerEvents(c,cont,ctx){
   let html=`<div class="sec"><div><div class="sec-eyebrow">${ctx==='program'?'Programme':'Fête'}</div><div class="sec-title"><span data-act="renameContainer()" style="cursor:pointer">${esc(cont.name)}</span></div><div class="sec-sub">${cont.events.length} événement(s)</div></div>
     </div>`;
   html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="btn btn-soft btn-sm" data-act="openDatePicker('fete')">📅 + Ajouter une date</button>`}</div>`;
-  if(ctx==='fete'){
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:13px;color:var(--ink-soft)">Récurrence :</span>
-      <select class="select" style="width:auto;padding:8px 30px 8px 12px;border-radius:20px" onchange="setContainerRecurring(this.value==='1')">
-        <option value="0" ${!cont.recurring?'selected':''}>Fête unique</option>
-        <option value="1" ${cont.recurring?'selected':''}>🔁 Chaque année</option>
-      </select></div>`;
-  }
+  // (Récurrence de la fête : déplacée en bas, en bouton-icône 🔁)
   if(ctx==='program'){
     html+=`<div class="filters"><button class="chip" data-act="go({view:'programs'})" style="display:none"></button></div>`;
     // quick access to attendance/salaries
@@ -1354,8 +1373,18 @@ function renderContainerEvents(c,cont,ctx){
     html+=`<div class="section-label" style="margin-top:16px">✅ Tâches directes (${_ctasks.length})</div>`;
     _ctasks.forEach((t,i)=>html+=taskHTML(t,null,i,_ctasks.length,false));
   }
+  // Récurrence (fête) — bouton-icône 🔁 : clic → choisir unique / chaque année.
+  if(ctx==='fete'){
+    html+=`<div style="display:flex;align-items:center;gap:8px;margin-top:16px">
+      <span class="dd" style="position:relative">
+        <button class="cbtn" data-act="toggleDD('feterec')" title="Récurrence : ${cont.recurring?'chaque année':'unique'}" style="${cont.recurring?'background:var(--gold-soft);border-color:var(--gold);color:var(--gold)':''}">🔁</button>
+        ${openDD==='feterec'?`<div class="dd-menu"><button class="dd-item ${!cont.recurring?'sel':''}" data-act="setContainerRecurring(false);closeDD()">Fête unique</button><button class="dd-item ${cont.recurring?'sel':''}" data-act="setContainerRecurring(true);closeDD()">🔁 Chaque année</button></div>`:''}
+      </span>
+      <span style="font-size:12.5px;color:var(--ink-soft)">${cont.recurring?'🔁 Revient chaque année (cases remises à zéro)':'Fête unique'}</span>
+    </div>`;
+  }
   // Exporter/Importer + Supprimer — côte à côte (compact)
-  html+=`<div style="display:flex;gap:8px;margin-top:16px">
+  html+=`<div style="display:flex;gap:8px;margin-top:12px">
     <button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('${ctx==='program'?'program':'fete'}')">⬇ Exporter / ⬆ Importer</button>
     <button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentContainer()" title="Supprimer">🗑 Supprimer</button>
   </div>`;
