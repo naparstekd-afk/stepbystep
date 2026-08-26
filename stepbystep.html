@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-p">
+<meta name="app-build" content="b-2026-08-25-q">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -505,6 +505,7 @@ let lang='fr';          // langue de l'interface (fr/he/en)
 let dashRange = 'today';
 let journalKey = todayKey();  // jour affiché dans Compte rendu
 let groupedView = null; // résultat du tri intelligent {mode, groups}
+let jSort = null; // tri intelligent de Ma Journée : null | 'urgency' | 'theme' | 'where'
 let shopRange='all'; // filtre échéance de la liste de courses
 let selMode=false; let selSet={}; // sélection multiple de tâches
 let jPeriod='today';    // Ma Journée : today | week | civil | heb
@@ -1719,6 +1720,39 @@ function subHTML(s,parent){
 
 function setFilter(f){ taskFilter=f; render(); }
 function clearGroup(){ groupedView=null; render(); }
+// — Tri intelligent de Ma Journée —
+function openJSort(){ sheet={type:'jsort'}; renderOverlay(); }
+function setJSort(mode){ jSort=mode; closeSheet(); render(); }
+function jClearSort(){ jSort=null; render(); }
+function jSortLabel(m){ return m==='theme'?'Par catégorie':m==='where'?'Par emplacement':m==='urgency'?'Par urgence':'Trié'; }
+function jSortSheet(){ return `<div class="sheet-head"><div class="sheet-title">✨ Tri intelligent</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
+    <div class="hint" style="margin-bottom:10px">Réorganise « À faire » de Ma Journée.</div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="setJSort('urgency')">⏱️ Par urgence <span style="opacity:.75;font-weight:400;font-size:12px">— le plus important d'abord</span></button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="setJSort('theme')">🗂️ Par catégorie <span style="opacity:.75;font-weight:400;font-size:12px">— regroupé par type</span></button>
+    <button class="btn btn-soft btn-block" data-act="setJSort('where')">📍 Par emplacement <span style="opacity:.75;font-weight:400;font-size:12px">— mois / fête / dossier…</span></button>
+    ${jSort?`<button class="btn btn-ghost btn-block" style="margin-top:12px" data-act="closeSheet();jClearSort()">✕ Enlever le tri</button>`:''}
+  </div>`; }
+function _jCat(t){ const x=((t.text||'')+' '+((t.budget&&t.budget.theme)||'')).toLowerCase();
+  if(t.budget&&t.budget.theme&&t.budget.theme!=='Divers')return t.budget.theme;
+  if(/imprim|feuille|affiche|document|photocop/.test(x))return'Impression';
+  if(/achet|bonbon|alcool|sandwich|nourrit|plateau|boisson|kidoush|g[âa]teau/.test(x))return'Nourriture & achats';
+  if(/chaise|salle|soukka|sukkah|montage|d[ée]mont|nappe|drap|d[ée]cor/.test(x))return'Salle & décoration';
+  if(/hazan|photograph|bahour|anim|b[ée]n[ée]vole|personnel|pourboire/.test(x))return'Personnel';
+  if(/lien|publi|annonce|whatsapp|r[ée]serv|message|appel|t[ée]l[ée]phon/.test(x))return'Communication';
+  return'Autres'; }
+function _jScore(o){ const t=o.t; let s=0; if(t.priority==='haute')s+=1000; const x=(t.text||'').toLowerCase();
+  if(o.eff&&o.eff<todayKey())s+=200;
+  if(/r[ée]serv|autoris|command|confirm|location|salle|montage|atelier|terrain/.test(x))s+=100;
+  if(/imprim|pr[ée]par|traduc/.test(x))s+=60; if(/achet|command/.test(x))s+=40;
+  if(/jour j|matin|soir|annonc|servir|rang|nettoy|bilan|remerci/.test(x))s-=40;
+  try{ s+=Math.min(totalDuration(t)||0,300)/10; }catch(e){}
+  return s; }
+function jSortGroups(open,mode){
+  if(mode==='theme'){ const g={}; open.forEach(o=>{ const k=_jCat(o.t); (g[k]=g[k]||[]).push(o); }); return Object.entries(g).sort((a,b)=>b[1].length-a[1].length).map(([title,items])=>({title:'🗂️ '+title,items})); }
+  if(mode==='where'){ const g={}; open.forEach(o=>{ const k=(o.where&&o.where.trim())||'Indépendante'; (g[k]=g[k]||[]).push(o); }); return Object.entries(g).sort((a,b)=>a[0]<b[0]?-1:1).map(([title,items])=>({title:'📍 '+title,items})); }
+  const sorted=open.slice().sort((a,b)=>_jScore(b)-_jScore(a));
+  const c1=sorted.filter(o=>_jScore(o)>=80), c2=sorted.filter(o=>{const s=_jScore(o);return s<80&&s>=20;}), c3=sorted.filter(o=>_jScore(o)<20);
+  return [{title:'🔴 À faire en priorité',items:c1},{title:'🟡 Ensuite',items:c2},{title:'🟢 Quand tu peux',items:c3}].filter(g=>g.items.length); }
 
 // ---------- toggle / move / delete ----------
 function toggleTask(tid){
@@ -2521,6 +2555,7 @@ function sheetHTML(){
   else if(sheet.type==='shabbatPerson') inner=shPersonSheet();
   else if(sheet.type==='addItem') inner=addItemSheet();
   else if(sheet.type==='smartsort') inner=smartSortSheet();
+  else if(sheet.type==='jsort') inner=jSortSheet();
   else if(sheet.type==='templates') inner=templatesSheet();
   else if(sheet.type==='programTools') inner=programToolsSheet();
   else if(sheet.type==='year') inner=yearSheet();
@@ -3662,7 +3697,12 @@ function renderJournal(c){
     } else {
       if(rdvs.length){ html+=`<div class="section-label" style="margin-top:4px">📅 Rendez-vous / Invitations (${rdvs.length})</div>`; rdvs.forEach(o=>html+=jRdvRow(o)); }
       if(evs.length){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
-      if(open.length){ html+=`<div class="section-label">✅ À faire (${open.length})</div>`; open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      if(open.length){
+        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ À faire (${open.length})</span>`+
+          (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:`<span class="pill" data-act="openJSort()" style="cursor:pointer;background:var(--gold-soft);color:var(--gold);font-weight:600">✨ Trier</span>`)+`</div>`;
+        if(jSort){ jSortGroups(open,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
+        else { open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      }
       if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
     }
   } else {
@@ -4564,7 +4604,7 @@ function commitDragOrder(kind){
 [setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,quickTaskTogglePrio,quickTaskSync,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
- openSmartSort,applySort,clearGroup,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
+ openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
