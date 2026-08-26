@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z6">
+<meta name="app-build" content="b-2026-08-26-z7">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1292,7 +1292,7 @@ function headerHTML(){
 function breadcrumbHTML(){
   let p=[];
   if(nav.view==='calendar'){
-    p.push(['📅 Calendrier','go({monthId:null,feteId:null,eventId:null})']);
+    p.push(['📅 '+t('Calendrier','לוח','Calendar'),'go({monthId:null,feteId:null,eventId:null})']);
     if(nav.monthId){const m=MONTHS.find(x=>x.id===nav.monthId);p.push([`${m.emoji} ${m.name}`,`go({feteId:null,eventId:null})`]);}
     if(nav.feteId){const f=curFete();if(f)p.push([f.name,`go({eventId:null})`]);}
     if(nav.eventId){const e=curEvent();if(e)p.push([e.name,null]);}
@@ -1756,7 +1756,8 @@ function jDisplayMenu(){
   const f=jFilter; const chk=(on)=>on?'☑':'☐';
   const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(f[k])} ${ic} ${lbl}</button>`;
   const srt=(m,ic,lbl)=>`<button class="dd-item ${jSort===m?'sel':''}" data-act="setJSort('${m}')">${ic} ${lbl}</button>`;
-  return `<div class="dd-menu" style="left:auto;right:0;min-width:210px;max-width:calc(100vw - 20px);z-index:60">
+  const _al = (lang==='he') ? 'left:0;right:auto' : 'left:auto;right:0';
+  return `<div class="dd-menu" style="${_al};min-width:210px;max-width:calc(100vw - 20px);z-index:60">
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Afficher','הצג','Show')}</div>
     ${opt('tasks','✅',t('Tâches','משימות','Tasks'))}
     ${opt('events','🎉',t('Événements','אירועים','Events'))}
@@ -2433,7 +2434,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ if(bddNav&&bddNav.cat){ openBddAdd(); } else { newDossier(null); } return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -2444,65 +2445,69 @@ function qaRdv(){ if(!Array.isArray(D.rdv))D.rdv=[]; const t=mkRdv(''); D.rdv.pu
 function qaReminder(){ if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(''); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); }
 function quickAddSheet(){
   const ev=curEvent(); const cont=curContainer();
-  const head=`<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
+  const head=`<div class="sheet-head"><div class="sheet-title">${t('Ajouter','הוספה','Add')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
+  const IMPORT=t('Importer une liste (Docs / Sheets)','ייבוא רשימה (Docs / Sheets)','Import a list (Docs / Sheets)');
+  const NEWTASK=t('Nouvelle tâche','משימה חדשה','New task');
+  const NEWEVENT=t('Nouvel événement','אירוע חדש','New event');
+  const NEWFETE=t('Nouvelle fête','חג חדש','New holiday');
   // — Dans un événement : seulement une tâche —
   if(ev){
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" data-act="closeSheet();qaTaskHere()">✅ Nouvelle tâche</button>
-      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
-      <div class="hint" style="margin-top:10px">Dans l'événement « ${esc(ev.name)} »</div>
+      <button class="btn btn-primary btn-block" data-act="closeSheet();qaTaskHere()">✅ ${NEWTASK}</button>
+      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 ${IMPORT}</button>
+      <div class="hint" style="margin-top:10px">${t("Dans l'événement","באירוע","In the event")} « ${esc(ev.name)} »</div>
     </div>`;
   }
   // — Dans une fête / programme : événement ou tâche —
   if(cont){
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventHereNamed()">📌 Nouvel événement</button>
-      <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInContainer()">✅ Nouvelle tâche</button>
-      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
-      <div class="hint" style="margin-top:10px">Dans « ${esc(cont.name)} »</div>
+      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventHereNamed()">📌 ${NEWEVENT}</button>
+      <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInContainer()">✅ ${NEWTASK}</button>
+      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 ${IMPORT}</button>
+      <div class="hint" style="margin-top:10px">${t('Dans','בתוך','In')} « ${esc(cont.name)} »</div>
     </div>`;
   }
   // — Dans un mois : fête, événement ou tâche —
   if(nav.view==='calendar' && nav.monthId){
     const mm=MONTHS.find(x=>x.id===nav.monthId);
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();qaFeteNamed()">🎉 Nouvelle fête</button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventInMonthNamed()">📌 Nouvel événement</button>
-      <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInMonth()">✅ Nouvelle tâche</button>
-      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
-      <div class="hint" style="margin-top:10px">Dans ${mm?mm.emoji+' '+mm.name:'ce mois'}</div>
+      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();qaFeteNamed()">🎉 ${NEWFETE}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventInMonthNamed()">📌 ${NEWEVENT}</button>
+      <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInMonth()">✅ ${NEWTASK}</button>
+      <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 ${IMPORT}</button>
+      <div class="hint" style="margin-top:10px">${t('Dans','בתוך','In')} ${mm?mm.emoji+' '+mm.name:t('ce mois','חודש זה','this month')}</div>
     </div>`;
   }
-  // — Contexte général (Ma Journée, accueil…) : 4 choix, puis « où le placer » —
+  // — Contexte général (Ma Journée, accueil…) —
   const pick = sheet.pick;
   if(!pick){
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 Rendez-vous / Invitation <span style="opacity:.7;font-weight:400;font-size:12px">— un événement où je vais (mariage, bar-mitsva…)</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaReminder()">🔔 Rappel <span style="opacity:.7;font-weight:400;font-size:12px">— une alerte à une date</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ Nouveau dossier <span style="opacity:.7;font-weight:400;font-size:12px">— titres + tâches</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 Nouvel événement</button>
-      <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
+      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ ${NEWTASK} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('sans date','ללא תאריך','no date')}</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rendez-vous / Invitation','פגישה / הזמנה','Appointment / Invitation')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('un événement où je vais (mariage, bar-mitsva…)','אירוע שאני משתתף בו (חתונה, בר-מצווה…)','an event I attend (wedding, bar-mitzvah…)')}</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaReminder()">🔔 ${t('Rappel','תזכורת','Reminder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('une alerte à une date','התראה בתאריך','an alert on a date')}</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('titres + tâches','כותרות + משימות','titles + tasks')}</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 ${NEWFETE}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 ${NEWEVENT}</button>
+      <button class="btn btn-soft btn-block" data-act="openImportList()">📋 ${IMPORT}</button>
     </div>`;
   }
   if(pick==='fete'){
     return head+`<div class="sheet-body">
-      <div class="section-label">Dans quel mois placer la fête ?</div>
-      <div class="field"><select class="select" onchange="closeSheet();qaFete(this.value)"><option value="">Choisir un mois…</option>${MONTHS.map(m=>`<option value="${m.id}">${m.emoji} ${m.name}</option>`).join('')}</select></div>
-      <button class="btn btn-ghost btn-block" style="margin-top:6px" data-act="qaPickBack()">‹ Retour</button>
+      <div class="section-label">${t('Dans quel mois placer la fête ?','באיזה חודש למקם את החג?','In which month to place the holiday?')}</div>
+      <div class="field"><select class="select" onchange="closeSheet();qaFete(this.value)"><option value="">${t('Choisir un mois…','בחר חודש…','Choose a month…')}</option>${MONTHS.map(m=>`<option value="${m.id}">${m.emoji} ${m.name}</option>`).join('')}</select></div>
+      <button class="btn btn-ghost btn-block" style="margin-top:6px" data-act="qaPickBack()">‹ ${t('Retour','חזרה','Back')}</button>
     </div>`;
   }
   const moOpts=MONTHS.map(m=>`<option value="month|${m.id}">${m.emoji} ${m.name}</option>`).join('');
   if(pick==='event'){
     const feteOpts=listFeteDests().filter(d=>d.v.slice(0,4)==='fete').map(d=>`<option value="${d.v}">${esc(d.label)}</option>`).join('');
     return head+`<div class="sheet-body">
-      <div class="section-label">Où placer le nouvel événement ?</div>
-      <div class="field"><select class="select" onchange="closeSheet();qaEventTo(this.value)"><option value="">Choisir une destination…</option>
-        <optgroup label="Sous un mois">${moOpts}</optgroup>
-        ${feteOpts?`<optgroup label="Dans une fête">${feteOpts}</optgroup>`:''}
+      <div class="section-label">${t('Où placer le nouvel événement ?','היכן למקם את האירוע החדש?','Where to place the new event?')}</div>
+      <div class="field"><select class="select" onchange="closeSheet();qaEventTo(this.value)"><option value="">${t('Choisir une destination…','בחר יעד…','Choose a destination…')}</option>
+        <optgroup label="${t('Sous un mois','תחת חודש','Under a month')}">${moOpts}</optgroup>
+        ${feteOpts?`<optgroup label="${t('Dans une fête','בתוך חג','In a holiday')}">${feteOpts}</optgroup>`:''}
       </select></div>
-      <button class="btn btn-ghost btn-block" data-act="qaPickBack()">‹ Retour</button>
+      <button class="btn btn-ghost btn-block" data-act="qaPickBack()">‹ ${t('Retour','חזרה','Back')}</button>
     </div>`;
   }
   // pick==='task'
@@ -2698,110 +2703,110 @@ function taskSheet(){
   const hasRem = !!t._showRem;   // le rappel n'apparaît que via « + Ajouter un champ »
   const hasContact = (t.contact&&(t.contact.name||t.contact.phone))||t._showContact;
   // options restant à révéler via « + »
-  const more=[]; if(!hasWho)more.push(['who','👤 Responsable']); if(!hasContact)more.push(['contact','📞 Contact / Prestataire']); if(!isTpl&&!hasRem)more.push(['rem','🔔 Rappel']); if(!hasBudget)more.push(['budget','💶 Budget']); if(!hasMat)more.push(['mat','🛒 Matériel']); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 Dépendances']); if(!isTpl&&!hasRec)more.push(['rec','🔁 Récurrence']); if(!isTpl)more.push(['timer','⏱️ Minuteur']);
+  const more=[]; if(!hasWho)more.push(['who','👤 '+TT('Responsable','אחראי','Responsible')]); if(!hasContact)more.push(['contact','📞 '+TT('Contact / Prestataire','איש קשר / ספק','Contact / Supplier')]); if(!isTpl&&!hasRem)more.push(['rem','🔔 '+TT('Rappel','תזכורת','Reminder')]); if(!hasBudget)more.push(['budget','💶 '+TT('Budget','תקציב','Budget')]); if(!hasMat)more.push(['mat','🛒 '+TT('Matériel','ציוד','Supplies')]); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 '+TT('Dépendances','תלויות','Dependencies')]); if(!isTpl&&!hasRec)more.push(['rec','🔁 '+TT('Récurrence','חזרתיות','Recurrence')]); if(!isTpl)more.push(['timer','⏱️ '+TT('Minuteur','טיימר','Timer')]);
   // petite poubelle à placer à côté du nom d'un champ ajouté, pour le retirer
-  const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="Retirer ce champ" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
+  const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="${TT('Retirer ce champ','הסר שדה זה','Remove this field')}" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
   return `
-  <div class="sheet-head"><div class="sheet-title">${isTpl?'Tâche du modèle':(isRdv?'📅 Rendez-vous':(t._isSub?'Sous-tâche':'Tâche'))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-head"><div class="sheet-title">${isTpl?TT('Tâche du modèle','משימת תבנית','Template task'):(isRdv?'📅 '+TT('Rendez-vous','פגישה','Appointment'):(t._isSub?TT('Sous-tâche','תת-משימה','Subtask'):TT('Tâche','משימה','Task')))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||'📥 Indépendante')}</div>`}
+    ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`}
 
     ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
-    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?'Nom du rendez-vous (ex. Mariage de …)':'Que faut-il faire ?'}" style="font-size:16px;font-weight:500"></div>
+    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rendez-vous (ex. Mariage de …)','שם הפגישה (למשל חתונה של…)','Appointment name (e.g. Wedding of …)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
 
-    ${isRdv?`<div class="field"><label class="field-label">📍 Lieu</label><input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="Salle, adresse…"></div>`:''}
-    <div class="field"><label class="field-label">${isRdv?'Détails':'Description'}</label><textarea class="textarea" id="f-notes" placeholder="Détails, description…">${esc(t.notes||'')}</textarea></div>
+    ${isRdv?`<div class="field"><label class="field-label">📍 ${TT('Lieu','מקום','Place')}</label><input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="${TT('Salle, adresse…','אולם, כתובת…','Venue, address…')}"></div>`:''}
+    <div class="field"><label class="field-label">${isRdv?TT('Détails','פרטים','Details'):TT('Description','תיאור','Description')}</label><textarea class="textarea" id="f-notes" placeholder="${TT('Détails, description…','פרטים, תיאור…','Details, description…')}">${esc(t.notes||'')}</textarea></div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
       ${isRdv?'':`<button class="tpill ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>`}
-      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="Choisir une date / heure / répétition">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):' Date / heure'}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
+      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="${TT('Choisir une date / heure','בחר תאריך / שעה','Choose a date / time')}">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):' '+TT('Date / heure','תאריך / שעה','Date / time')}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
       <span class="dd" style="position:relative">
-        <button class="tpill ${t.duration?'on theme':''}" data-act="toggleDD('ebdur')" title="Durée" style="font-size:16px;line-height:1;padding:6px 13px">🕐${t.duration?' '+fmtDurH(t.duration):' Durée'}</button>
-        ${openDD==='ebdur'?`<div class="dd-menu">${[5,15,30,45,60].map(v=>`<button class="dd-item ${t.duration===v?'sel':''}" data-act="ebDurPick(${v})">${v} min</button>`).join('')}<button class="dd-item" data-act="ebDurManual()">✏️ Saisir manuellement…</button>${t.duration?`<button class="dd-item" style="color:var(--red)" data-act="ebDurPick(0)">✕ Aucune</button>`:''}</div>`:''}
+        <button class="tpill ${t.duration?'on theme':''}" data-act="toggleDD('ebdur')" title="${TT('Durée','משך','Duration')}" style="font-size:16px;line-height:1;padding:6px 13px">🕐${t.duration?' '+fmtDurH(t.duration):' '+TT('Durée','משך','Duration')}</button>
+        ${openDD==='ebdur'?`<div class="dd-menu">${[5,15,30,45,60].map(v=>`<button class="dd-item ${t.duration===v?'sel':''}" data-act="ebDurPick(${v})">${v} min</button>`).join('')}<button class="dd-item" data-act="ebDurManual()">✏️ ${TT('Saisir manuellement…','הזנה ידנית…','Enter manually…')}</button>${t.duration?`<button class="dd-item" style="color:var(--red)" data-act="ebDurPick(0)">✕ ${TT('Aucune','ללא','None')}</button>`:''}</div>`:''}
       </span>
       ${t._durManual?`<input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="ex. 20" style="max-width:110px" onchange="ebDurMode(true)"><button class="btn btn-ghost btn-sm" data-act="ebDurMode(false)">↩</button>`:''}
     </div>
     ${(!isTpl&&t.repeat)?`<div style="font-size:12px;color:var(--primary);font-weight:600;margin:-8px 0 12px">${repeatLabel(t.repeat)}${t.repeat.endType==='after'?' · '+t.repeat.count+'×':(t.repeat.endType==='on'&&t.repeat.endDate?' · jusqu\'au '+fmtDate(t.repeat.endDate):'')}</div>`:''}
-    ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">Date héritée : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
+    ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">${TT('Date héritée','תאריך שהוירש','Inherited date')} : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
 
-    ${hasWho?`<div class="field"><label class="field-label">Responsable${trash('who')}</label>
-      <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="Qui ?">
+    ${hasWho?`<div class="field"><label class="field-label">${TT('Responsable','אחראי','Responsible')}${trash('who')}</label>
+      <input class="input" id="f-who" list="dl-people" value="${esc(t.responsible||'')}" placeholder="${TT('Qui ?','מי?','Who?')}">
       <datalist id="dl-people">${D.people.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>`:''}
 
-    ${hasContact?`<div class="field"><label class="field-label">📞 Contact / Prestataire${trash('contact')}</label>
+    ${hasContact?`<div class="field"><label class="field-label">📞 ${TT('Contact / Prestataire','איש קשר / ספק','Contact / Supplier')}${trash('contact')}</label>
       ${(t.contact&&t.contact.phone&&!t._contactEdit)?
         `<span class="dd" style="position:relative;display:block">
           <button class="btn btn-soft btn-sm btn-block" style="justify-content:space-between" data-act="ebContactSync();toggleDD('contactact')"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📞 ${esc(t.contact.name?t.contact.name+' · ':'')}${esc(t.contact.phone)}</span><span style="opacity:.6">▾</span></button>
-          ${openDD==='contactact'?`<div class="dd-menu" style="width:100%"><button class="dd-item" data-act="contactCall()">📞 Appeler</button><button class="dd-item" data-act="contactWA()">💬 WhatsApp</button><button class="dd-item" data-act="ebContactEdit()">✏️ Modifier</button></div>`:''}
+          ${openDD==='contactact'?`<div class="dd-menu" style="width:100%"><button class="dd-item" data-act="contactCall()">📞 ${TT('Appeler','התקשר','Call')}</button><button class="dd-item" data-act="contactWA()">💬 WhatsApp</button><button class="dd-item" data-act="ebContactEdit()">✏️ ${TT('Modifier','ערוך','Edit')}</button></div>`:''}
         </span>`
         :
         `<div class="row2" style="gap:7px">
-          <input class="input" id="f-cname" list="dl-suppliers" value="${esc((t.contact&&t.contact.name)||'')}" placeholder="Nom (ou choisir un prestataire)" onchange="ebContactPickByName(this.value)">
-          <input class="input" id="f-cphone" type="tel" value="${esc((t.contact&&t.contact.phone)||'')}" placeholder="Téléphone" onchange="ebContactRefresh()">
+          <input class="input" id="f-cname" list="dl-suppliers" value="${esc((t.contact&&t.contact.name)||'')}" placeholder="${TT('Nom (ou choisir un prestataire)','שם (או בחר ספק)','Name (or pick a supplier)')}" onchange="ebContactPickByName(this.value)">
+          <input class="input" id="f-cphone" type="tel" value="${esc((t.contact&&t.contact.phone)||'')}" placeholder="${TT('Téléphone','טלפון','Phone')}" onchange="ebContactRefresh()">
         </div>
         <datalist id="dl-suppliers">${(D.suppliers||[]).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist>
-        ${(t.contact&&t.contact.phone)?`<button class="btn btn-ghost btn-sm" style="margin-top:6px" data-act="ebContactDone()">✓ Terminé</button>`:''}`
+        ${(t.contact&&t.contact.phone)?`<button class="btn btn-ghost btn-sm" style="margin-top:6px" data-act="ebContactDone()">✓ ${TT('Terminé','סיום','Done')}</button>`:''}`
       }</div>`:''}
 
     ${hasBudget?`<div class="row2">
-      <div class="field"><label class="field-label">Budget${trash('budget')}</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
-      <div class="field"><label class="field-label">Thème budgétaire</label><input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="Thème"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
+      <div class="field"><label class="field-label">${TT('Budget','תקציב','Budget')}${trash('budget')}</label><input class="input" id="f-bud" type="number" value="${t.budget&&t.budget.amount||''}" placeholder="€"></div>
+      <div class="field"><label class="field-label">${TT('Thème budgétaire','קטגוריית תקציב','Budget category')}</label><input class="input" id="f-theme" list="dl-themes" value="${esc((t.budget&&t.budget.theme)||'Divers')}" placeholder="${TT('Thème','קטגוריה','Category')}"><datalist id="dl-themes">${THEMES.concat(D.budgetThemes||[]).map(th=>`<option value="${esc(th)}">`).join('')}</datalist></div>
     </div>`:''}
 
-    ${hasMat?`<div class="section-label">🛒 Matériel${trash('mat')}</div>
+    ${hasMat?`<div class="section-label">🛒 ${TT('Matériel','ציוד','Supplies')}${trash('mat')}</div>
       <div id="mat-lines">${((t.material&&t.material.lines)||[]).map((ln,i)=>matLineHTML(ln,i)).join('')}</div>
       <datalist id="dl-stores">${D.stores.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
-      <button class="btn btn-ghost btn-sm btn-block" data-act="ebAddMatLine()">＋ Ajouter une ligne (produit / quantité / magasin)</button>`:''}
+      <button class="btn btn-ghost btn-sm btn-block" data-act="ebAddMatLine()">＋ ${TT('Ajouter une ligne (produit / quantité / magasin)','הוסף שורה (מוצר / כמות / חנות)','Add a line (product / quantity / store)')}</button>`:''}
 
-    ${hasDeps&&siblings.length?`<div class="section-label">🔗 Cette tâche dépend de${trash('deps')}</div>
+    ${hasDeps&&siblings.length?`<div class="section-label">🔗 ${TT('Cette tâche dépend de','משימה זו תלויה ב','This task depends on')}${trash('deps')}</div>
       <div class="field"><div class="deps">${(t.dependsOn||[]).map(id=>{const d=siblings.find(s=>s.id===id);return d?`<span class="dep">${esc(d.text.slice(0,28))}<span class="dep-x" data-act="ebRmDep('${id}')">✕</span></span>`:''}).join('')}</div>
-      <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ Choisir une tâche…</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
+      <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ ${TT('Choisir une tâche…','בחר משימה…','Choose a task…')}</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
 
-    ${hasRec?`<div class="section-label">🔁 Récurrence${trash('rec')}</div>
+    ${hasRec?`<div class="section-label">🔁 ${TT('Récurrence','חזרתיות','Recurrence')}${trash('rec')}</div>
       <div class="field"><span class="dd" style="position:relative">
-        <button class="cbtn" data-act="toggleDD('taskrec')" title="Récurrence : ${t.recurring?'chaque année':'unique'}" style="${t.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${t.recurring?'🔁':'1️⃣'}</button>
-        ${openDD==='taskrec'?`<div class="dd-menu"><button class="dd-item ${!t.recurring?'sel':''}" data-act="ebSet('recurring',false);closeDD()">1️⃣ Unique</button><button class="dd-item ${t.recurring?'sel':''}" data-act="ebSet('recurring',true);closeDD()">🔁 Chaque année</button></div>`:''}
+        <button class="cbtn" data-act="toggleDD('taskrec')" title="${TT('Récurrence','חזרתיות','Recurrence')}" style="${t.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${t.recurring?'🔁':'1️⃣'}</button>
+        ${openDD==='taskrec'?`<div class="dd-menu"><button class="dd-item ${!t.recurring?'sel':''}" data-act="ebSet('recurring',false);closeDD()">1️⃣ ${TT('Unique','חד-פעמי','One-time')}</button><button class="dd-item ${t.recurring?'sel':''}" data-act="ebSet('recurring',true);closeDD()">🔁 ${TT('Chaque année','כל שנה','Every year')}</button></div>`:''}
       </span></div>`:''}
 
     ${isRdv?'':`<div class="divider"></div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
-    <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ Sous-tâche</button>`}
+    <button class="btn btn-ghost btn-sm" style="padding:6px 12px" data-act="ebAddSub()">＋ ${TT('Sous-tâche','תת-משימה','Subtask')}</button>`}
 
-    ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 Rappel avant l'échéance${trash('rem')}</label>
+    ${(!isTpl&&hasRem)?`<div class="divider"></div><div class="field"><label class="field-label">🔔 ${TT("Rappel avant l'échéance",'תזכורת לפני המועד','Reminder before due date')}${trash('rem')}</label>
       <div style="display:flex;gap:7px;align-items:center">
-        <span style="font-size:13px;color:var(--ink-soft)">J-</span>
+        <span style="font-size:13px;color:var(--ink-soft)">${TT('J-','−','D-')}</span>
         <input class="input" id="f-rem" type="number" placeholder="30" style="width:80px">
-        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">Ajouter</button>
-        <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="Date précise">🗓</button>
+        <button class="btn btn-soft btn-sm" data-act="ebAddReminder()">${TT('Ajouter','הוסף','Add')}</button>
+        <button class="btn btn-ghost btn-sm" data-act="openDatePicker('reminder')" title="${TT('Date précise','תאריך מדויק','Exact date')}">🗓</button>
       </div>
-      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ajoute un rappel (ex. J-30).</div>'}</div>`:''}
+      ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">'+TT('Ajoute un rappel (ex. J-30).','הוסף תזכורת (למשל 30 יום לפני).','Add a reminder (e.g. 30 days before).')+'</div>'}</div>`:''}
 
     ${more.length?`<div class="dd" style="margin:16px 0 4px">
-      <button class="dd-btn" data-act="ebToggleMore()">＋ Ajouter un champ ▾</button>
+      <button class="dd-btn" data-act="ebToggleMore()">＋ ${TT('Ajouter un champ','הוסף שדה','Add a field')} ▾</button>
       ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}</div>`:''}
     </div>`:''}
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ Déplacer</button>`}
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ ${TT('Déplacer','העבר','Move')}</button>`}
       <div class="dd" style="flex:1">
-        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ Exporter ▾</button>
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ ${TT('Exporter','ייצוא','Export')} ▾</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
           <button class="dd-item" data-act="taskExport('csv')">📊 Excel</button>
           <button class="dd-item" data-act="taskExport('doc')">📝 Word</button>
           <button class="dd-item" data-act="taskExport('pdf')">📄 PDF</button>
-          <button class="dd-item" data-act="taskExport('txt')">📃 Texte</button>
+          <button class="dd-item" data-act="taskExport('txt')">📃 ${TT('Texte','טקסט','Text')}</button>
           <button class="dd-item" data-act="taskExport('wa')">💬 WhatsApp</button>
         </div>`:''}
       </div>
     </div>
     ${moveNav?moveExplorerHTML():''}`}
 
-    ${(!isTpl&&t._loc&&t._loc.ctx==='dossier')?`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" data-act="dossTaskToTitle()">▸ Transformer en titre de section</button>`:''}
+    ${(!isTpl&&t._loc&&t._loc.ctx==='dossier')?`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" data-act="dossTaskToTitle()">▸ ${TT('Transformer en titre de section','הפוך לכותרת מקטע','Turn into a section title')}</button>`:''}
 
     <div style="display:flex;gap:9px;margin-top:14px;align-items:stretch">
-      <button class="btn btn-primary" style="flex:1" data-act="saveTask()">Enregistrer</button>
-      ${isTpl?'':`<button class="btn btn-ghost" style="color:var(--red);padding:0 16px;font-size:18px" data-act="ebDeleteTask()" title="Supprimer la tâche">🗑</button>`}
+      <button class="btn btn-primary" style="flex:1" data-act="saveTask()">${TT('Enregistrer','שמור','Save')}</button>
+      ${isTpl?'':`<button class="btn btn-ghost" style="color:var(--red);padding:0 16px;font-size:18px" data-act="ebDeleteTask()" title="${TT('Supprimer la tâche','מחק משימה','Delete task')}">🗑</button>`}
     </div>
   </div>`;
 }
@@ -2849,19 +2854,19 @@ function subEditHTML(s,i){
     return `<div class="subedit collapsed" data-act="ebToggleSub('${s.id}')" style="padding:10px 12px">
       <div style="display:flex;align-items:center;gap:9px">
         <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'};flex:0 0 auto" data-act="event.stopPropagation();toggleSubInEditor('${s.id}')">${s.status==='done'?'✓':''}</div>
-        <div style="flex:1;min-width:0"><div class="${s.status==='done'?'done':''}" style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.text?esc(s.text):'<span style=\'color:var(--ink-soft);font-weight:400\'>Sous-tâche sans titre</span>'}</div>${meta.length?`<div style="font-size:11.5px;color:var(--ink-soft)">${meta.join(' · ')}</div>`:''}</div>
+        <div style="flex:1;min-width:0"><div class="${s.status==='done'?'done':''}" style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.text?esc(s.text):'<span style=\'color:var(--ink-soft);font-weight:400\'>'+t('Sous-tâche sans titre','תת-משימה ללא כותרת','Untitled subtask')+'</span>'}</div>${meta.length?`<div style="font-size:11.5px;color:var(--ink-soft)">${meta.join(' · ')}</div>`:''}</div>
         <span style="color:var(--ink-soft);flex:0 0 auto">▾</span>
         <button class="mini-btn danger" style="flex:0 0 auto" data-act="event.stopPropagation();ebRmSub('${s.id}')">🗑</button>
       </div>
     </div>`;
   }
   return `<div class="subedit">
-    <div class="subedit-head"><span class="subedit-num">Sous-tâche ${i+1}</span>
-      <button class="mini-btn" data-act="ebOpenSub('${s.id}')" title="Toutes les options">⚙️</button>
-      <button class="mini-btn" data-act="ebToggleSub('${s.id}')" title="Replier">▴</button>
+    <div class="subedit-head"><span class="subedit-num">${t('Sous-tâche','תת-משימה','Subtask')} ${i+1}</span>
+      <button class="mini-btn" data-act="ebOpenSub('${s.id}')" title="${t('Toutes les options','כל האפשרויות','All options')}">⚙️</button>
+      <button class="mini-btn" data-act="ebToggleSub('${s.id}')" title="${t('Replier','כווץ','Collapse')}">▴</button>
       <button class="mini-btn danger" style="margin-left:auto" data-act="ebRmSub('${s.id}')">🗑</button></div>
     <div class="subedit-grid" style="display:flex;gap:8px;align-items:center">
-      <input class="input-sm" value="${esc(s.text)}" oninput="ebSubField('${s.id}','text',this.value)" placeholder="Intitulé" style="flex:1;min-width:0">
+      <input class="input-sm" value="${esc(s.text)}" oninput="ebSubField('${s.id}','text',this.value)" placeholder="${t('Intitulé','כותרת','Title')}" style="flex:1;min-width:0">
       <input class="input-sm" type="number" inputmode="numeric" value="${s.duration||''}" oninput="ebSubField('${s.id}','duration',this.value)" placeholder="min" style="width:66px;flex:0 0 auto;text-align:center">
     </div>
   </div>`;
@@ -4418,10 +4423,10 @@ function supplierSheet(){
 // ============================================================
 function setMenuHidden(v,hidden){ if(!D.menuHidden)D.menuHidden={}; if(hidden)D.menuHidden[v]=true; else delete D.menuHidden[v]; save(); render(); }
 function renderSettings(c){
-  const MODS=[['report','📋','Compte rendu'],['calendar','📅','Calendrier'],['bdd','🗂️','Dossiers'],['shopping','🛒','Liste de courses'],['dashboard','📊','Tableau de bord'],['suppliers','📇','Prestataires'],['agenda','📆','Agenda'],['publics','🎯','Mon public'],['tsedaka','🫙','Tsedakah'],['annonces','📢','Annonces de Chabbat'],['shabbat','🕯️','Shabbat'],['ideas','💡','Idées'],['alltasks','✅','Toutes les tâches']];
+  const MODS=[['report','📋',t('Compte rendu','דיווח','Report')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')],['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping list')],['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard')],['suppliers','📇',t('Prestataires','ספקים','Suppliers')],['agenda','📆',t('Agenda','יומן שבועי','Agenda')],['publics','🎯',t('Mon public','הקהל שלי','My audience')],['tsedaka','🫙',t('Tsedakah','צדקה','Tsedakah')],['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat notices')],['shabbat','🕯️',t('Shabbat','שבת','Shabbat')],['ideas','💡',t('Idées','רעיונות','Ideas')],['alltasks','✅',t('Toutes les tâches','כל המשימות','All tasks')]];
   c.innerHTML=`<div class="sec"><div><div class="sec-eyebrow">${t('Système','מערכת','System')}</div><div class="sec-title">${t('Réglages','הגדרות','Settings')}</div></div></div>
-    <div class="section-label">Personnalisation du menu</div>
-    <div class="hint" style="margin-bottom:10px">Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.</div>
+    <div class="section-label">${t('Personnalisation du menu','התאמת התפריט','Menu customization')}</div>
+    <div class="hint" style="margin-bottom:10px">${t('Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.','הסתרת עמוד מוציאה אותו מהתפריט <b>בלי למחוק את הנתונים</b>. אפשר להחזירו כאן בכל עת.','Hiding a page removes it from the menu <b>without deleting its data</b>. Show it again here whenever you want.')}</div>
     <div class="card" style="cursor:default;padding:2px 14px;margin-bottom:18px">
     ${MODS.map(([v,ic,l])=>`<label class="counter" style="cursor:pointer"><div class="counter-info"><span class="counter-em" style="font-size:18px">${ic}</span><span class="counter-name">${l}</span></div><input type="checkbox" ${menuVisible(v)?'checked':''} onchange="setMenuHidden('${v}',!this.checked)" style="width:20px;height:20px;accent-color:var(--primary)"></label>`).join('')}
     </div>
@@ -4431,13 +4436,13 @@ function renderSettings(c){
       <button class="toggle-opt ${lang==='he'?'active':''}" data-act="setLang('he')">HE · עברית</button>
       <button class="toggle-opt ${lang==='en'?'active':''}" data-act="setLang('en')">EN · English</button>
     </div>
-    <div class="section-label">Données</div>
-    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="openExport('all')">⬇ Exporter / ⬆ Importer (Excel · Word · PDF · Texte)</button>
-    <button class="btn btn-ghost btn-block" style="margin-bottom:8px" data-act="exportData()">💾 Exporter mes données (sauvegarde)</button>
-    <button class="btn btn-ghost btn-block" style="margin-bottom:8px" data-act="importData()">📥 Importer une sauvegarde</button>
-    <button class="btn btn-ghost btn-block" style="margin-bottom:8px;color:var(--red)" data-act="resetData()">🗑 Réinitialiser l'application</button>
+    <div class="section-label">${t('Données','נתונים','Data')}</div>
+    <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="openExport('all')">⬇ ${t('Exporter / Importer (Excel · Word · PDF · Texte)','ייצוא / ייבוא (Excel · Word · PDF · טקסט)','Export / Import (Excel · Word · PDF · Text)')}</button>
+    <button class="btn btn-ghost btn-block" style="margin-bottom:8px" data-act="exportData()">💾 ${t('Exporter mes données (sauvegarde)','ייצוא הנתונים שלי (גיבוי)','Export my data (backup)')}</button>
+    <button class="btn btn-ghost btn-block" style="margin-bottom:8px" data-act="importData()">📥 ${t('Importer une sauvegarde','ייבוא גיבוי','Import a backup')}</button>
+    <button class="btn btn-ghost btn-block" style="margin-bottom:8px;color:var(--red)" data-act="resetData()">🗑 ${t("Réinitialiser l'application",'איפוס האפליקציה','Reset the app')}</button>
     <div class="divider"></div>
-    <div class="hint">✦ <b>stepbystep</b> — outil personnel hors-ligne. Les fonctions collaboratives, l'IA, le scan de factures et la connexion Unisoft arrivent dans la version complète.</div>`;
+    <div class="hint">✦ <b>stepbystep</b> — ${t('outil personnel hors-ligne.','כלי אישי לא מקוון.','personal offline tool.')}</div>`;
 }
 // ============================================================
 //  EXPORT / IMPORT — fête · événement · programme · tâche
