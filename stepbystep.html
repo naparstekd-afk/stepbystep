@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-t">
+<meta name="app-build" content="b-2026-08-25-u">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3819,7 +3819,14 @@ function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; sa
 function _dossFocusTitle(id){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el)el.focus(); }catch(e){} },50); }
 function _dossNextTitle(items,from,maxLevel){ for(let j=from;j<items.length;j++){ if(items[j].kind==='title' && (items[j].level||1)<=maxLevel) return j; } return items.length; }
 function dossAddTitle(){ const d=dossierById(nav.dossierId); if(!d)return; const it=mkTitle('',1); d.items.push(it); dossEditId=it.id; save(); render(); _dossFocusTitle(it.id); }
-function dossAddSubtitle(titleId){ const d=dossierById(nav.dossierId); if(!d)return; dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti<0)return; const j=_dossNextTitle(d.items,ti+1,1); const it=mkTitle('',2); dossOpen[it.id]=true; dossEditId=it.id; d.items.splice(j,0,it); save(); render(); _dossFocusTitle(it.id); }
+function dossAddSubtitle(titleId){ const d=dossierById(nav.dossierId); if(!d)return; dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti<0)return; const plvl=(d.items[ti].level||1); const j=_dossNextTitle(d.items,ti+1,plvl); const it=mkTitle('',plvl+1); dossOpen[it.id]=true; dossEditId=it.id; d.items.splice(j,0,it); save(); render(); _dossFocusTitle(it.id); }
+// bloc d'un titre = le titre + tout ce qui est en dessous jusqu'au prochain titre de niveau <= le sien
+function _dossBlock(items,i){ const lvl=items[i].level||1; let e=i+1; while(e<items.length && !(items[e].kind==='title' && (items[e].level||1)<=lvl)) e++; return {start:i,end:e,lvl}; }
+function dossMoveTitle(id,dir){ const d=dossierById(nav.dossierId); if(!d)return; const items=d.items; const i=items.findIndex(x=>x.id===id); if(i<0)return; const blk=_dossBlock(items,i); const lvl=blk.lvl; const block=items.slice(blk.start,blk.end);
+  if(dir<0){ let p=blk.start-1; while(p>=0 && !(items[p].kind==='title' && (items[p].level||1)<=lvl)) p--; if(p<0 || (items[p].level||1)!==lvl){ toast('Déjà en haut de sa section'); return; } items.splice(blk.start,block.length); items.splice(p,0,...block); }
+  else { if(blk.end>=items.length || !(items[blk.end].kind==='title' && (items[blk.end].level||1)===lvl)){ toast('Déjà en bas de sa section'); return; } const nb=_dossBlock(items,blk.end); const len=block.length; items.splice(blk.start,len); items.splice(nb.end-len,0,...block); }
+  save(); render(); }
+function dossTitleToTask(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const it=d.items[i]; const t=mkTask(it.text||''); d.items.splice(i,1,t); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); render(); toast('Titre transformé en tâche ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (le contenu en dessous reste)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
 function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
@@ -3846,9 +3853,15 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
   h+=`<button class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:18px;line-height:1" data-act="toggleDD('${key}')" title="Ajouter">＋</button>`;
   if(openDD===key){
     h+=`<div class="dd-scrim" data-act="closeDD()"></div><div class="dd-menu" style="z-index:60;right:0">`;
-    if(titleId) h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ Modifier le titre</button><div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
+    if(titleId){
+      h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ Modifier le titre</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},-1)">⬆ Monter le titre</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ Descendre le titre</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ Transformer en tâche</button>`;
+      h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
+    }
     if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ Titre</button>`;
-    if(level===1) h+=`<button class="dd-item" data-act="closeDD();dossAddSubtitle(${idp})">↳ Sous-titre</button>`;
+    if(titleId) h+=`<button class="dd-item" data-act="closeDD();dossAddSubtitle(${idp})">↳ Sous-titre</button>`;
     h+=`<button class="dd-item" data-act="closeDD();${root?'dossAddTask()':'dossAddTaskUnder('+idp+')'}">✅ Tâche</button>`;
     if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddSub()">📁 Sous-dossier</button>`;
     h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
@@ -3889,7 +3902,7 @@ function renderDossier(c){
   while(idx<items.length){
     const it=items[idx];
     if(it.kind==='title'){
-      const lvl=(it.level||1); const ind=lvl===2?16:0; const fs=lvl===2?'14.5px':'16px'; const bord=lvl===2?'1px solid var(--line-soft)':'2px solid var(--line)'; const open=!!dossOpen[it.id];
+      const lvl=(it.level||1); const ind=Math.min(lvl-1,6)*16; const fs=lvl===1?'16px':'14.5px'; const bord=lvl===1?'2px solid var(--line)':'1px solid var(--line-soft)'; const open=!!dossOpen[it.id];
       const editing=(dossEditId===it.id);
       const mid = editing
         ? `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?'Sous-titre…':'Titre de section…'}" onchange="dossTitleCommit('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-radius:0;background:transparent;padding:4px 2px">`
@@ -4638,7 +4651,7 @@ function commitDragOrder(kind){
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
