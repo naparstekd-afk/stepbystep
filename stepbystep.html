@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-w">
+<meta name="app-build" content="b-2026-08-26-x">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -507,6 +507,7 @@ let dashRange = 'today';
 let journalKey = todayKey();  // jour affiché dans Compte rendu
 let groupedView = null; // résultat du tri intelligent {mode, groups}
 let jSort = null; // tri intelligent de Ma Journée : null | 'urgency' | 'theme' | 'where'
+let jFilter = {tasks:true, events:true, reminders:true}; // Ma Journée : affichage multichoix (tâches / événements / rappels)
 let shopRange='all'; // filtre échéance de la liste de courses
 let selMode=false; let selSet={}; // sélection multiple de tâches
 let jPeriod='today';    // Ma Journée : today | week | civil | heb
@@ -962,7 +963,7 @@ function toast(msg){
 function curMonth(){ return D.months[nav.monthId]; }
 function curFete(){ const m=curMonth(); return m? m.fetes.find(f=>f.id===nav.feteId):null; }
 function curProgram(){ return D.programs.find(p=>p.id===nav.feteId); }
-function curContainer(){ return nav.ctx==='program'? curProgram() : curFete(); }
+function curContainer(){ if(nav.view==='themeEvent'){ const th=themeById(nav.themeId); if(th){ if(!Array.isArray(th.events))th.events=[]; return th; } return null; } return nav.ctx==='program'? curProgram() : curFete(); }
 function curEvent(){ const c=curContainer(); return c? c.events.find(e=>e.id===nav.eventId):null; }
 
 // recherche récursive d'une tâche par id dans tout l'arbre
@@ -973,7 +974,7 @@ function findTaskAnywhere(tid){
   D.programs.forEach(p=>{ if(!res && p.tasks)walk(p.tasks,{pId:p.id,ctx:'program',contTask:true}); p.events.forEach(e=>{ if(!res)walk(e.tasks,{pId:p.id,eId:e.id,ctx:'program'}); }); });
   if(!res && Array.isArray(D.inbox)) walk(D.inbox,{ctx:'inbox',inbox:true});
   if(!res && Array.isArray(D.rdv)) walk(D.rdv,{ctx:'rdv',rdv:true});
-  (D.themes||[]).forEach(th=>{ if(!res && Array.isArray(th.tasks)) walk(th.tasks,{thId:th.id,ctx:'theme',themeTask:true}); });
+  (D.themes||[]).forEach(th=>{ if(!res && Array.isArray(th.tasks)) walk(th.tasks,{thId:th.id,ctx:'theme',themeTask:true}); (th.events||[]).forEach(e=>{ if(!res) walk(e.tasks||[],{thId:th.id,eId:e.id,ctx:'themeEvent'}); }); });
   (D.dossiers||[]).forEach(d=>{ if(!res && Array.isArray(d.items)) walk(d.items.filter(x=>!x.kind),{doId:d.id,ctx:'dossier',dossier:true}); });
   return res;
 }
@@ -1248,6 +1249,7 @@ function render(){
   else if(nav.view==='journal') renderJournal(main);
   else if(nav.view==='report') renderReport(main);
   else if(nav.view==='themes') renderThemes(main);
+  else if(nav.view==='themeEvent') renderEvent(main);
   else if(nav.view==='dossier') renderDossier(main);
   else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
@@ -1295,6 +1297,11 @@ function breadcrumbHTML(){
     p.push(['📚 Programmes',`go({feteId:null,eventId:null})`]);
     if(nav.feteId){const pr=curProgram();if(pr)p.push([pr.name,`go({eventId:null})`]);}
     if(nav.eventId){const e=curEvent();if(e)p.push([e.name,null]);}
+  } else if(nav.view==='themeEvent'){
+    const th=themeById(nav.themeId); const e=curEvent();
+    p.push(['🎯 Thèmes','leaveThemeEventToList()']);
+    if(th)p.push([(th.icon||'🎯')+' '+(th.name||'Thème'),'leaveThemeEvent()']);
+    if(e)p.push([e.name,null]);
   } else return '';
   if(p.length<=1 && nav.view!=='programs' && nav.view!=='calendar') return '';
   return `<div class="bc">`+p.map((x,i)=>{
@@ -1740,6 +1747,24 @@ function clearGroup(){ groupedView=null; render(); }
 function openJSort(){ sheet={type:'jsort'}; renderOverlay(); }
 function setJSort(mode){ jSort=mode; closeSheet(); render(); }
 function jClearSort(){ jSort=null; render(); }
+function jFilterToggle(k){ jFilter[k]=!jFilter[k]; render(); }   // multichoix : garde le menu ouvert
+function jDisplayMenu(){
+  const f=jFilter; const chk=(on)=>on?'☑':'☐';
+  const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(f[k])} ${ic} ${lbl}</button>`;
+  const srt=(m,ic,lbl)=>`<button class="dd-item ${jSort===m?'sel':''}" data-act="setJSort('${m}')">${ic} ${lbl}</button>`;
+  return `<div class="dd-menu" style="left:auto;right:0;min-width:210px;max-width:calc(100vw - 20px);z-index:60">
+    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">Afficher</div>
+    ${opt('tasks','✅','Tâches')}
+    ${opt('events','🎉','Événements')}
+    ${opt('reminders','🔔','Rappels')}
+    <div class="divider" style="margin:6px 0"></div>
+    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">Trier « À faire »</div>
+    <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ Ordre par défaut</button>
+    ${srt('urgency','⏱️','Par urgence')}
+    ${srt('theme','🗂️','Par catégorie')}
+    ${srt('where','📍','Par emplacement')}
+  </div>`;
+}
 function jSortLabel(m){ return m==='theme'?'Par catégorie':m==='where'?'Par emplacement':m==='urgency'?'Par urgence':'Trié'; }
 function jSortSheet(){ return `<div class="sheet-head"><div class="sheet-title">✨ Tri intelligent</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
     <div class="hint" style="margin-bottom:10px">Réorganise « À faire » de Ma Journée.</div>
@@ -2403,7 +2428,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ addActivityToTheme(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -2555,12 +2580,12 @@ function addProgramHere(){ const p=mkProgram('Nouveau programme'); const mId=nav
 function delFeteById(fid){ if(!confirm('Supprimer cette fête et tout son contenu ?'))return; const m=curMonth(); if(!m)return; m.fetes=m.fetes.filter(x=>x.id!==fid); save(); render(); toast('Fête supprimée'); }
 function delEventById(eid){ const c=curContainer(); if(!c)return; const e=(c.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » et ses tâches ?'))return; c.events=c.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
 function delEventInMonth(eid){ const md=D.months[nav.monthId]; if(!md)return; const mg=md.fetes.find(f=>f._monthGeneral); if(!mg)return; const e=(mg.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » ?'))return; mg.events=mg.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
-function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); go({eventId:null}); toast('Événement supprimé'); }
+function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); if(nav.view==='themeEvent'){ leaveThemeEvent(); } else { go({eventId:null}); } toast('Événement supprimé'); }
 function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
 function listFeteDests(){ const out=[]; MONTHS.forEach(mm=>{ const mId=mm.id; const m=D.months[mId]; out.push({v:'month|'+mId,label:mm.emoji+' '+mm.name+' › 📌 Événements (hors fête)'}); if(m){ m.fetes.filter(f=>!f._monthGeneral).forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:mm.name+' › '+f.name})); } }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
 function destContainer(v){ const pr=v.split('|'); if(pr[0]==='program'){ return D.programs.find(x=>x.id===pr[1]); } if(pr[0]==='month'){ return monthFete(pr[1]); } const m=D.months[pr[1]]; return m?m.fetes.find(x=>x.id===pr[2]):null; }
 function cloneEventNewIds(ev){ const c=JSON.parse(JSON.stringify(ev)); c.id=uid(); const reid=(t)=>{ t.id=uid(); t.dependsOn=[]; (t.subtasks||[]).forEach(reid); }; (c.tasks||[]).forEach(reid); return c; }
-function evMoveTo(v){ if(!v)return; const ev=curEvent(); const cont=curContainer(); const tgt=destContainer(v); if(!ev||!cont||!tgt){toast('Destination introuvable');return;} const i=cont.events.findIndex(e=>e.id===ev.id); if(i<0)return; const moved=cont.events.splice(i,1)[0]; tgt.events.push(moved); save(); go({eventId:null}); toast('Événement déplacé ✓'); }
+function evMoveTo(v){ if(!v)return; const ev=curEvent(); const cont=curContainer(); const tgt=destContainer(v); if(!ev||!cont||!tgt){toast('Destination introuvable');return;} const fromTheme=(nav.view==='themeEvent'); const i=cont.events.findIndex(e=>e.id===ev.id); if(i<0)return; const moved=cont.events.splice(i,1)[0]; if(fromTheme && !moved.themeId) moved.themeId=nav.themeId; tgt.events.push(moved); save(); if(fromTheme){ leaveThemeEvent(); } else { go({eventId:null}); } toast('Événement déplacé ✓'); }
 function evDupTo(v){ if(!v)return; const ev=curEvent(); const tgt=destContainer(v); if(!ev||!tgt){toast('Destination introuvable');return;} tgt.events.push(cloneEventNewIds(ev)); save(); toast('Événement dupliqué ✓'); render(); }
 function navDrawer(v){ drawerOpen=false; setView(v); }
 
@@ -2595,6 +2620,7 @@ function sheetHTML(){
   else if(sheet.type==='timer') inner=timerSheet();
   else if(sheet.type==='debrief') inner=debriefSheet();
   else if(sheet.type==='themeAssign') inner=themeAssignSheet();
+  else if(sheet.type==='themeQuick') inner=themeQuickSheet();
   else if(sheet.type==='dossMove') inner=dossMoveSheet();
   else if(sheet.type==='backups') inner=backupSheet();
   return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
@@ -2840,6 +2866,7 @@ function subEditHTML(s,i){
 // localiser l'event d'une loc
 function eventOfLoc(loc){
   if(!loc)return null;
+  if(loc.ctx==='themeEvent'){ const th=themeById(loc.thId); return th?(th.events||[]).find(e=>e.id===loc.eId):null; }
   if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); return p?p.events.find(e=>e.id===loc.eId):null; }
   const m=D.months[loc.mId]; if(!m)return null; const f=m.fetes.find(x=>x.id===loc.fId); return f?f.events.find(e=>e.id===loc.eId):null;
 }
@@ -2847,7 +2874,7 @@ function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
-function parentLabel(loc){ if(!loc) return ''; if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
+function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='themeEvent'){ const th=themeById(loc.thId); const ev=eventOfLoc(loc); return (th?((th.icon||'🎯')+' '+th.name):'Thème')+(ev?' › '+ev.name:''); } if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
@@ -3676,6 +3703,7 @@ function renderJournal(c){
   // — Sélecteur de période + navigation ◀ ▶ —
   const rg=jRange(); const periods=[['today',"Aujourd'hui"],['week','Semaine'],['civil','Mois civil'],['heb','Mois hébraïque']];
   const atToday=(jDay||todayKey())===todayKey();
+  const _fAllOn=jFilter.tasks&&jFilter.events&&jFilter.reminders; const _dispActive=(!_fAllOn)||!!jSort;
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <button class="cbtn" data-act="jNav(-1)" title="Précédent">◀</button>
     <div class="dd" style="flex:1">
@@ -3683,6 +3711,10 @@ function renderJournal(c){
       ${openDD==='jperiod'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%)">${periods.map(([v,l])=>`<button class="dd-item ${jPeriod===v?'sel':''}" data-act="setJPeriod('${v}')">${l}</button>`).join('')}</div>`:''}
     </div>
     <button class="cbtn" data-act="jNav(1)" title="Suivant">▶</button>
+    <div class="dd" style="position:relative">
+      <button class="cbtn${_dispActive?' on':''}" data-act="toggleDD('jdisplay')" title="Afficher / trier" style="${_dispActive?'background:var(--primary-soft);color:var(--primary);border-color:var(--primary)':''}">👁${_dispActive?' •':''} ▾</button>
+      ${openDD==='jdisplay'?jDisplayMenu():''}
+    </div>
   </div>
   ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`:''}`;
   // (Bandeau thèmes retiré de Ma Journée à la demande de l'utilisateur)
@@ -3718,25 +3750,39 @@ function renderJournal(c){
     rdvs.sort((a,b)=>((a.t.time||'zzz').localeCompare(b.t.time||'zzz')));
     // fêtes / événements du jour
     const evs=datedAll().filter(x=>(x.kind==='fete'||x.kind==='event')&&x.iso===jKey);
-    if(!open.length && !noDate.length && !evs.length && !rdvs.length){
-      html+=emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','');
+    // — filtre d'affichage multichoix (tâches / événements / rappels) —
+    let fT=jFilter.tasks, fE=jFilter.events, fR=jFilter.reminders; if(!fT&&!fE&&!fR){ fT=fE=fR=true; }
+    const rdvEvents = rdvs.filter(o=>o.rem==null);      // rendez-vous du jour / à dater = « événements »
+    const rdvRems   = rdvs.filter(o=>o.rem!=null);      // rappel d'un rendez-vous futur = « rappels »
+    const taskItems = open.filter(o=>o.reminder==null); // tâches
+    const remItems  = open.filter(o=>o.reminder!=null); // tâches remontées par un rappel
+    const showRdvEv = fE && rdvEvents.length, showEv = fE && evs.length;
+    const showTasks = fT && taskItems.length, showNoDate = fT && noDate.length && isJToday;
+    const remCount  = rdvRems.length + remItems.length, showRems = fR && remCount;
+    if(!showRdvEv && !showEv && !showTasks && !showNoDate && !showRems){
+      const allEmpty = !open.length && !noDate.length && !evs.length && !rdvs.length;
+      html+=allEmpty
+        ? emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','')
+        : emptyHTML('👁','Rien à afficher','Aucun élément ne correspond au filtre choisi. Touchez 👁 pour changer l\'affichage.','','');
     } else {
-      if(rdvs.length){ html+=`<div class="section-label" style="margin-top:4px">📅 Rendez-vous / Invitations (${rdvs.length})</div>`; rdvs.forEach(o=>html+=jRdvRow(o)); }
-      if(evs.length){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
-      if(open.length){
-        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ À faire (${open.length})</span>`+
-          (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:`<span class="pill" data-act="openJSort()" style="cursor:pointer;background:var(--gold-soft);color:var(--gold);font-weight:600">✨ Trier</span>`)+`</div>`;
-        if(jSort){ jSortGroups(open,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
-        else { open.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      if(showRdvEv){ html+=`<div class="section-label" style="margin-top:4px">📅 Rendez-vous / Invitations (${rdvEvents.length})</div>`; rdvEvents.forEach(o=>html+=jRdvRow(o)); }
+      if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
+      if(showTasks){
+        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ À faire (${taskItems.length})</span>`+
+          (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:'')+`</div>`;
+        if(jSort){ jSortGroups(taskItems,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
+        else { taskItems.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
       }
-      if(noDate.length && isJToday){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
+      if(showRems){ html+=`<div class="section-label" style="margin-top:16px">🔔 Rappels (${remCount})</div>`; rdvRems.forEach(o=>html+=jRdvRow(o)); remItems.forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      if(showNoDate){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
     }
   } else {
     // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
+    let fT=jFilter.tasks, fE=jFilter.events, fR=jFilter.reminders; if(!fT&&!fE&&!fR){ fT=fE=fR=true; }
     const items=datedAll().filter(x=>x.iso&&x.iso>=rg.from&&x.iso<=rg.to);
-    const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
+    const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; if(x.kind==='task'){ if(!fT)return; } else { if(!fE)return; } (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
     const days=Object.keys(byDay).sort();
-    if(!days.length){ html+=emptyHTML('🗓️','Rien sur la période','Aucune fête, événement ou tâche datés sur '+rg.label.toLowerCase()+'.','',''); }
+    if(!days.length){ html+=emptyHTML('🗓️','Rien sur la période',(fT&&fE)?('Aucune fête, événement ou tâche datés sur '+rg.label.toLowerCase()+'.'):'Aucun élément ne correspond au filtre choisi (touchez 👁).','',''); }
     else days.forEach(d=>{
       const dd=new Date(d+'T12:00:00');
       html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between"><span style="text-transform:capitalize">${dd.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span><span style="color:var(--ink-soft);font-weight:500;text-transform:none">🕎 ${hebrewDate(d)}</span></div>`;
@@ -3792,12 +3838,30 @@ function renderReport(c){
 // ============================================================
 function themeEvents(tid){ const out=[];
   Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>f.events.forEach(e=>{ if(e.themeId===tid) out.push({e,mId,fId:f.id,fName:f.name}); })));
+  const th=themeById(tid); if(th&&Array.isArray(th.events)) th.events.forEach(e=>out.push({e,floating:true}));
   return out;
 }
 function themeById(id){ return (D.themes||[]).find(x=>x.id===id); }
 const THEME_COLS=['#1E3A6E','#6B4E9E','#2E7D55','#B87A1F','#C0453F','#2C5B8E','#AC8438','#111827'];
 function newTheme(){ if(!Array.isArray(D.themes))D.themes=[]; const th={id:uid(),name:'',icon:'🎯',color:'#1E3A6E'}; D.themes.push(th); save(); themeNav=th.id; render(); setTimeout(()=>{const e=$('th-name');if(e)e.focus();},60); }
 function openTheme(id){ themeNav=id; render(); }
+// — Activités « flottantes » d'un thème (sans mois / sans date) —
+function openThemeEvent(themeId,eventId){ nav={view:'themeEvent',themeId:themeId,eventId:eventId,monthId:null,feteId:null,ctx:'fete'}; themeNav=themeId; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+function leaveThemeEvent(){ const tid=nav.themeId; themeNav=tid; nav={view:'themes',monthId:null,feteId:null,eventId:null,ctx:'fete'}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+function leaveThemeEventToList(){ themeNav=null; nav={view:'themes',monthId:null,feteId:null,eventId:null,ctx:'fete'}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+function themeAddEvent(tid){ const th=themeById(tid); if(!th)return; if(!Array.isArray(th.events))th.events=[]; const n=prompt('Nom de l\'activité :',''); if(n===null)return; const e=mkEvent((n||'').trim()||'Nouvelle activité'); th.events.push(e); save(); openThemeEvent(tid,e.id); }
+function themeQuickOpen(tid){ sheet={type:'themeQuick',tid:tid}; renderOverlay(); }
+function themeQuickSheet(){ const tid=sheet.tid; const th=themeById(tid); if(!th) return '<div class="sheet-head"><div class="sheet-title">—</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>';
+  return `<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddEvent('${tid}')">📌 Nouvelle activité <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddTask('${tid}')">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— dans le thème</span></button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier({kind:'theme',id:'${tid}'})">🗂️ Nouveau dossier</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();addActivityToTheme('${tid}')">📅 Activité rattachée à un mois…</button>
+    <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
+    <div class="hint" style="margin-top:10px">Dans le thème « ${esc(th.name||'sans nom')} »</div>
+  </div>`;
+}
 function thSetName(v){ const th=themeById(themeNav); if(th){ th.name=v; save(); } }
 function thSetIcon(v){ const th=themeById(themeNav); if(th){ th.icon=(v||'🎯').trim()||'🎯'; save(); render(); } }
 function thSetColor(cl){ const th=themeById(themeNav); if(th){ th.color=cl; save(); render(); } }
@@ -3983,8 +4047,8 @@ function renderThemes(c){
     const tt=(th.tasks||[]);
     if(tt.length){ html+=`<div class="section-label" style="margin-top:4px">✅ Tâches du thème</div>`; tt.forEach((t,i)=>html+=taskHTML(t,null,i,tt.length,false)); }
     html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:14px" data-act="themeAddTask('${th.id}')">＋ Nouvelle tâche dans ce thème</button>`;
-    if(evs.length){ html+=`<div class="section-label">📌 Activités reliées</div>`; evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); html+=`<div class="card" data-act="go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
-    html+=`<button class="btn btn-soft btn-block" style="margin-top:6px" data-act="addActivityToTheme('${th.id}')">＋ Nouvelle activité</button>`;
+    if(evs.length){ html+=`<div class="section-label">📌 Activités reliées</div>`; evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); const act=x.floating?`openThemeEvent('${th.id}','${x.e.id}')`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})`; html+=`<div class="card" data-act="${act}"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}${x.floating?'':' · 🗓 mois'}</div></div><span class="chev">›</span></div></div>`; }); }
+    html+=`<button class="btn btn-soft btn-block" style="margin-top:6px" data-act="themeAddEvent('${th.id}')">＋ Nouvelle activité <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>`;
     const thdoss=dossiersFor('theme',th.id);
     if(thdoss.length){ html+=`<div class="section-label" style="margin-top:14px">🗂️ Dossiers</div>`; thdoss.forEach(d=>html+=dossierCardHTML(d)); }
     html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'theme',id:'${th.id}'})">＋ Nouveau dossier</button>`;
@@ -4651,7 +4715,7 @@ function commitDragOrder(kind){
 [setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,quickTaskTogglePrio,quickTaskSync,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
- openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
+ openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
@@ -4661,6 +4725,7 @@ function commitDragOrder(kind){
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
+ openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
  dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTaskToTitle,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
@@ -4721,6 +4786,7 @@ function ensureCollections(){
   if(!D.eventTemplates) D.eventTemplates=[];
   if(!D._v12cleared){ D.months={}; D.programs=[]; D._v12cleared=true; }
   if(!Array.isArray(D.themes)) D.themes=[];
+  D.themes.forEach(th=>{ if(!Array.isArray(th.events)) th.events=[]; if(!Array.isArray(th.tasks)) th.tasks=[]; });
   if(!D.bdd||!Array.isArray(D.bdd.cats)) D.bdd={cats:[]};
   if(!D.menuHidden||typeof D.menuHidden!=='object') D.menuHidden={};
   migrateMaterials();
@@ -4807,6 +4873,7 @@ function handleBack(){
     if(sheet){ closeSheet(); return; }
     if(drawerOpen){ toggleDrawer(false); return; }
     if(nav.view==='dossier'){ dossierBack(); return; }
+    if(nav.view==='themeEvent'){ leaveThemeEvent(); return; }
     if(nav.view==='themes' && themeNav){ themeNav=null; render(); return; }
     if(nav.view==='bdd' && bddNav){ if(bddNav.sub){ bddNav={cat:bddNav.cat}; } else { bddNav=null; } render(); return; }
     if(nav.eventId){ go({eventId:null}); return; }
