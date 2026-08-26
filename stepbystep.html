@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-j">
+<meta name="app-build" content="b-2026-08-25-k">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -474,6 +474,9 @@ function mkTask(text=''){
 function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',time:'',place:'',notes:'',reminders:[3],subtasks:[],duration:0,priority:'normale',responsible:'',dependsOn:[],budget:{amount:0,theme:'Divers'},material:{type:'buy',note:'',lines:[]},recurring:false,debrief:''}; }
 function mkEvent(name=''){ return {id:uid(),name,date:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
 function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',recurring:false,events:[]}; }
+// Dossier : plan libre (titres + tâches), plaçable partout. items = suite ordonnée de {kind:'title'} et de tâches.
+function mkDossier(name=''){ return {id:uid(),type:'dossier',name,items:[],anchor:null}; }
+function mkTitle(text=''){ return {id:uid(),kind:'title',text}; }
 function mkProgram(name='',color='#2C5B8E'){ return {id:uid(),name,color,date:'',events:[],sessions:[],animateurs:[],absences:{}}; }
 
 // ---------- ÉTAT ----------
@@ -954,6 +957,7 @@ function findTaskAnywhere(tid){
   if(!res && Array.isArray(D.inbox)) walk(D.inbox,{ctx:'inbox',inbox:true});
   if(!res && Array.isArray(D.rdv)) walk(D.rdv,{ctx:'rdv',rdv:true});
   (D.themes||[]).forEach(th=>{ if(!res && Array.isArray(th.tasks)) walk(th.tasks,{thId:th.id,ctx:'theme',themeTask:true}); });
+  (D.dossiers||[]).forEach(d=>{ if(!res && Array.isArray(d.items)) walk(d.items.filter(x=>x.kind!=='title'),{doId:d.id,ctx:'dossier',dossier:true}); });
   return res;
 }
 // Tableau qui CONTIENT directement la tâche (pas ses sous-tâches) désignée par loc.
@@ -963,6 +967,7 @@ function taskArrOfLoc(loc){
   if(loc.inbox){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
   if(loc.rdv){ if(!Array.isArray(D.rdv))D.rdv=[]; return D.rdv; }
   if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); if(th){ if(!Array.isArray(th.tasks))th.tasks=[]; return th.tasks; } return null; }
+  if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); if(d){ if(!Array.isArray(d.items))d.items=[]; return d.items; } return null; }
   if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(m){ if(!Array.isArray(m.tasks))m.tasks=[]; return m.tasks; } return null; }
   if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); return p?p.tasks:null; } const m=D.months[loc.mId]; const f=m&&m.fetes.find(x=>x.id===loc.fId); return f?f.tasks:null; }
   const ev=eventOfLoc(loc); return ev?ev.tasks:null;
@@ -1226,6 +1231,7 @@ function render(){
   else if(nav.view==='journal') renderJournal(main);
   else if(nav.view==='report') renderReport(main);
   else if(nav.view==='themes') renderThemes(main);
+  else if(nav.view==='dossier') renderDossier(main);
   else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
     if(!nav.monthId) renderHome(main);
@@ -1332,6 +1338,7 @@ function normalizeAllTasks(){
   (D.programs||[]).forEach(p=>{ if(p.tasks)_normTasks(p.tasks); (p.events||[]).forEach(e=>{ if(e.tasks)_normTasks(e.tasks); }); });
   if(Array.isArray(D.inbox)) _normTasks(D.inbox);
   (D.themes||[]).forEach(th=>{ if(Array.isArray(th.tasks)) _normTasks(th.tasks); });
+  (D.dossiers||[]).forEach(d=>{ if(Array.isArray(d.items)) _normTasks(d.items.filter(x=>x.kind!=='title')); });
 }
 function remainingDur(t){ if(t.subtasks&&t.subtasks.length) return t.subtasks.reduce((a,s)=>a+remainingDur(s),0); return t.status==='done'?0:(t.duration||0); }
 const sumRemDur = arr => (arr||[]).reduce((a,t)=>a+remainingDur(t),0);
@@ -1409,6 +1416,9 @@ function renderMonth(c){
   }
   const mtasks=(md&&md.tasks)||[];
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ Tâches du mois</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
+  const mdoss=dossiersFor('month',nav.monthId);
+  if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px">🗂️ Dossiers</div>`; mdoss.forEach(d=>html+=dossierCardHTML(d)); }
+  html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ Nouveau dossier</button>`;
   c.innerHTML=html;
 }
 
@@ -1735,6 +1745,7 @@ function containerTasks(loc){
   if(loc.inbox||loc.ctx==='inbox'){ if(!Array.isArray(D.inbox))D.inbox=[]; return D.inbox; }
   if(loc.rdv||loc.ctx==='rdv'){ if(!Array.isArray(D.rdv))D.rdv=[]; return D.rdv; }
   if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); if(th){ if(!Array.isArray(th.tasks))th.tasks=[]; return th.tasks; } return null; }
+  if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); if(d){ if(!Array.isArray(d.items))d.items=[]; return d.items; } return null; }
   if(loc.contTask){ if(loc.pId){ const p=D.programs.find(x=>x.id===loc.pId); if(!p.tasks)p.tasks=[]; return p.tasks; } const m=D.months[loc.mId]; const f=m.fetes.find(x=>x.id===loc.fId); if(!f.tasks)f.tasks=[]; return f.tasks; }
   if(loc.ctx==='month'){ const m=D.months[loc.mId]; if(!m.tasks)m.tasks=[]; return m.tasks; }
   if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const e=p.events.find(x=>x.id===loc.eId); return e.tasks; }
@@ -1882,6 +1893,8 @@ function datedAll(){
   (D.rdv||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'rdv',t:t,label:t.text||'Rendez-vous',color:'#B87A1F'}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:'Rendez-vous',n:n,color:'#B87A1F'})); } });
   // Tâches directes d'un thème (celles qui ont une date) — calendrier / agenda.
   (D.themes||[]).forEach(th=>{ flattenTasks(th.tasks||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:th.name,themeId:th.id,color:th.color}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:th.name,n:n,themeId:th.id,color:th.color})); } }); });
+  // Tâches d'un dossier (celles qui ont une date).
+  (D.dossiers||[]).forEach(d=>{ flattenTasks((d.items||[]).filter(x=>x.kind!=='title')).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:'🗂️ '+d.name}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:'🗂️ '+d.name,n:n})); } }); });
   return out;
 }
 // Couleur/thème d'un élément daté (pour le calendrier coloré).
@@ -2220,6 +2233,7 @@ function collectAllTasks(){ const out=[];
   });
   (D.inbox||[]).forEach(t=>out.push({t,where:'Indépendante'}));
   (D.themes||[]).forEach(th=>{ (th.tasks||[]).forEach(t=>out.push({t,where:(th.icon||'🎯')+' '+th.name})); });
+  (D.dossiers||[]).forEach(d=>{ (d.items||[]).forEach(t=>{ if(t.kind!=='title') out.push({t,where:'🗂️ '+d.name}); }); });
   return out;
 }
 function renderAllTasks(c){
@@ -2376,6 +2390,7 @@ function quickAddSheet(){
     return head+`<div class="sheet-body">
       <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 Rendez-vous / Invitation <span style="opacity:.7;font-weight:400;font-size:12px">— je suis invité</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ Nouveau dossier <span style="opacity:.7;font-weight:400;font-size:12px">— titres + tâches</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 Nouvel événement</button>
       <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
@@ -2770,7 +2785,7 @@ function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
-function parentLabel(loc){ if(!loc) return ''; if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
+function parentLabel(loc){ if(!loc) return ''; if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
@@ -3629,6 +3644,7 @@ function renderJournal(c){
     Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); (m.tasks||[]).forEach(t=>_handle(t,(mm?mm.name:'Mois'),'')); });
     (D.inbox||[]).forEach(t=>_handle(t,'',''));   // tâches indépendantes (boîte de réception)
     (D.themes||[]).forEach(th=>{ (th.tasks||[]).forEach(t=>_handle(t,(th.icon||'🎯')+' '+th.name,'')); });   // tâches directes d'un thème
+    (D.dossiers||[]).forEach(d=>{ (d.items||[]).forEach(t=>{ if(t.kind!=='title') _handle(t,'🗂️ '+d.name,''); }); });   // tâches d'un dossier
     open.sort((a,b)=>(b.t.priority==='haute'?1:0)-(a.t.priority==='haute'?1:0));
     // Rendez-vous / invitations : le jour dit (visible même en revenant en arrière), ou en rappel « dans X j ».
     const rdvs=[];
@@ -3720,6 +3736,49 @@ function thSetIcon(v){ const th=themeById(themeNav); if(th){ th.icon=(v||'🎯')
 function thSetColor(cl){ const th=themeById(themeNav); if(th){ th.color=cl; save(); render(); } }
 function cleanupThemes(){ if(!D||!Array.isArray(D.themes))return; D.themes=D.themes.filter(th=>((th.name||'').trim()||themeEvents(th.id).length||(th.tasks&&th.tasks.length))); }
 function themeAddTask(tid){ const th=themeById(tid); if(!th)return; if(!Array.isArray(th.tasks))th.tasks=[]; const t=mkTask(''); th.tasks.push(t); save(); openQuickTask(t.id); }
+// ============================================================
+//  DOSSIERS — plan libre (titres + tâches), plaçable partout
+// ============================================================
+function dossierById(id){ return (D.dossiers||[]).find(x=>x.id===id); }
+function dossiersFor(kind,id){ return (D.dossiers||[]).filter(d=>d.anchor && d.anchor.kind===kind && d.anchor.id===id); }
+function dossiersStandalone(){ return (D.dossiers||[]).filter(d=>!d.anchor); }
+function newDossier(anchor){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; D.dossiers.push(d); save(); openDossier(d.id); }
+function openDossier(id){ nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+function dossierBack(){ const d=dossierById(nav.dossierId); const a=d&&d.anchor; if(a&&a.kind==='month'){ nav={view:'calendar',monthId:a.id,feteId:null,eventId:null,ctx:'fete'}; } else if(a&&a.kind==='theme'){ nav={view:'themes'}; themeNav=a.id; } else { nav={view:'bdd'}; bddNav=null; } render(); }
+function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; save(); } }
+function dossAddTitle(){ const d=dossierById(nav.dossierId); if(!d)return; d.items.push(mkTitle('')); save(); render(); setTimeout(()=>{ const els=document.querySelectorAll('.doss-title-input'); const el=els[els.length-1]; if(el)el.focus(); },50); }
+function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
+function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (les tâches en dessous restent)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
+function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
+function dossAddTaskUnder(titleId){ const d=dossierById(nav.dossierId); if(!d)return; let ti=d.items.findIndex(x=>x.id===titleId); if(ti<0){ return dossAddTask(); } let j=ti+1; while(j<d.items.length && d.items[j].kind!=='title') j++; const t=mkTask(''); d.items.splice(j,0,t); save(); openQuickTask(t.id); }
+function delDossier(id){ const d=dossierById(id); if(!d)return; if(!confirm('Supprimer le dossier « '+(d.name||'sans nom')+' » et tout son contenu ?'))return; D.dossiers=(D.dossiers||[]).filter(x=>x.id!==id); if(nav.view==='dossier'&&nav.dossierId===id){ dossierBack(); } else { save(); render(); } save(); }
+function dossierCardHTML(d){ const tasks=(d.items||[]).filter(x=>x.kind!=='title'); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length;
+  return `<div class="card" data-act="openDossier('${d.id}')"><div class="card-body"><span class="card-icon">🗂️</span><div class="card-main"><div class="card-name">${esc(d.name||'Dossier sans nom')}</div><div class="card-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length+' fait':''}</div></div><span class="chev">›</span></div></div>`; }
+function renderDossier(c){
+  const d=dossierById(nav.dossierId);
+  if(!d){ c.innerHTML=emptyHTML('🗂️','Dossier introuvable','','← Retour','dossierBack()'); return; }
+  let html=`<div class="bc"><span class="bc-item" data-act="dossierBack()">‹ Retour</span><span class="bc-sep">▸</span><span class="bc-item active">🗂️ ${esc(d.name||'Dossier')}</span></div>`;
+  html+=`<div class="field" style="margin-top:10px;margin-bottom:14px"><input class="input" value="${esc(d.name)}" placeholder="Nom du dossier (ex. Organisation Pourim)" onchange="dossSetName(this.value)" style="font-family:var(--serif);font-size:22px;font-weight:600"></div>`;
+  const items=d.items||[];
+  if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.</div>'; }
+  let idx=0;
+  while(idx<items.length){
+    const it=items[idx];
+    if(it.kind==='title'){
+      html+=`<div style="display:flex;align-items:center;gap:6px;margin:16px 0 8px"><input class="input doss-title-input" value="${esc(it.text)}" placeholder="Titre de section…" onchange="dossTitleSet('${it.id}',this.value)" style="flex:1;font-weight:700;font-size:16px;border:none;border-bottom:2px solid var(--line);border-radius:0;background:transparent;padding:4px 2px"><span class="dep-x" style="font-size:15px;cursor:pointer" data-act="dossDelTitle('${it.id}')">🗑</span></div>`;
+      let j=idx+1; const group=[]; while(j<items.length && items[j].kind!=='title'){ group.push(items[j]); j++; }
+      group.forEach((t,k)=>html+=taskHTML(t,null,k,group.length,false));
+      html+=`<button class="btn btn-ghost btn-sm" style="padding:5px 12px;margin-bottom:6px" data-act="dossAddTaskUnder('${it.id}')">＋ Tâche</button>`;
+      idx=j;
+    } else {
+      html+=taskHTML(it,null,0,1,false);
+      idx++;
+    }
+  }
+  html+=`<div style="display:flex;gap:9px;margin-top:14px"><button class="btn btn-soft btn-block" style="flex:1" data-act="dossAddTitle()">＋ Titre</button><button class="btn btn-soft btn-block" style="flex:1" data-act="dossAddTask()">＋ Tâche</button></div>`;
+  html+=`<button class="btn btn-ghost btn-block" style="margin-top:16px;color:var(--red)" data-act="delDossier('${d.id}')">🗑 Supprimer le dossier</button>`;
+  c.innerHTML=html;
+}
 function themesHome(){ themeNav=null; render(); }
 function bddHome(){ bddNav=null; render(); }
 function bddGoCat(id){ bddNav={cat:id}; render(); }
@@ -3762,6 +3821,9 @@ function renderThemes(c){
     html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:14px" data-act="themeAddTask('${th.id}')">＋ Nouvelle tâche dans ce thème</button>`;
     if(evs.length){ html+=`<div class="section-label">📌 Activités reliées</div>`; evs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); evs.forEach(x=>{ const done=countAllDone(x.e.tasks), tot=countAll(x.e.tasks); html+=`<div class="card" data-act="go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
     html+=`<button class="btn btn-soft btn-block" style="margin-top:6px" data-act="addActivityToTheme('${th.id}')">＋ Nouvelle activité</button>`;
+    const thdoss=dossiersFor('theme',th.id);
+    if(thdoss.length){ html+=`<div class="section-label" style="margin-top:14px">🗂️ Dossiers</div>`; thdoss.forEach(d=>html+=dossierCardHTML(d)); }
+    html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'theme',id:'${th.id}'})">＋ Nouveau dossier</button>`;
     html+=`<button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="delTheme('${th.id}')">🗑 Supprimer le thème</button>`;
     c.innerHTML=html; return;
   }
@@ -3845,6 +3907,11 @@ function renderBDD(c){
   (D.bdd.cats||[]).forEach(cat=>{ const n=cat.kind==='subs'?(cat.subcats||[]).length+' sous-cat.':(cat.items||[]).length+' élément(s)'; html+=`<div class="tile" data-act="openBddCat('${cat.id}')"><div class="tile-ic">${cat.icon||'🗂️'}</div><div class="tile-name">${esc(cat.name)}</div><div class="tile-meta">${n}</div></div>`; });
   html+=`<div class="tile tile-add" data-act="newBddCat()"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">Nouvelle catégorie</div></div>`;
   html+=`</div>`;
+  const sdoss=dossiersStandalone();
+  html+=`<div class="section-label" style="margin-top:16px">🗂️ Dossiers</div>`;
+  if(sdoss.length){ sdoss.forEach(d=>html+=dossierCardHTML(d)); }
+  else { html+=`<div class="hint">Un dossier est un plan libre (titres + tâches) que tu peux garder ici ou poser dans un mois / un thème.</div>`; }
+  html+=`<button class="btn btn-soft btn-block" style="margin-top:8px" data-act="newDossier(null)">＋ Nouveau dossier</button>`;
   html+=`<button class="btn btn-soft btn-block" style="margin-top:14px" data-act="openBddAdd()">＋ Ajouter du contenu</button>`;
   c.innerHTML=html;
 }
@@ -4429,7 +4496,8 @@ function commitDragOrder(kind){
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  openBackups,restoreBackup,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
- newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
+ newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
@@ -4492,6 +4560,7 @@ function ensureCollections(){
   migrateMaterials();
   if(!Array.isArray(D.inbox)) D.inbox=[];
   if(!Array.isArray(D.rdv)) D.rdv=[];
+  if(!Array.isArray(D.dossiers)) D.dossiers=[];
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
   normalizeAllTasks();   // cohérence parent/sous-tâches (le parent = fait ssi toutes ses feuilles le sont)
   syncCounters();
@@ -4571,6 +4640,7 @@ function handleBack(){
     if(sheet && sheet.type==='timer'){ tmrClose(); return; }
     if(sheet){ closeSheet(); return; }
     if(drawerOpen){ toggleDrawer(false); return; }
+    if(nav.view==='dossier'){ dossierBack(); return; }
     if(nav.view==='themes' && themeNav){ themeNav=null; render(); return; }
     if(nav.view==='bdd' && bddNav){ if(bddNav.sub){ bddNav={cat:bddNav.cat}; } else { bddNav=null; } render(); return; }
     if(nav.eventId){ go({eventId:null}); return; }
