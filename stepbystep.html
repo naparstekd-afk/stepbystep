@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-r">
+<meta name="app-build" content="b-2026-08-25-s">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -642,9 +642,12 @@ async function cloudPull(){
 // Estime la « richesse » d'un jeu de données pour ne jamais écraser des données réelles par du vide.
 function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
   try{
-    Object.values(o.months||{}).forEach(m=>(m.fetes||[]).forEach(f=>{ n+=2; (f.events||[]).forEach(e=>{ n+=2; n+=((e.tasks||[]).length); }); }));
+    Object.values(o.months||{}).forEach(m=>{ n+=(m.tasks||[]).length; (m.fetes||[]).forEach(f=>{ n+=2; n+=(f.tasks||[]).length; (f.events||[]).forEach(e=>{ n+=2; n+=((e.tasks||[]).length); }); }); });
     (o.programs||[]).forEach(p=>{ n+=3; (p.events||[]).forEach(e=>{ n+=1; n+=((e.tasks||[]).length); }); });
-    n+=(o.themes||[]).length; n+=(((o.bdd&&o.bdd.cats)||[]).length); n+=(o.persons||[]).length; n+=(o.suppliers||[]).length;
+    (o.themes||[]).forEach(t=>{ n+=1+((t.tasks||[]).length); });
+    (o.dossiers||[]).forEach(d=>{ n+=1+((d.items||[]).length); });
+    n+=(o.inbox||[]).length; n+=(o.rdv||[]).length;
+    n+=(((o.bdd&&o.bdd.cats)||[]).length); n+=(o.persons||[]).length; n+=(o.suppliers||[]).length; n+=(o.ideas||[]).length;
   }catch(e){}
   return n;
 }
