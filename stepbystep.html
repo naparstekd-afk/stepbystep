@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-y">
+<meta name="app-build" content="b-2026-08-26-z">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2854,12 +2854,9 @@ function subEditHTML(s,i){
       <button class="mini-btn" data-act="ebOpenSub('${s.id}')" title="Toutes les options">⚙️</button>
       <button class="mini-btn" data-act="ebToggleSub('${s.id}')" title="Replier">▴</button>
       <button class="mini-btn danger" style="margin-left:auto" data-act="ebRmSub('${s.id}')">🗑</button></div>
-    <div class="subedit-grid">
-      <input class="input-sm" value="${esc(s.text)}" oninput="ebSubField('${s.id}','text',this.value)" placeholder="Intitulé">
-      <div class="row2" style="gap:8px">
-        <input class="input-sm" list="dl-people" value="${esc(s.responsible||'')}" oninput="ebSubField('${s.id}','responsible',this.value)" placeholder="Responsable">
-        <input class="input-sm" type="number" value="${s.duration||''}" oninput="ebSubField('${s.id}','duration',this.value)" placeholder="min">
-      </div>
+    <div class="subedit-grid" style="display:flex;gap:8px;align-items:center">
+      <input class="input-sm" value="${esc(s.text)}" oninput="ebSubField('${s.id}','text',this.value)" placeholder="Intitulé" style="flex:1;min-width:0">
+      <input class="input-sm" type="number" inputmode="numeric" value="${s.duration||''}" oninput="ebSubField('${s.id}','duration',this.value)" placeholder="min" style="width:66px;flex:0 0 auto;text-align:center">
     </div>
   </div>`;
 }
@@ -4926,6 +4923,15 @@ try{
   history.pushState(null,''); // amorce une entrée d'historique
   window.addEventListener('popstate', function(){ handleBack(); history.pushState(null,''); }); // re-amorce → le retour ne quitte jamais
 }catch(e){}
+
+// ── Clavier mobile : garder le champ en cours de saisie visible AU-DESSUS du clavier ──
+(function(){
+  let _kbT=null;
+  function bringIntoView(el){ if(!el||!el.closest)return; if(!el.closest('.sheet'))return; try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){ try{ el.scrollIntoView(); }catch(_){} } }
+  function isField(el){ return el && el.matches && el.matches('input,textarea,select') && el.closest && el.closest('.sheet'); }
+  document.addEventListener('focusin', function(e){ const el=e.target; if(!isField(el))return; clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 300); });
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize', function(){ const el=document.activeElement; if(isField(el)){ clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 60); } }); }
+})();
 
 // ============================================================
 //  Tirer vers le bas pour recharger (pull-to-refresh)
