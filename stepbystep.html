@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-u">
+<meta name="app-build" content="b-2026-08-25-v">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3852,7 +3852,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
   let h=`<span class="dd" style="position:relative;display:inline-block">`;
   h+=`<button class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:18px;line-height:1" data-act="toggleDD('${key}')" title="Ajouter">＋</button>`;
   if(openDD===key){
-    h+=`<div class="dd-scrim" data-act="closeDD()"></div><div class="dd-menu" style="z-index:60;right:0">`;
+    h+=`<div class="dd-scrim" data-act="closeDD()"></div><div class="dd-menu${titleId?' right':''}" style="z-index:60;max-width:calc(100vw - 20px)">`;
     if(titleId){
       h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ Modifier le titre</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},-1)">⬆ Monter le titre</button>`;
