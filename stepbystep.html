@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-s">
+<meta name="app-build" content="b-2026-08-25-t">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3818,8 +3818,8 @@ function dossierBack(){ const d=dossierById(nav.dossierId); if(d&&d.parentId&&do
 function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; save(); } }
 function _dossFocusTitle(id){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el)el.focus(); }catch(e){} },50); }
 function _dossNextTitle(items,from,maxLevel){ for(let j=from;j<items.length;j++){ if(items[j].kind==='title' && (items[j].level||1)<=maxLevel) return j; } return items.length; }
-function dossAddTitle(){ const d=dossierById(nav.dossierId); if(!d)return; const it=mkTitle('',1); d.items.push(it); save(); render(); _dossFocusTitle(it.id); }
-function dossAddSubtitle(titleId){ const d=dossierById(nav.dossierId); if(!d)return; dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti<0)return; const j=_dossNextTitle(d.items,ti+1,1); const it=mkTitle('',2); dossOpen[it.id]=true; d.items.splice(j,0,it); save(); render(); _dossFocusTitle(it.id); }
+function dossAddTitle(){ const d=dossierById(nav.dossierId); if(!d)return; const it=mkTitle('',1); d.items.push(it); dossEditId=it.id; save(); render(); _dossFocusTitle(it.id); }
+function dossAddSubtitle(titleId){ const d=dossierById(nav.dossierId); if(!d)return; dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti<0)return; const j=_dossNextTitle(d.items,ti+1,1); const it=mkTitle('',2); dossOpen[it.id]=true; dossEditId=it.id; d.items.splice(j,0,it); save(); render(); _dossFocusTitle(it.id); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (le contenu en dessous reste)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
 function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
@@ -3836,14 +3836,17 @@ function dossPickFile(titleId){ const inp=document.createElement('input'); inp.t
 function dossAddLink(titleId){ const url=prompt('Colle le lien (vidéo, chanson, document… https://…) :',''); if(url===null||!url.trim())return; let u=url.trim(); if(!/^https?:\/\//i.test(u)&&!/^mailto:|^tel:/i.test(u)) u='https://'+u; const nm=prompt('Nom du lien (optionnel) :','')||''; _dossInsertMedia({mtype:'link',url:u,name:nm.trim()},titleId); }
 function dossPickCamera(titleId){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)_dossReadImage(f,titleId); }; inp.click(); }
 function dossPickVideo(titleId){ const inp=document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2.5*1024*1024){ toast('Vidéo trop lourde (max ~2,5 Mo). Ajoute-la plutôt par un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_dossInsertMedia({mtype:'video',data:rd.result,name:f.name,ftype:f.type},titleId); rd.readAsDataURL(f); }; inp.click(); }
-let dossOpen={};
+let dossOpen={}; let dossEditId=null;
 function dossToggle(id){ dossOpen[id]=!dossOpen[id]; render(); }
 function dossExpand(id){ if(id) dossOpen[id]=true; }
+function dossEditTitle(id){ dossEditId=id; render(); setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el){ el.focus(); el.select&&el.select(); } }catch(e){} },50); }
+function dossTitleCommit(id,v){ dossTitleSet(id,v); dossEditId=null; render(); }
 function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; const level=opts.level||0; const root=!!opts.root; const key=root?'dadd:root':('dadd:'+titleId); const idp=titleId?("'"+titleId+"'"):'null';
   let h=`<span class="dd" style="position:relative;display:inline-block">`;
   h+=`<button class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:18px;line-height:1" data-act="toggleDD('${key}')" title="Ajouter">＋</button>`;
   if(openDD===key){
     h+=`<div class="dd-scrim" data-act="closeDD()"></div><div class="dd-menu" style="z-index:60;right:0">`;
+    if(titleId) h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ Modifier le titre</button><div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ Titre</button>`;
     if(level===1) h+=`<button class="dd-item" data-act="closeDD();dossAddSubtitle(${idp})">↳ Sous-titre</button>`;
     h+=`<button class="dd-item" data-act="closeDD();${root?'dossAddTask()':'dossAddTaskUnder('+idp+')'}">✅ Tâche</button>`;
@@ -3887,9 +3890,13 @@ function renderDossier(c){
     const it=items[idx];
     if(it.kind==='title'){
       const lvl=(it.level||1); const ind=lvl===2?16:0; const fs=lvl===2?'14.5px':'16px'; const bord=lvl===2?'1px solid var(--line-soft)':'2px solid var(--line)'; const open=!!dossOpen[it.id];
-      html+=`<div style="display:flex;align-items:center;gap:5px;margin:${lvl===2?'10px':'16px'} 0 8px;margin-left:${ind}px">`+
+      const editing=(dossEditId===it.id);
+      const mid = editing
+        ? `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?'Sous-titre…':'Titre de section…'}" onchange="dossTitleCommit('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-radius:0;background:transparent;padding:4px 2px">`
+        : `<span data-act="dossToggle('${it.id}')" style="flex:1;min-width:0;cursor:pointer;font-weight:700;font-size:${fs};padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${it.text?'':'color:var(--ink-soft);font-weight:500'}">${esc(it.text||(lvl===2?'Sous-titre…':'Titre de section…'))}</span>`;
+      html+=`<div style="display:flex;align-items:center;gap:5px;margin:${lvl===2?'10px':'16px'} 0 8px;margin-left:${ind}px;border-bottom:${bord};padding-bottom:2px">`+
         `<span data-act="dossToggle('${it.id}')" style="cursor:pointer;opacity:.55;font-size:13px;width:15px;text-align:center;flex:none">${open?'▾':'▸'}</span>`+
-        `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?'Sous-titre…':'Titre de section…'}" onchange="dossTitleSet('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-bottom:${bord};border-radius:0;background:transparent;padding:4px 2px">`+
+        mid+
         dossAddMenu({titleId:it.id,level:lvl})+
         `<span class="dep-x" style="font-size:15px;cursor:pointer;flex:none" data-act="dossDelTitle('${it.id}')">🗑</span></div>`;
       if(open){
@@ -4631,7 +4638,7 @@ function commitDragOrder(kind){
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
