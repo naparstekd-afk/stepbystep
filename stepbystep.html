@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z3">
+<meta name="app-build" content="b-2026-08-26-z4">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -406,6 +406,8 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .tile-meta{font-size:12px;color:var(--ink-soft);margin-top:auto}
 .tile-add{border:1.5px dashed var(--line);background:var(--surface-2);align-items:center;justify-content:center;color:var(--ink-soft);font-weight:600;text-align:center}
 .tile-add::before{display:none}
+.doss-item{-webkit-user-select:none;user-select:none}
+.doss-dragging{opacity:.6;transform:scale(1.03);box-shadow:0 10px 30px rgba(17,24,39,.20);position:relative;z-index:6;transition:transform .08s}
 /* sous-tâches repliables dans Ma Journée */
 .subrow{display:flex;align-items:flex-start;gap:9px;padding:9px 12px 9px 22px;margin:0 0 0 26px;border-left:2px solid var(--line);background:var(--surface);border-top:1px solid var(--line-soft)}
 .subrow .task-text{font-size:13.5px}
@@ -1442,7 +1444,7 @@ function renderMonth(c){
   const mtasks=(md&&md.tasks)||[];
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ Tâches du mois</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
   const mdoss=dossiersFor('month',nav.monthId);
-  if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss); }
+  if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
   html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ Nouveau dossier</button>`;
   c.innerHTML=html;
 }
@@ -3249,7 +3251,7 @@ function moveExplorerHTML(){
     MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mo.name,(n?n+' fête(s)':'toucher pour ouvrir'),"mvMonth('"+mo.id+"')")); });
   } else if(moveNav && moveNav.open==='dossier'){
     H.push(backBar('Choisis le dossier',"mvOpen()"));
-    const roots=(D.dossiers||[]).filter(d=>!d.parentId);
+    const roots=_sortDoss((D.dossiers||[]).filter(d=>!d.parentId));
     if(roots.length) roots.forEach(d=>H.push(drillRow(d.icon||'🗂️',d.name||'Sans nom',_mvDossMeta(d),"mvDoss('"+d.id+"')")));
     else H.push('<div style="font-size:12.5px;color:var(--ink-soft);padding:8px">Aucun dossier pour l\'instant.</div>');
   } else {
@@ -3911,9 +3913,12 @@ function dossierById(id){ return (D.dossiers||[]).find(x=>x.id===id); }
 function dossierEvents(dId){ const out=[]; Object.entries(D.months||{}).forEach(([mId,m])=>(m.fetes||[]).forEach(f=>(f.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,mId,fId:f.id}); }))); (D.programs||[]).forEach(p=>(p.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,pId:p.id,isProgram:true}); })); return out; }
 function dossSetColor(cl){ const d=dossierById(nav.dossierId); if(d){ d.color=(d.color===cl?null:cl); save(); render(); } }
 function dossSetIcon(){ const d=dossierById(nav.dossierId); if(!d)return; const v=prompt('Icône du dossier (emoji) :',d.icon||'🗂️'); if(v===null)return; d.icon=(v.trim()||'🗂️'); save(); render(); }
-function dossiersFor(kind,id){ return (D.dossiers||[]).filter(d=>!d.parentId && d.anchor && d.anchor.kind===kind && d.anchor.id===id); }
-function dossiersStandalone(){ return (D.dossiers||[]).filter(d=>!d.parentId && !d.anchor); }
-function dossierChildren(id){ return (D.dossiers||[]).filter(d=>d.parentId===id); }
+// Tri des dossiers : A→Z par défaut ; si l'utilisateur a réordonné manuellement (champ .ord), on respecte cet ordre.
+function _sortDoss(list){ const hasOrd=list.some(d=>typeof d.ord==='number'); if(hasOrd){ return list.slice().sort((a,b)=>((a.ord==null?1e9:a.ord)-(b.ord==null?1e9:b.ord))||(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); } return list.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); }
+function commitDossOrder(ids){ if(!Array.isArray(ids)||!ids.length)return; ids.forEach((id,i)=>{ const d=dossierById(id); if(d) d.ord=i; }); save(); render(); toast('Ordre enregistré ✓'); }
+function dossiersFor(kind,id){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && d.anchor && d.anchor.kind===kind && d.anchor.id===id)); }
+function dossiersStandalone(){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && !d.anchor)); }
+function dossierChildren(id){ return _sortDoss((D.dossiers||[]).filter(d=>d.parentId===id)); }
 function dossDescendantIds(id){ const out=new Set([id]); let added=true; while(added){ added=false; (D.dossiers||[]).forEach(d=>{ if(d.parentId && out.has(d.parentId) && !out.has(d.id)){ out.add(d.id); added=true; } }); } return out; }
 function dossAddSub(){ const d=dossierById(nav.dossierId); if(!d)return; const k=mkDossier(''); k.parentId=d.id; D.dossiers.push(k); save(); openDossier(k.id); }
 function dossMoveOpen(){ sheet={type:'dossMove',id:nav.dossierId}; renderOverlay(); }
@@ -4008,12 +4013,12 @@ function delDossier(id){ const d=dossierById(id); if(!d)return; const kids=dossi
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰','Liste (ligne par ligne)')}${c('grid','▦','Grille — 3 par ligne')}</span>`; }
-function dossierTileHTML(d){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length;
-  return `<div class="tile" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}><div class="tile-ic">${d.icon||'🗂️'}</div><div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||'Sans nom')}</div><div class="tile-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
-function dossierListHTML(list){ if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(dossierTileHTML).join('')+`</div>`; } return list.map(dossierCardHTML).join(''); }
-function dossierCardHTML(d){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length;
+function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}><div class="tile-ic">${d.icon||'🗂️'}</div><div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||'Sans nom')}</div><div class="tile-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
+function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
+function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body"><span class="card-icon">${d.icon||'🗂️'}</span><div class="card-main"><div class="card-name">${dot}${esc(d.name||'Dossier sans nom')}</div><div class="card-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length+' fait':''}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body"><span class="card-icon">${d.icon||'🗂️'}</span><div class="card-main"><div class="card-name">${dot}${esc(d.name||'Dossier sans nom')}</div><div class="card-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length+' fait':''}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️','Dossier introuvable','','← Retour','dossierBack()'); return; }
@@ -4056,7 +4061,7 @@ function renderDossier(c){
   const devs=dossierEvents(d.id);
   if(devs.length){ html+=`<div class="section-label" style="margin-top:16px">📌 Activités reliées (calendrier)</div>`; devs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); devs.forEach(x=>{ const done=countAllDone(x.e.tasks),tot=countAll(x.e.tasks); const act=x.isProgram?`setView('journal')`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})`; html+=`<div class="card" data-act="${act}"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
   const kids=dossierChildren(d.id);
-  if(kids.length){ html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>📁 Sous-dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(kids); }
+  if(kids.length){ html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>📁 Sous-dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(kids,'child:'+d.id); }
   html+=`<div style="height:1px;background:var(--line-soft);margin:14px 0"></div>`;
   html+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;color:var(--ink-soft)">Ajouter au dossier</span>`+dossAddMenu({root:true})+`</div>`;
   html+=`<div style="display:flex;gap:9px;margin-top:16px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="dossMoveOpen()">↗ Déplacer ce dossier</button><button class="btn btn-ghost btn-sm" style="flex:1;color:var(--red)" data-act="delDossier('${d.id}')">🗑 Supprimer</button></div>`;
@@ -4191,7 +4196,7 @@ function renderBDD(c){
   html+=`</div>`;
   const sdoss=dossiersStandalone();
   html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${sdoss.length?dossLayoutToggleHTML():''}</div>`;
-  if(sdoss.length){ html+=dossierListHTML(sdoss); }
+  if(sdoss.length){ html+=dossierListHTML(sdoss,'root'); }
   else { html+=`<div class="hint">Un dossier est un plan libre (titres + tâches) que tu peux garder ici ou poser dans un mois.</div>`; }
   html+=`<button class="btn btn-soft btn-block" style="margin-top:8px" data-act="newDossier(null)">＋ Nouveau dossier</button>`;
   html+=`<button class="btn btn-soft btn-block" style="margin-top:14px" data-act="openBddAdd()">＋ Ajouter du contenu</button>`;
@@ -4951,6 +4956,36 @@ try{
   function isField(el){ return el && el.matches && el.matches('input,textarea,select') && el.closest && el.closest('.sheet'); }
   document.addEventListener('focusin', function(e){ const el=e.target; if(!isField(el))return; clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 300); });
   if(window.visualViewport){ window.visualViewport.addEventListener('resize', function(){ const el=document.activeElement; if(isField(el)){ clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 60); } }); }
+})();
+
+// ── Réordonner les dossiers : appui long (~0,5 s) puis glisser, comme sur un téléphone ──
+(function(){
+  const LONG=500, MOVE_CANCEL=12;
+  let press=null, drag=null;
+  const grp=el=>(el&&el.getAttribute)?el.getAttribute('data-dossgroup'):null;
+  const itemsIn=g=>[...document.querySelectorAll('.doss-item[data-dossgroup="'+g+'"]')];
+  function endPress(){ if(press){ document.removeEventListener('touchmove',press.onMove); clearTimeout(press.timer); press=null; } }
+  function endDrag(commit){ if(!drag)return; const g=drag.group; drag.el.classList.remove('doss-dragging'); drag=null;
+    if(commit){ const order=itemsIn(g).map(n=>n.getAttribute('data-dossid'));
+      const eat=(ev)=>{ ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click',eat,true); };
+      document.addEventListener('click',eat,true); setTimeout(()=>document.removeEventListener('click',eat,true),450);
+      if(typeof commitDossOrder==='function') commitDossOrder(order);
+    } }
+  document.addEventListener('touchstart', function(e){
+    if(drag) return; const el=e.target.closest && e.target.closest('.doss-item'); if(!el) return;
+    const t=e.touches[0]; const sx=t.clientX, sy=t.clientY; endPress();
+    const onMove=(ev)=>{ const tt=ev.touches[0]; if(!tt)return; if(Math.abs(tt.clientX-sx)>MOVE_CANCEL||Math.abs(tt.clientY-sy)>MOVE_CANCEL) endPress(); };
+    document.addEventListener('touchmove',onMove,{passive:true});
+    press={ el, onMove, timer:setTimeout(()=>{ document.removeEventListener('touchmove',onMove); press=null; drag={el,group:grp(el)}; el.classList.add('doss-dragging'); try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){} }, LONG) };
+  }, {passive:true});
+  document.addEventListener('touchmove', function(e){
+    if(!drag) return; e.preventDefault(); const t=e.touches[0]; if(!t)return;
+    const under=document.elementFromPoint(t.clientX,t.clientY);
+    const tgt=under && under.closest && under.closest('.doss-item');
+    if(tgt && tgt!==drag.el && grp(tgt)===drag.group){ const r=tgt.getBoundingClientRect(); const before=(t.clientY < r.top + r.height/2); tgt.parentNode.insertBefore(drag.el, before?tgt:tgt.nextSibling); }
+  }, {passive:false});
+  document.addEventListener('touchend', function(){ endPress(); endDrag(true); }, {passive:true});
+  document.addEventListener('touchcancel', function(){ endPress(); endDrag(false); }, {passive:true});
 })();
 
 // ============================================================
