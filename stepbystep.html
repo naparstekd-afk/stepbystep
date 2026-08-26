@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z7">
+<meta name="app-build" content="b-2026-08-26-z8">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1751,17 +1751,16 @@ function clearGroup(){ groupedView=null; render(); }
 function openJSort(){ sheet={type:'jsort'}; renderOverlay(); }
 function setJSort(mode){ jSort=mode; closeSheet(); render(); }
 function jClearSort(){ jSort=null; render(); }
-function jFilterToggle(k){ jFilter[k]=!jFilter[k]; render(); }   // multichoix : garde le menu ouvert
+function jFilterToggle(k){ if(k==='rappel'){ const on=!(jFilter.events||jFilter.reminders); jFilter.events=on; jFilter.reminders=on; } else { jFilter[k]=!jFilter[k]; } render(); }   // multichoix : garde le menu ouvert
 function jDisplayMenu(){
   const f=jFilter; const chk=(on)=>on?'☑':'☐';
-  const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(f[k])} ${ic} ${lbl}</button>`;
+  const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(k==='rappel'?(f.events||f.reminders):f[k])} ${ic} ${lbl}</button>`;
   const srt=(m,ic,lbl)=>`<button class="dd-item ${jSort===m?'sel':''}" data-act="setJSort('${m}')">${ic} ${lbl}</button>`;
   const _al = (lang==='he') ? 'left:0;right:auto' : 'left:auto;right:0';
   return `<div class="dd-menu" style="${_al};min-width:210px;max-width:calc(100vw - 20px);z-index:60">
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Afficher','הצג','Show')}</div>
     ${opt('tasks','✅',t('Tâches','משימות','Tasks'))}
-    ${opt('events','🎉',t('Événements','אירועים','Events'))}
-    ${opt('reminders','🔔',t('Rappels','תזכורות','Reminders'))}
+    ${opt('rappel','🔔',t('Rappel','תזכורת','Reminder'))}
     <div class="divider" style="margin:6px 0"></div>
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Trier « À faire »','מיין « לביצוע »','Sort “To do”')}</div>
     <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ ${t('Ordre par défaut','סדר ברירת מחדל','Default order')}</button>
@@ -2434,7 +2433,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'){ if(bddNav&&bddNav.cat){ openBddAdd(); } else { newDossier(null); } return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -2483,8 +2482,7 @@ function quickAddSheet(){
   if(!pick){
     return head+`<div class="sheet-body">
       <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ ${NEWTASK} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('sans date','ללא תאריך','no date')}</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rendez-vous / Invitation','פגישה / הזמנה','Appointment / Invitation')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('un événement où je vais (mariage, bar-mitsva…)','אירוע שאני משתתף בו (חתונה, בר-מצווה…)','an event I attend (wedding, bar-mitzvah…)')}</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaReminder()">🔔 ${t('Rappel','תזכורת','Reminder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('une alerte à une date','התראה בתאריך','an alert on a date')}</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rappel','תזכורת','Reminder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('un événement où je vais (mariage, bar-mitsva…)','אירוע שאני משתתף בו (חתונה, בר-מצווה…)','an event I attend (wedding, bar-mitzvah…)')}</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('titres + tâches','כותרות + משימות','titles + tasks')}</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 ${NEWFETE}</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 ${NEWEVENT}</button>
@@ -3987,26 +3985,25 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
   if(openDD===key){
     h+=`<div class="dd-scrim" data-act="closeDD()"></div><div class="dd-menu${titleId?' right':''}" style="z-index:60;max-width:calc(100vw - 20px)">`;
     if(titleId){
-      h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ Modifier le titre</button>`;
-      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},-1)">⬆ Monter le titre</button>`;
-      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ Descendre le titre</button>`;
-      h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ Transformer en tâche</button>`;
-      h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 Transformer en rendez-vous / invitation</button>`;
-      h+=`<button class="dd-item" data-act="closeDD();dossTitleToReminder(${idp})">🔔 Transformer en rappel</button>`;
-      h+=`<button class="dd-item" style="color:var(--red)" data-act="closeDD();dossDelTitle(${idp})">🗑 Supprimer le titre</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossEditTitle(${idp})">✏️ ${t('Modifier le titre','ערוך כותרת','Edit title')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},-1)">⬆ ${t('Monter le titre','העלה כותרת','Move title up')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ ${t('Descendre le titre','הורד כותרת','Move title down')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ ${t('Transformer en tâche','הפוך למשימה','Turn into a task')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 ${t('Transformer en rappel','הפוך לתזכורת','Turn into a reminder')}</button>`;
+      h+=`<button class="dd-item" style="color:var(--red)" data-act="closeDD();dossDelTitle(${idp})">🗑 ${t('Supprimer le titre','מחק כותרת','Delete title')}</button>`;
       h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     }
-    if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ Titre</button>`;
-    if(titleId) h+=`<button class="dd-item" data-act="closeDD();dossAddSubtitle(${idp})">↳ Sous-titre</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();${root?'dossAddTask()':'dossAddTaskUnder('+idp+')'}">✅ Tâche</button>`;
-    if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddSub()">📁 Sous-dossier</button>`;
+    if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ ${t('Titre','כותרת','Title')}</button>`;
+    if(titleId) h+=`<button class="dd-item" data-act="closeDD();dossAddSubtitle(${idp})">↳ ${t('Sous-titre','כותרת משנה','Subtitle')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();${root?'dossAddTask()':'dossAddTaskUnder('+idp+')'}">✅ ${t('Tâche','משימה','Task')}</button>`;
+    if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddSub()">📁 ${t('Sous-dossier','תת-תיקייה','Sub-folder')}</button>`;
     h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossAddNote(${idp})">📝 Note</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossPickImage(${idp})">🖼️ Image</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossPickCamera(${idp})">📷 Caméra</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossPickVideo(${idp})">🎬 Vidéo</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossPickFile(${idp})">📎 Fichier</button>`;
-    h+=`<button class="dd-item" data-act="closeDD();dossAddLink(${idp})">🔗 Lien</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossAddNote(${idp})">📝 ${t('Note','הערה','Note')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossPickImage(${idp})">🖼️ ${t('Image','תמונה','Image')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossPickCamera(${idp})">📷 ${t('Caméra','מצלמה','Camera')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossPickVideo(${idp})">🎬 ${t('Vidéo','וידאו','Video')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossPickFile(${idp})">📎 ${t('Fichier','קובץ','File')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossAddLink(${idp})">🔗 ${t('Lien','קישור','Link')}</button>`;
     h+=`</div>`;
   }
   h+=`</span>`; return h; }
