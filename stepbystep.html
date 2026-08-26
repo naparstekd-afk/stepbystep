@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-v">
+<meta name="app-build" content="b-2026-08-25-w">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -87,6 +87,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .cal-cell.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
 .cal-cell.first{box-shadow:inset 0 0 0 1px var(--gold)}
 .cal-cell.empty{background:transparent;border:none;cursor:default}
+.cal-cell.out{opacity:.4}
 .cal-dh{display:flex;justify-content:space-between;align-items:baseline;gap:3px}
 .cal-dh .civ{font-size:14px;font-weight:700;font-family:var(--serif);color:var(--ink);line-height:1}
 .cal-cell.today .cal-dh .civ{color:var(--primary)}
@@ -2010,13 +2011,21 @@ function renderCalGrid(c, asJournal){
   const present={}; let hasNone=false;
   dt.forEach(x=>{ const th=agThemeOf(x); if(th){ present[th.id]=th; } else if(x.kind!=='reminder'){ hasNone=true; } });
   const themeList=Object.values(present).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  let days=[], title='';
-  if(mode==='civil'){ const a=new Date(anchor+'T12:00:00'); const y=a.getFullYear(),mo=a.getMonth(); const first=new Date(y,mo,1); const dim=new Date(y,mo+1,0).getDate(); const sw=first.getDay(); for(let i=0;i<sw;i++)days.push(null); for(let d=1;d<=dim;d++)days.push(new Date(y,mo,d,12)); title=first.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); }
-  else if(mode==='heb'){ const a=new Date(anchor+'T12:00:00'); const ap=hebParts(a); let d1=new Date(a); d1.setDate(d1.getDate()-(ap.day-1)); let cur=new Date(d1); const arr=[]; for(let i=0;i<32;i++){ const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year) break; arr.push(new Date(cur)); cur=new Date(cur); cur.setDate(cur.getDate()+1);} const sw=arr[0].getDay(); for(let i=0;i<sw;i++)days.push(null); arr.forEach(d=>days.push(d)); { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); title=(_mo?_mo.name:ap.month)+' '+ap.year; } }
-  else { const a=new Date(anchor+'T12:00:00'); const start=new Date(a); start.setDate(a.getDate()-a.getDay()); for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d);} title='Semaine du '+start.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
+  let days=[], title=''; let monthDays=[]; const inMonth={};
+  if(mode==='civil'){ const a=new Date(anchor+'T12:00:00'); const y=a.getFullYear(),mo=a.getMonth(); const first=new Date(y,mo,1); const dim=new Date(y,mo+1,0).getDate(); const sw=first.getDay();
+    for(let i=sw;i>0;i--)days.push(new Date(y,mo,1-i,12));                    // jours du mois précédent
+    for(let d=1;d<=dim;d++){ const dd=new Date(y,mo,d,12); days.push(dd); monthDays.push(dd); inMonth[todayKey(dd)]=1; }
+    let trail=(7-(days.length%7))%7; for(let i=1;i<=trail;i++)days.push(new Date(y,mo,dim+i,12));   // jours du mois suivant
+    title=first.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); }
+  else if(mode==='heb'){ const a=new Date(anchor+'T12:00:00'); const ap=hebParts(a); let d1=new Date(a); d1.setDate(d1.getDate()-(ap.day-1)); let cur=new Date(d1); const arr=[]; for(let i=0;i<32;i++){ const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year) break; arr.push(new Date(cur)); cur=new Date(cur); cur.setDate(cur.getDate()+1);} const sw=arr[0].getDay();
+    for(let i=sw;i>0;i--){ const d=new Date(arr[0]); d.setDate(d.getDate()-i); days.push(d); }
+    arr.forEach(d=>{ days.push(d); monthDays.push(d); inMonth[todayKey(d)]=1; });
+    let trail=(7-(days.length%7))%7; for(let i=1;i<=trail;i++){ const d=new Date(arr[arr.length-1]); d.setDate(d.getDate()+i); days.push(d); }
+    { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); title=(_mo?_mo.name:ap.month)+' '+ap.year; } }
+  else { const a=new Date(anchor+'T12:00:00'); const start=new Date(a); start.setDate(a.getDate()-a.getDay()); for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d); monthDays.push(d); inMonth[todayKey(d)]=1; } title='Semaine du '+start.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
   const wd=['D','L','M','M','J','V','S'];
   const rtl=(mode==='heb'); const rtlCls=rtl?' rtl':'';
-  let sub=''; const _valid=days.filter(Boolean);
+  let sub=''; const _valid=monthDays;
   if(_valid.length){
     if(mode==='heb'){ const set=[]; _valid.forEach(d=>{ const lbl=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); if(!set.includes(lbl))set.push(lbl); }); sub='📅 '+set.join(' · '); }
     else { const set=[]; _valid.forEach(d=>{ const mid=hebMonthIdOf(todayKey(d)); const mo=MONTHS.find(x=>x.id===mid); const lbl=(mo?mo.name:mid); if(!set.includes(lbl))set.push(lbl); }); sub='🕎 '+set.join(' · '); }
@@ -2038,14 +2047,14 @@ function renderCalGrid(c, asJournal){
   html+=`<div class="cal-grid${rtlCls}">`;
   const MAXCHIP = desk?4:3;
   days.forEach(d=>{ if(!d){ html+='<div class="cal-cell empty"></div>'; return; }
-    const iso=todayKey(d); const isTd=iso===todayKey();
+    const iso=todayKey(d); const isTd=iso===todayKey(); const out=!inMonth[iso];
     const hp=hebParts(d); const civ=d.getDate(); const hebd=hp.day;
-    const big=rtl?hebd:civ; const small=rtl?civ:hebd; const isFirst=rtl?(hebd===1):(civ===1);
+    const big=rtl?hebd:civ; const small=rtl?civ:hebd; const isFirst=(!out)&&(rtl?(hebd===1):(civ===1));
     let items=(byday[iso]||[]).filter(x=>x.kind!=='reminder'); // rappels non affichés dans la grille
     items=items.filter(x=>{ const th=agThemeOf(x); const k=th?th.id:'__none'; return !agHidden[k]; });
     // ordre : fêtes, événements, puis tâches
     const rk={fete:0,event:1,task:2}; items.sort((a,b)=>(rk[a.kind]||3)-(rk[b.kind]||3));
-    let cell=`<div class="cal-cell${isTd?' today':''}${isFirst?' first':''}" data-act="openDayTasks('${iso}')"><div class="cal-dh"><span class="civ">${big}</span><span class="heb">${small}</span></div>`;
+    let cell=`<div class="cal-cell${isTd?' today':''}${isFirst?' first':''}${out?' out':''}" data-act="openDayTasks('${iso}')"><div class="cal-dh"><span class="civ">${big}</span><span class="heb">${small}</span></div>`;
     if(items.length){
       if(desk){
         cell+=items.slice(0,MAXCHIP).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; const lbl=x.kind==='task'?(x.t.text||'Tâche'):(x.kind==='fete'?('🎉 '+x.label):x.label.split(' › ').pop()); const dn=(x.kind==='task'&&x.t.status==='done')?' done':''; return `<div class="cal-chip${dn}" style="border-left-color:${col};background:${_hexA(col,'18')}">${esc(lbl)}</div>`; }).join('');
@@ -2754,6 +2763,8 @@ function taskSheet(){
       </div>
     </div>
     ${moveNav?moveExplorerHTML():''}`}
+
+    ${(!isTpl&&t._loc&&t._loc.ctx==='dossier')?`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" data-act="dossTaskToTitle()">▸ Transformer en titre de section</button>`:''}
 
     <div style="display:flex;gap:9px;margin-top:14px;align-items:stretch">
       <button class="btn btn-primary" style="flex:1" data-act="saveTask()">Enregistrer</button>
@@ -3827,6 +3838,7 @@ function dossMoveTitle(id,dir){ const d=dossierById(nav.dossierId); if(!d)return
   else { if(blk.end>=items.length || !(items[blk.end].kind==='title' && (items[blk.end].level||1)===lvl)){ toast('Déjà en bas de sa section'); return; } const nb=_dossBlock(items,blk.end); const len=block.length; items.splice(blk.start,len); items.splice(nb.end-len,0,...block); }
   save(); render(); }
 function dossTitleToTask(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const it=d.items[i]; const t=mkTask(it.text||''); d.items.splice(i,1,t); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); render(); toast('Titre transformé en tâche ✓'); }
+function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (le contenu en dessous reste)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
 function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
@@ -4651,7 +4663,7 @@ function commitDragOrder(kind){
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTaskToTitle,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
