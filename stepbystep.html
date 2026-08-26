@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-25-q">
+<meta name="app-build" content="b-2026-08-25-r">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -655,21 +655,32 @@ function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
 //  3) Sauvegardes cloud (table sbs_org_backups) si présente — historique par association.
 //  Aucune de ces opérations ne peut écraser des données réelles par du vide (_isRealD).
 // ============================================================
-const _BAK_KEEP=8, _BAK_MIN_MS=9*60*1000;
+const _BAK_KEEP=12, _BAK_MIN_MS=4*60*1000;
 function _bakKey(){ return 'sbs_bak_'+(_org?_org.id:'anon'); }
+// Gardien : conserve TOUJOURS la version la plus complète jamais vue (même après une suppression).
+function _guardKey(){ return 'sbs_guard_'+(_org?_org.id:'anon'); }
+function _readGuard(){ try{ return JSON.parse((_lsOK?localStorage.getItem(_guardKey()):_memStore[_guardKey()])||'null'); }catch(e){ return null; } }
+function _updateGuard(sc){ try{ const g=_readGuard(); if(!g || sc>=(g.score||0)){ const rec={ t:Date.now(), iso:new Date().toISOString(), score:sc, json:JSON.stringify(D) }; if(_lsOK) localStorage.setItem(_guardKey(),JSON.stringify(rec)); else _memStore[_guardKey()]=JSON.stringify(rec); } }catch(e){} }
+function restoreGuard(){ const g=_readGuard(); if(!g)return; if(!confirm('Restaurer la version la plus complète ('+_bakLabel(g)+', '+g.score+' éléments) ?\nL\'état actuel sera remplacé (une sauvegarde de sécurité est prise avant).'))return; snapshotBackup('avant restauration (gardien)',true); try{ D=JSON.parse(g.json); ensureCollections(); save(); closeSheet(); render(); toast('Version complète restaurée ✓'); }catch(e){ toast('Échec de la restauration'); } }
 function _readBaks(){ try{ return JSON.parse((_lsOK?localStorage.getItem(_bakKey()):_memStore[_bakKey()])||'[]')||[]; }catch(e){ return []; } }
 function _writeBaks(list){ const k=_bakKey(); const put=(l)=>{ if(_lsOK) localStorage.setItem(k,JSON.stringify(l)); else _memStore[k]=JSON.stringify(l); };
   try{ put(list); return true; }catch(e){ try{ while(list.length>1){ list.shift(); put(list); return true; } }catch(_){ } return false; } }
 function snapshotBackup(reason,force){
   try{
     if(!_org || !_isRealD(D)) return;                 // jamais sauvegarder du vide
+    const sc=_dataScore(D);
+    if(sc<=0) return;                                 // ne jamais garder un instantané vide
+    _updateGuard(sc);                                 // met à jour la version la plus complète
     const list=_readBaks(); const last=list[list.length-1]; const now=Date.now();
-    if(!force && last && (now-(last.t||0)) < _BAK_MIN_MS) return;   // throttle
+    // Chute importante de données (perte de plus de 25 %) → sauvegarde forcée, hors throttle.
+    const shrink = last && (last.score||0)>=8 && sc < (last.score||0)*0.75;
+    if(!force && !shrink && last && (now-(last.t||0)) < _BAK_MIN_MS) return;   // throttle
     const json=JSON.stringify(D);
     if(last && last.json===json) return;              // pas de doublon exact
-    list.push({ t:now, iso:new Date().toISOString(), reason:reason||'', score:_dataScore(D), json:json });
+    list.push({ t:now, iso:new Date().toISOString(), reason:(shrink?'⚠ chute de données':(reason||'')), score:sc, json:json });
     while(list.length>_BAK_KEEP) list.shift();
     _writeBaks(list);
+    if(shrink){ try{ cloudBackup('chute de données',true); }catch(e){} }
   }catch(e){}
 }
 function _bakLabel(b){ try{ return new Date(b.iso).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return b.iso||''; } }
@@ -700,14 +711,15 @@ async function cloudBackup(reason,force){
 }
 function openBackups(){ sheet={type:'backups'}; renderOverlay(); }
 function backupSheet(){
-  const list=_readBaks().slice().reverse();
+  const list=_readBaks().slice().reverse(); const g=_readGuard(); const curSc=_dataScore(D);
   return `<div class="sheet-head"><div class="sheet-title">🛟 Sauvegardes & sécurité</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="hint" style="margin-bottom:10px">Tes données sont enregistrées en local <b>et</b> dans le cloud de ton association. Voici des sauvegardes de secours pour tout récupérer en cas de problème.</div>
+    <div class="hint" style="margin-bottom:10px">Tes données sont enregistrées dans le cloud de ton association et sauvegardées automatiquement sur cet appareil. En cas de perte, restaure une sauvegarde ci-dessous, ou garde régulièrement un fichier de secours.</div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button class="btn btn-primary btn-sm" style="flex:1" data-act="backupDownload()">⬇ Télécharger (fichier)</button>
       <label class="btn btn-soft btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0">⬆ Importer un fichier<input type="file" accept="application/json,.json" style="display:none" onchange="backupImportFile(this)"></label>
     </div>
+    ${(g&&g.score>curSc)?`<div class="card" style="padding:10px 12px;margin-bottom:10px;border:1.5px solid var(--gold)"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:700;font-size:13.5px">📈 Version la plus complète</div><div style="font-size:12px;color:var(--ink-soft)">${_bakLabel(g)} · ${g.score} éléments <span style="color:var(--gold)">(actuel : ${curSc})</span></div></div><button class="btn btn-gold btn-sm" data-act="restoreGuard()">↩ Restaurer</button></div></div>`:(g?`<div class="hint" style="margin-bottom:8px">📈 Version la plus complète gardée en mémoire : ${g.score} éléments (${_bakLabel(g)}). Tu es à jour.</div>`:'')}
     <div class="section-label">Sauvegardes automatiques (cet appareil)</div>
     ${list.length?list.map((b,i)=>`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${_bakLabel(b)}</div><div style="font-size:12px;color:var(--ink-soft)">${b.reason?esc(b.reason)+' · ':''}${b.score} éléments</div></div><button class="btn btn-soft btn-sm" data-act="restoreBackup(${i})">↩ Restaurer</button></div></div>`).join(''):'<div class="hint" style="margin-bottom:8px">Aucune sauvegarde locale pour l\'instant (elles se créent automatiquement au fil de ton travail).</div>'}
     <div class="hint" style="margin-top:12px">Astuce : télécharge un fichier de temps en temps et garde-le ailleurs (email, Drive) — c'est ta copie de secours ultime, indépendante de l'appareil et du cloud.</div>
@@ -4611,7 +4623,7 @@ function commitDragOrder(kind){
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
- openBackups,restoreBackup,backupDownload,backupImportFile,snapshotBackup,
+ openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
