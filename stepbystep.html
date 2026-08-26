@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z4">
+<meta name="app-build" content="b-2026-08-26-z5">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1314,10 +1314,11 @@ function breadcrumbHTML(){
   }).join('')+`</div>`;
 }
 function t(fr,he,en){ return lang==='he'?he:(lang==='en'?(en||fr):fr); }
+function TT(fr,he,en){ return lang==='he'?he:(lang==='en'?(en||fr):fr); }   // alias : à utiliser là où une variable locale « t » (tâche) masque t()
 function setLang(l){ lang=l; if(D)D._lang=l; document.documentElement.lang=l; document.documentElement.dir=(l==='he'?'rtl':'ltr'); save(); render(); }
 function menuVisible(v){ return !(D.menuHidden&&D.menuHidden[v]); }
 function bottomNavHTML(){
-  const all=[['journal','📔',t('Ma Journée','יומן','My Day')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('BDD','מאגר','DB')]];
+  const all=[['journal','📔',t('Ma Journée','יומן','My Day')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')]];
   const items=all.filter(([v])=>v==='journal'||menuVisible(v));
   return `<div class="bnav">`+items.map(([v,ic,l])=>{
     const isActive = nav.view===v ? 'active':'';
@@ -1756,19 +1757,19 @@ function jDisplayMenu(){
   const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(f[k])} ${ic} ${lbl}</button>`;
   const srt=(m,ic,lbl)=>`<button class="dd-item ${jSort===m?'sel':''}" data-act="setJSort('${m}')">${ic} ${lbl}</button>`;
   return `<div class="dd-menu" style="left:auto;right:0;min-width:210px;max-width:calc(100vw - 20px);z-index:60">
-    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">Afficher</div>
-    ${opt('tasks','✅','Tâches')}
-    ${opt('events','🎉','Événements')}
-    ${opt('reminders','🔔','Rappels')}
+    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Afficher','הצג','Show')}</div>
+    ${opt('tasks','✅',t('Tâches','משימות','Tasks'))}
+    ${opt('events','🎉',t('Événements','אירועים','Events'))}
+    ${opt('reminders','🔔',t('Rappels','תזכורות','Reminders'))}
     <div class="divider" style="margin:6px 0"></div>
-    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">Trier « À faire »</div>
-    <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ Ordre par défaut</button>
-    ${srt('urgency','⏱️','Par urgence')}
-    ${srt('theme','🗂️','Par catégorie')}
-    ${srt('where','📍','Par emplacement')}
+    <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Trier « À faire »','מיין « לביצוע »','Sort “To do”')}</div>
+    <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ ${t('Ordre par défaut','סדר ברירת מחדל','Default order')}</button>
+    ${srt('urgency','⏱️',t('Par urgence','לפי דחיפות','By urgency'))}
+    ${srt('theme','🗂️',t('Par catégorie','לפי קטגוריה','By category'))}
+    ${srt('where','📍',t('Par emplacement','לפי מיקום','By location'))}
   </div>`;
 }
-function jSortLabel(m){ return m==='theme'?'Par catégorie':m==='where'?'Par emplacement':m==='urgency'?'Par urgence':'Trié'; }
+function jSortLabel(m){ return m==='theme'?t('Par catégorie','לפי קטגוריה','By category'):m==='where'?t('Par emplacement','לפי מיקום','By location'):m==='urgency'?t('Par urgence','לפי דחיפות','By urgency'):t('Trié','ממוין','Sorted'); }
 function jSortSheet(){ return `<div class="sheet-head"><div class="sheet-title">✨ Tri intelligent</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
     <div class="hint" style="margin-bottom:10px">Réorganise « À faire » de Ma Journée.</div>
     <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="setJSort('urgency')">⏱️ Par urgence <span style="opacity:.75;font-weight:400;font-size:12px">— le plus important d'abord</span></button>
@@ -1871,7 +1872,7 @@ function drawerHTML(){
       ['journal','📔',t('Ma Journée','היום שלי','My Day'),null],
       ['report','📋',t('Compte rendu','דיווח','Report'),null],
       ['calendar','📅',t('Calendrier des fêtes','לוח החגים','Holiday Calendar'),null],
-      ['bdd','🗂️',t('BDD — dossiers & ressources','מאגר','Resource DB'),null],
+      ['bdd','🗂️',t('Dossiers','תיקיות','Folders'),null],
     ]],
     [t('OUTILS','כלים','TOOLS'),[
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
@@ -2893,7 +2894,7 @@ function ebSet(k,v){ syncInputs(); editBuf[k]=v; renderOverlay(); }
 function reminderDate(effIso,n){ const d=new Date(effIso+'T12:00:00'); d.setDate(d.getDate()-n); return todayKey(d); }
 // un rappel peut être un nombre de jours avant (J-N) OU une date absolue (chaîne ISO)
 function remIso(eff,r){ return (typeof r==='number') ? (eff?reminderDate(eff,r):'') : r; }
-function remLabel(r){ if(typeof r==='number') return 'J-'+r; try{ return '📅 '+new Date(r+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }catch(e){ return r; } }
+function remLabel(r){ if(typeof r==='number') return t('J-','−','D-')+r; try{ return '📅 '+new Date(r+'T12:00:00').toLocaleDateString(_jLocale(),{day:'numeric',month:'short'}); }catch(e){ return r; } }
 function ebToggleReminder(n){ syncInputs(); if(!Array.isArray(editBuf.reminders))editBuf.reminders=[]; const i=editBuf.reminders.indexOf(n); if(i>=0)editBuf.reminders.splice(i,1); else editBuf.reminders.push(n); renderOverlay(); }
 function ebAddReminder(){ syncInputs(); const el=$('f-rem'); if(!el)return; const n=parseInt(el.value); if(!n||n<0){toast('Entre un nombre de jours');return;} if(!Array.isArray(editBuf.reminders))editBuf.reminders=[]; if(!editBuf.reminders.includes(n))editBuf.reminders.push(n); renderOverlay(); }
 function ebRmReminder(r){ syncInputs(); if(!Array.isArray(editBuf.reminders))return; editBuf.reminders=editBuf.reminders.filter(x=>String(x)!==String(r)); renderOverlay(); }
@@ -3665,10 +3666,11 @@ function delCounter(k){ syncCounters(); const c=D.counters.find(x=>x.k===k); if(
 // ---------- Ma Journée : période ----------
 function jRange(){
   const tk=todayKey(); const anchor=jDay||tk; const base=new Date(anchor+'T12:00:00');
-  if(jPeriod==='week'){ const d=new Date(base); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); const to=todayKey(e); return {from,to,label:'Sem. du '+new Date(from+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}; }
-  if(jPeriod==='civil'){ const f=new Date(base.getFullYear(),base.getMonth(),1); const tt=new Date(base.getFullYear(),base.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:base.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}; }
-  if(jPeriod==='heb'){ const mid=hebMonthIdOf(anchor); let from=anchor,to=anchor; for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:'Mois héb.')}; }
-  return {from:anchor,to:anchor,label: anchor===tk?"Aujourd'hui":new Date(anchor+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})};
+  const LC=_jLocale();
+  if(jPeriod==='week'){ const d=new Date(base); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); const to=todayKey(e); return {from,to,label:t('Sem. du ','שבוע ','Wk of ')+new Date(from+'T12:00:00').toLocaleDateString(LC,{day:'numeric',month:'short'})}; }
+  if(jPeriod==='civil'){ const f=new Date(base.getFullYear(),base.getMonth(),1); const tt=new Date(base.getFullYear(),base.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:base.toLocaleDateString(LC,{month:'long',year:'numeric'})}; }
+  if(jPeriod==='heb'){ const mid=hebMonthIdOf(anchor); let from=anchor,to=anchor; for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:t('Mois héb.','חודש עברי','Heb. month'))}; }
+  return {from:anchor,to:anchor,label: anchor===tk?t("Aujourd'hui",'היום','Today'):new Date(anchor+'T12:00:00').toLocaleDateString(LC,{weekday:'short',day:'numeric',month:'short'})};
 }
 function setJPeriod(p){ jPeriod=p; jDay=todayKey(); openDD=null; render(); }
 function jNav(dir){ const base=new Date((jDay||todayKey())+'T12:00:00');
@@ -3685,7 +3687,7 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const st=stOf(t.status); const late=eff&&eff<todayKey()&&t.status!=='done';
   const remTag=opt.reminder?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🔔 ${remLabel(opt.reminder)}</span>`:'';
   const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ ':'📅 '}${fmtDate(eff)}</span>`:'';
-  const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 Prioritaire</span>`:'';
+  const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 ${TT('Prioritaire','דחוף','Priority')}</span>`:'';
   // En vue « Ma journée » (opt.jKey), on masque les sous-tâches datées PLUS TARD et non faites :
   // elles apparaissent à leur date prévue, pas dans la liste du jour. Les sous-tâches faites restent visibles.
   const jk=opt.jKey||'';
@@ -3708,14 +3710,15 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${(s.text&&s.text.trim())?esc(s.text):'<span style="color:var(--ink-soft);font-style:italic">Sous-tâche sans titre</span>'}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
   h+=`</div>`; return h;
 }
+function _jLocale(){ return lang==='he'?'he-IL':(lang==='en'?'en-US':'fr-FR'); }
 function renderJournal(c){
   const now=new Date();
-  const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const dStr=now.toLocaleDateString(_jLocale(),{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
   let html=`<div class="sec"><div><div class="sec-eyebrow">${dStr}${hStr?'<br>'+hStr:''}</div><div class="sec-title">${t('Ma Journée','היום שלי','My Day')}</div></div></div>`;
-  if(isDesktop()){ html+=`<div class="filters"><button class="chip" data-act="setJournalDeskMode('cal')">🗓️ Vue mois</button><button class="chip active" data-act="setJournalDeskMode('cards')">📋 Ma journée (liste)</button></div>`; }
+  if(isDesktop()){ html+=`<div class="filters"><button class="chip" data-act="setJournalDeskMode('cal')">🗓️ ${t('Vue mois','תצוגת חודש','Month view')}</button><button class="chip active" data-act="setJournalDeskMode('cards')">📋 ${t('Ma journée (liste)','היום שלי (רשימה)','My day (list)')}</button></div>`; }
   // — Sélecteur de période + navigation ◀ ▶ —
-  const rg=jRange(); const periods=[['today',"Aujourd'hui"],['week','Semaine'],['civil','Mois civil'],['heb','Mois hébraïque']];
+  const rg=jRange(); const periods=[['today',t("Aujourd'hui",'היום','Today')],['week',t('Semaine','שבוע','Week')],['civil',t('Mois civil','חודש לועזי','Civil month')],['heb',t('Mois hébraïque','חודש עברי','Hebrew month')]];
   const atToday=(jDay||todayKey())===todayKey();
   const _fAllOn=jFilter.tasks&&jFilter.events&&jFilter.reminders; const _dispActive=(!_fAllOn)||!!jSort;
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -3730,7 +3733,7 @@ function renderJournal(c){
       ${openDD==='jdisplay'?jDisplayMenu():''}
     </div>
   </div>
-  ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ Revenir à aujourd'hui</button>`:''}`;
+  ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ ${t("Revenir à aujourd'hui",'חזרה להיום','Back to today')}</button>`:''}`;
   // (Bandeau thèmes retiré de Ma Journée à la demande de l'utilisateur)
 
   if(jPeriod==='today'){
@@ -3776,19 +3779,19 @@ function renderJournal(c){
     if(!showRdvEv && !showEv && !showTasks && !showNoDate && !showRems){
       const allEmpty = !open.length && !noDate.length && !evs.length && !rdvs.length;
       html+=allEmpty
-        ? emptyHTML('🎉',isJToday?'Tout est fait !':'Rien ce jour',isJToday?'Aucune tâche pour aujourd\'hui.':'Aucune tâche prévue ce jour.','','')
-        : emptyHTML('👁','Rien à afficher','Aucun élément ne correspond au filtre choisi. Touchez 👁 pour changer l\'affichage.','','');
+        ? emptyHTML('🎉',isJToday?t('Tout est fait !','הכול בוצע!','All done!'):t('Rien ce jour','אין כלום ביום זה','Nothing this day'),isJToday?t('Aucune tâche pour aujourd\'hui.','אין משימות להיום.','No tasks for today.'):t('Aucune tâche prévue ce jour.','אין משימות ליום זה.','No tasks planned this day.'),'','')
+        : emptyHTML('👁',t('Rien à afficher','אין מה להציג','Nothing to show'),t('Aucun élément ne correspond au filtre choisi. Touchez 👁 pour changer l\'affichage.','אין פריט התואם את הסינון. הקש 👁 לשינוי התצוגה.','No item matches the filter. Tap 👁 to change the display.'),'','');
     } else {
-      if(showRdvEv){ html+=`<div class="section-label" style="margin-top:4px">📅 Rendez-vous / Invitations (${rdvEvents.length})</div>`; rdvEvents.forEach(o=>html+=jRdvRow(o)); }
-      if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 Fêtes & événements</div>`; evs.forEach(x=>html+=jEventRow(x)); }
+      if(showRdvEv){ html+=`<div class="section-label" style="margin-top:4px">📅 ${t('Rendez-vous / Invitations','פגישות / הזמנות','Appointments / Invitations')} (${rdvEvents.length})</div>`; rdvEvents.forEach(o=>html+=jRdvRow(o)); }
+      if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 ${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`; evs.forEach(x=>html+=jEventRow(x)); }
       if(showTasks){
-        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ À faire (${taskItems.length})</span>`+
+        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ ${t('À faire','לביצוע','To do')} (${taskItems.length})</span>`+
           (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:'')+`</div>`;
         if(jSort){ jSortGroups(taskItems,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
         else { taskItems.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
       }
-      if(showRems){ html+=`<div class="section-label" style="margin-top:16px">🔔 Rappels (${remCount})</div>`; rdvRems.forEach(o=>html+=jRdvRow(o)); remItems.forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
-      if(showNoDate){ html+=`<div class="section-label" style="margin-top:16px">📌 Sans date — à planifier (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
+      if(showRems){ html+=`<div class="section-label" style="margin-top:16px">🔔 ${t('Rappels','תזכורות','Reminders')} (${remCount})</div>`; rdvRems.forEach(o=>html+=jRdvRow(o)); remItems.forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+      if(showNoDate){ html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Sans date — à planifier','ללא תאריך — לתכנן','No date — to plan')} (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
     }
   } else {
     // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
@@ -3796,10 +3799,10 @@ function renderJournal(c){
     const items=datedAll().filter(x=>x.iso&&x.iso>=rg.from&&x.iso<=rg.to);
     const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; if(x.kind==='task'){ if(!fT)return; } else { if(!fE)return; } (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
     const days=Object.keys(byDay).sort();
-    if(!days.length){ html+=emptyHTML('🗓️','Rien sur la période',(fT&&fE)?('Aucune fête, événement ou tâche datés sur '+rg.label.toLowerCase()+'.'):'Aucun élément ne correspond au filtre choisi (touchez 👁).','',''); }
+    if(!days.length){ html+=emptyHTML('🗓️',t('Rien sur la période','אין כלום בתקופה','Nothing in this period'),(fT&&fE)?t('Aucune fête, événement ou tâche datés sur cette période.','אין חגים, אירועים או משימות עם תאריך בתקופה זו.','No dated holiday, event or task in this period.'):t('Aucun élément ne correspond au filtre choisi (touchez 👁).','אין פריט התואם את הסינון (הקש 👁).','No item matches the filter (tap 👁).'),'',''); }
     else days.forEach(d=>{
       const dd=new Date(d+'T12:00:00');
-      html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between"><span style="text-transform:capitalize">${dd.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span><span style="color:var(--ink-soft);font-weight:500;text-transform:none">🕎 ${hebrewDate(d)}</span></div>`;
+      html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between"><span style="text-transform:capitalize">${dd.toLocaleDateString(_jLocale(),{weekday:'short',day:'numeric',month:'short'})}</span><span style="color:var(--ink-soft);font-weight:500;text-transform:none">🕎 ${hebrewDate(d)}</span></div>`;
       byDay[d].forEach(x=>{ if(x.kind==='task'){ html+=jTaskCard(x.t,x.where,x.iso); } else { html+=jEventRow(x); } });
     });
   }
@@ -3811,9 +3814,9 @@ function jEventRow(x){
   return `<div class="card" style="margin-bottom:8px" data-act="${go}"><div class="card-body" style="padding:12px 14px"><span class="card-icon">${x.kind==='fete'?'🎉':'📌'}</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(x.label)}</div></div><span class="chev">›</span></div></div>`;
 }
 function jRdvRow(o){ const t=o.t; const meta=[]; if(t.date) meta.push('🗓 '+fmtDate(t.date)+(t.time?' · '+t.time:'')); if(t.place) meta.push('📍 '+t.place);
-  const tail = o.noDate ? '<span style="color:#B87A1F;font-weight:600">à dater</span>' : (o.rem!=null ? `<span style="color:#B87A1F;font-weight:600">rappel · dans ${o.rem} j</span>` : '');
+  const tail = o.noDate ? `<span style="color:#B87A1F;font-weight:600">${TT('à dater','לקבוע תאריך','set a date')}</span>` : (o.rem!=null ? `<span style="color:#B87A1F;font-weight:600">${TT('rappel · dans '+o.rem+' j','תזכורת · בעוד '+o.rem+' ימים','reminder · in '+o.rem+' d')}</span>` : '');
   const metaHtml = (meta.length||tail) ? `<div class="card-meta" style="font-size:12px;color:var(--ink-soft)">${meta.map(esc).join(' · ')}${meta.length&&tail?' · ':''}${tail}</div>` : '';
-  return `<div class="card" style="margin-bottom:8px;border-left:4px solid #B87A1F" data-act="openTask('${t.id}')"><div class="card-body" style="padding:12px 14px"><span class="card-icon">📅</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(t.text||'Rendez-vous / invitation')}</div>${metaHtml}</div><span class="chev">›</span></div></div>`;
+  return `<div class="card" style="margin-bottom:8px;border-left:4px solid #B87A1F" data-act="openTask('${t.id}')"><div class="card-body" style="padding:12px 14px"><span class="card-icon">📅</span><div class="card-main"><div class="card-name" style="font-size:14.5px">${esc(t.text||TT('Rendez-vous / invitation','פגישה / הזמנה','Appointment / invitation'))}</div>${metaHtml}</div><span class="chev">›</span></div></div>`;
 }
 function renderReport(c){
   const now=new Date();
@@ -4187,19 +4190,12 @@ function renderBDD(c){
     }
     c.innerHTML=html; return;
   }
-  // — accueil BDD —
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Ressources','משאבים','Resources')}</div><div class="sec-title">${t('BDD','מאגר','Resource DB')}</div><div class="sec-sub">Banque de modèles, idées et prestataires réutilisables</div></div></div>`;
-  html+=`<div class="tiles">`;
-  BDD_BUILTIN.forEach(b=>{ let meta=''; if(b.id==='_suppliers')meta=(D.suppliers||[]).length+' fiche(s)'; if(b.id==='_templates')meta=(D.eventTemplates||[]).length+' modèle(s)'; html+=`<div class="tile" style="--accent:var(--gold)" data-act="openBddCat('${b.id}')"><div class="tile-ic">${b.icon}</div><div class="tile-name">${b.name}</div><div class="tile-meta">${meta}</div></div>`; });
-  (D.bdd.cats||[]).forEach(cat=>{ const n=cat.kind==='subs'?(cat.subcats||[]).length+' sous-cat.':(cat.items||[]).length+' élément(s)'; html+=`<div class="tile" data-act="openBddCat('${cat.id}')"><div class="tile-ic">${cat.icon||'🗂️'}</div><div class="tile-name">${esc(cat.name)}</div><div class="tile-meta">${n}</div></div>`; });
-  html+=`<div class="tile tile-add" data-act="newBddCat()"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">Nouvelle catégorie</div></div>`;
-  html+=`</div>`;
+  // — accueil : Dossiers uniquement —
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Organisation','ארגון','Organization')}</div><div class="sec-title">${t('Dossiers','תיקיות','Folders')}</div><div class="sec-sub">${t('Tes plans : titres, sous-titres et tâches','התוכניות שלך: כותרות, כותרות משנה ומשימות','Your plans: titles, subtitles and tasks')}</div></div></div>`;
   const sdoss=dossiersStandalone();
-  html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${sdoss.length?dossLayoutToggleHTML():''}</div>`;
-  if(sdoss.length){ html+=dossierListHTML(sdoss,'root'); }
-  else { html+=`<div class="hint">Un dossier est un plan libre (titres + tâches) que tu peux garder ici ou poser dans un mois.</div>`; }
-  html+=`<button class="btn btn-soft btn-block" style="margin-top:8px" data-act="newDossier(null)">＋ Nouveau dossier</button>`;
-  html+=`<button class="btn btn-soft btn-block" style="margin-top:14px" data-act="openBddAdd()">＋ Ajouter du contenu</button>`;
+  if(sdoss.length){ html+=`<div class="section-label" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ ${t('Dossiers','תיקיות','Folders')}</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
+  else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Crée ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). צור את התיקייה הראשונה שלך.','A folder is a free plan (titles + tasks). Create your first one.')}</div>`; }
+  html+=`<button class="btn btn-primary btn-block" style="margin-top:10px" data-act="newDossier(null)">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
   c.innerHTML=html;
 }
 function setJTab(t){ jTab=t; render(); }
@@ -4262,7 +4258,7 @@ function computeRange(mode){
   datedAll().forEach(x=>{ if(x.kind==='reminder'||x.kind==='rdv'||!x.t)return; const iso=x.iso; if(iso&&iso>=from&&iso<=to){ taskTotal++; if(x.t.status==='done') taskDone++; } });
   return {from,to,label,totals,notes,days,taskTotal,taskDone};
 }
-function fmtDate(k){ try{return new Date(k).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}catch(e){return k;} }
+function fmtDate(k){ try{return new Date(k).toLocaleDateString(_jLocale(),{day:'numeric',month:'short'});}catch(e){return k;} }
 
 function openDashExport(){ sheet={type:'dashExport'}; renderOverlay(); }
 function dashExportSheet(){
@@ -4415,7 +4411,7 @@ function supplierSheet(){
 // ============================================================
 function setMenuHidden(v,hidden){ if(!D.menuHidden)D.menuHidden={}; if(hidden)D.menuHidden[v]=true; else delete D.menuHidden[v]; save(); render(); }
 function renderSettings(c){
-  const MODS=[['report','📋','Compte rendu'],['calendar','📅','Calendrier'],['bdd','🗂️','BDD'],['shopping','🛒','Liste de courses'],['dashboard','📊','Tableau de bord'],['suppliers','📇','Prestataires'],['agenda','📆','Agenda'],['publics','🎯','Mon public'],['tsedaka','🫙','Tsedakah'],['annonces','📢','Annonces de Chabbat'],['shabbat','🕯️','Shabbat'],['ideas','💡','Idées'],['alltasks','✅','Toutes les tâches']];
+  const MODS=[['report','📋','Compte rendu'],['calendar','📅','Calendrier'],['bdd','🗂️','Dossiers'],['shopping','🛒','Liste de courses'],['dashboard','📊','Tableau de bord'],['suppliers','📇','Prestataires'],['agenda','📆','Agenda'],['publics','🎯','Mon public'],['tsedaka','🫙','Tsedakah'],['annonces','📢','Annonces de Chabbat'],['shabbat','🕯️','Shabbat'],['ideas','💡','Idées'],['alltasks','✅','Toutes les tâches']];
   c.innerHTML=`<div class="sec"><div><div class="sec-eyebrow">${t('Système','מערכת','System')}</div><div class="sec-title">${t('Réglages','הגדרות','Settings')}</div></div></div>
     <div class="section-label">Personnalisation du menu</div>
     <div class="hint" style="margin-bottom:10px">Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.</div>
