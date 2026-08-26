@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z5">
+<meta name="app-build" content="b-2026-08-26-z6">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2441,6 +2441,7 @@ function closeDD(){ openDD=null; render(); }
 function inboxTasks(){ if(!Array.isArray(D.inbox)) D.inbox=[]; return D.inbox; }
 function qaTaskIndep(){ const arr=inboxTasks(); const t=mkTask(''); arr.push(t); save(); openQuickTask(t.id); }
 function qaRdv(){ if(!Array.isArray(D.rdv))D.rdv=[]; const t=mkRdv(''); D.rdv.push(t); save(); openTask(t.id); }
+function qaReminder(){ if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(''); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); }
 function quickAddSheet(){
   const ev=curEvent(); const cont=curContainer();
   const head=`<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
@@ -2477,7 +2478,8 @@ function quickAddSheet(){
   if(!pick){
     return head+`<div class="sheet-body">
       <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 Rendez-vous / Invitation <span style="opacity:.7;font-weight:400;font-size:12px">— je suis invité</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 Rendez-vous / Invitation <span style="opacity:.7;font-weight:400;font-size:12px">— un événement où je vais (mariage, bar-mitsva…)</span></button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaReminder()">🔔 Rappel <span style="opacity:.7;font-weight:400;font-size:12px">— une alerte à une date</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ Nouveau dossier <span style="opacity:.7;font-weight:400;font-size:12px">— titres + tâches</span></button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 Nouvelle fête</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 Nouvel événement</button>
@@ -3950,6 +3952,8 @@ function dossMoveTitle(id,dir){ const d=dossierById(nav.dossierId); if(!d)return
   else { if(blk.end>=items.length || !(items[blk.end].kind==='title' && (items[blk.end].level||1)===lvl)){ toast('Déjà en bas de sa section'); return; } const nb=_dossBlock(items,blk.end); const len=block.length; items.splice(blk.start,len); items.splice(nb.end-len,0,...block); }
   save(); render(); }
 function dossTitleToTask(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const it=d.items[i]; const t=mkTask(it.text||''); d.items.splice(i,1,t); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); render(); toast('Titre transformé en tâche ✓'); }
+function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.rdv))D.rdv=[]; const r=mkRdv(txt); D.rdv.push(r); save(); openTask(r.id); toast('Transformé en rendez-vous / invitation ✓'); }
+function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (le contenu en dessous reste)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
@@ -3982,6 +3986,9 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
       h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},-1)">⬆ Monter le titre</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ Descendre le titre</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ Transformer en tâche</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 Transformer en rendez-vous / invitation</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToReminder(${idp})">🔔 Transformer en rappel</button>`;
+      h+=`<button class="dd-item" style="color:var(--red)" data-act="closeDD();dossDelTitle(${idp})">🗑 Supprimer le titre</button>`;
       h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     }
     if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ Titre</button>`;
@@ -4048,7 +4055,7 @@ function renderDossier(c){
         `<span data-act="dossToggle('${it.id}')" style="cursor:pointer;opacity:.55;font-size:13px;width:15px;text-align:center;flex:none">${open?'▾':'▸'}</span>`+
         mid+
         dossAddMenu({titleId:it.id,level:lvl})+
-        `<span class="dep-x" style="font-size:15px;cursor:pointer;flex:none" data-act="dossDelTitle('${it.id}')">🗑</span></div>`;
+        `</div>`;
       if(open){
         let j=idx+1; while(j<items.length && items[j].kind!=='title'){ html+=dossItemHTML(items[j],ind); j++; }
         idx=j;
@@ -4783,7 +4790,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTaskToTitle,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
