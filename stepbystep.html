@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z8">
+<meta name="app-build" content="b-2026-08-26-z9">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1315,6 +1315,11 @@ function breadcrumbHTML(){
 }
 function t(fr,he,en){ return lang==='he'?he:(lang==='en'?(en||fr):fr); }
 function TT(fr,he,en){ return lang==='he'?he:(lang==='en'?(en||fr):fr); }   // alias : à utiliser là où une variable locale « t » (tâche) masque t()
+function nTitres(n){ return n+' '+TT('titre(s)','כותרות','title(s)'); }
+function nTaches(n){ return n+' '+TT('tâche(s)','משימות','task(s)'); }
+function nFetes(n){ return n+' '+TT('fête(s)','חגים','holiday(s)'); }
+function nEvents(n){ return n+' '+TT('événement(s)','אירועים','event(s)'); }
+function nSousDoss(n){ return n+' '+TT('sous-dossier(s)','תת-תיקיות','sub-folder(s)'); }
 function setLang(l){ lang=l; if(D)D._lang=l; document.documentElement.lang=l; document.documentElement.dir=(l==='he'?'rtl':'ltr'); save(); render(); }
 function menuVisible(v){ return !(D.menuHidden&&D.menuHidden[v]); }
 function bottomNavHTML(){
@@ -1391,14 +1396,14 @@ function renderMonth(c){
   const md=D.months[nav.monthId];
   const realFetes = md ? md.fetes.filter(f=>!f._monthGeneral) : [];
   // Pas de rappel du nom du mois au-dessus du titre : il est déjà dans le fil d'Ariane.
-  let html=`<div class="sec"><div><div class="sec-title">Fêtes & événements</div>`;
+  let html=`<div class="sec"><div><div class="sec-title">${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`;
   if(realFetes.length){
     const tb=realFetes.reduce((a,f)=>a+f.events.reduce((b,e)=>b+sumBud(e.tasks),0),0);
-    html+=`<div class="sec-sub">${realFetes.length} fête(s)${tb?' · '+fmtE(tb):''}</div>`;
+    html+=`<div class="sec-sub">${nFetes(realFetes.length)}${tb?' · '+fmtE(tb):''}</div>`;
   }
   html+=`</div></div>`;
   if(!realFetes.length){
-    html+=emptyHTML(m.emoji,'Aucune fête ce mois','Ajoute une fête (bouton + en bas), ou un événement libre ci-dessous.','','');
+    html+=emptyHTML(m.emoji,t('Aucune fête ce mois','אין חגים בחודש זה','No holiday this month'),t('Ajoute une fête (bouton + en bas), ou un événement libre ci-dessous.','הוסף חג (כפתור + למטה), או אירוע חופשי למטה.','Add a holiday (+ button below), or a free event below.'),'','');
   } else {
     sortByDate(realFetes).forEach(f=>{
       const all=f.events.reduce((a,e)=>a.concat(e.tasks),[]).concat(f.tasks||[]);
@@ -1409,9 +1414,9 @@ function renderMonth(c){
           <div class="drag-handle" data-drag="${f.id}" data-act="event.stopPropagation()" style="padding:0 2px">⠿</div>
           <div class="card-accent" style="background:${f.color}"></div>
           <div class="card-main">
-            <div class="card-name">${esc(f.name)} ${f.recurring?'<span style="color:var(--gold);font-size:13px" title="Récurrent">↻</span>':''}</div>
+            <div class="card-name">${esc(f.name)} ${f.recurring?'<span style="color:var(--gold);font-size:13px" title="'+t('Récurrent','חוזר','Recurring')+'">↻</span>':''}</div>
             <div class="card-meta">
-              <span>${f.events.length} événement(s)</span>
+              <span>${nEvents(f.events.length)}</span>
               ${bud?`<span class="pill pill-budget">${fmtE(bud)}</span>`:''}
               ${dur?`<span class="pill pill-time">${fmtM(dur)}</span>`:''}
             </div>
@@ -1428,25 +1433,25 @@ function renderMonth(c){
   // Événements hors fête : n'afficher la section (titre + cartes + bouton) QUE s'il y en a.
   // Rien du tout quand il n'y en a pas — on ajoute via le bouton + en bas à droite.
   if(_free.length){
-    html+=`<div class="section-label" style="margin-top:16px">📌 Événements (${_free.length}) <span style="font-weight:400;color:var(--ink-soft);text-transform:none">— hors fête</span></div>`;
+    html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Événements','אירועים','Events')} (${_free.length}) <span style="font-weight:400;color:var(--ink-soft);text-transform:none">— ${t('hors fête','ללא חג','no holiday')}</span></div>`;
     sortByDate(_free).forEach(e=>{
       const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0;
       html+=`<div class="card drag-row" data-dragid="${e.id}" data-dragkind="event" data-act="go({feteId:'${_mg.id}',eventId:'${e.id}',ctx:'fete'})">
         <div class="card-body">
           <div class="card-icon">📌</div>
           <div class="card-main"><div class="card-name">${esc(e.name)}</div>
-            <div class="card-meta">${e.date?'<span>📅 '+fmtDate(e.date)+'</span>':'<span>sans date</span>'}${tot?' <span>· '+tot+' tâche(s)</span>':''}</div></div>
-          <div class="card-side"><span class="pill ${pct===100&&tot?'pill-done':'pill-count'}">${tot?dn+'/'+tot:''}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventInMonth('${e.id}')" title="Supprimer">🗑</button></div>
+            <div class="card-meta">${e.date?'<span>📅 '+fmtDate(e.date)+'</span>':'<span>'+t('sans date','ללא תאריך','no date')+'</span>'}${tot?' <span>· '+nTaches(tot)+'</span>':''}</div></div>
+          <div class="card-side"><span class="pill ${pct===100&&tot?'pill-done':'pill-count'}">${tot?dn+'/'+tot:''}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventInMonth('${e.id}')" title="${t('Supprimer','מחק','Delete')}">🗑</button></div>
         </div>
       </div>`;
     });
-    html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:6px" data-act="qaEventInMonthNamed()">＋ Ajouter un événement</button>`;
+    html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:6px" data-act="qaEventInMonthNamed()">＋ ${t('Ajouter un événement','הוסף אירוע','Add an event')}</button>`;
   }
   const mtasks=(md&&md.tasks)||[];
-  if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ Tâches du mois</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
+  if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ ${t('Tâches du mois','משימות החודש','Month tasks')}</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
   const mdoss=dossiersFor('month',nav.monthId);
   if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
-  html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ Nouveau dossier</button>`;
+  html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
   c.innerHTML=html;
 }
 
@@ -1464,9 +1469,9 @@ function renderProgramHome(c){
   renderContainerEvents(c,p,'program');
 }
 function renderContainerEvents(c,cont,ctx){
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${ctx==='program'?'Programme':'Fête'}</div><div class="sec-title"><span data-act="renameContainer()" style="cursor:pointer">${esc(cont.name)}</span></div><div class="sec-sub">${cont.events.length} événement(s)</div></div>
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${ctx==='program'?t('Programme','תוכנית','Program'):t('Fête','חג','Holiday')}</div><div class="sec-title"><span data-act="renameContainer()" style="cursor:pointer">${esc(cont.name)}</span></div><div class="sec-sub">${nEvents(cont.events.length)}</div></div>
     </div>`;
-  html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="cbtn" data-act="openDatePicker('fete')" title="Ajouter une date">🗓</button>`}</div>`;
+  html+=`<div style="margin-bottom:10px">${cont.date?`<span data-act="openDatePicker('fete')" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary-ink);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer">📅 ${civilDate(cont.date)} · 🕎 ${hebrewDate(cont.date)}</span>`:`<button class="cbtn" data-act="openDatePicker('fete')" title="${t('Ajouter une date','הוסף תאריך','Add a date')}">🗓</button>`}</div>`;
   // (Récurrence de la fête : déplacée en bas, en bouton-icône 🔁)
   if(ctx==='program'){
     html+=`<div class="filters"><button class="chip" data-act="go({view:'programs'})" style="display:none"></button></div>`;
@@ -1490,11 +1495,11 @@ function renderContainerEvents(c,cont,ctx){
           <div class="drag-handle" data-drag="${e.id}" data-act="event.stopPropagation()" style="padding:0 2px">⠿</div>
           <div class="card-icon">📌</div>
           <div class="card-main"><div class="card-name">${esc(e.name)} ${e.recurring?'<span style="color:var(--gold);font-size:13px">↻</span>':''}</div>
-            <div class="card-meta"><span>${tot} tâche(s)</span>
+            <div class="card-meta"><span>${nTaches(tot)}</span>
               ${bud?`<span class="pill pill-budget">${fmtE(bud)}</span>`:''}
               ${dur?`<span class="pill pill-time">${fmtM(dur)}</span>`:''}</div>
           </div>
-          <div class="card-side"><span class="pill ${pct===100?'pill-done':'pill-count'}">${dn}/${tot}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventById('${e.id}')" title="Supprimer l'événement">🗑</button></div>
+          <div class="card-side"><span class="pill ${pct===100?'pill-done':'pill-count'}">${dn}/${tot}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventById('${e.id}')" title="${t("Supprimer l'événement",'מחק אירוע','Delete event')}">🗑</button></div>
         </div>
         <div class="progress"><div class="progress-fill" style="width:${pct}%;background:${col}"></div></div>
       </div>`;
@@ -2329,10 +2334,10 @@ function renderAllTasks(c){
   const filt=x=>{ const t=x.t; if(allFilter==='all')return true; if(allFilter==='prio')return t.priority==='haute'; return t.status===allFilter; };
   let list=items.filter(filt);
   list.sort((a,b)=>{ const pa=a.t.priority==='haute'?0:1, pb=b.t.priority==='haute'?0:1; if(pa!==pb)return pa-pb; const da=a.t.date||'zzzz', db=b.t.date||'zzzz'; return da<db?-1:(da>db?1:0); });
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Toutes les tâches</div><div class="sec-title">✅ Tâches</div><div class="sec-sub">${items.length} tâche(s) dans tout le Beth Habad</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Toutes les tâches','כל המשימות','All tasks')}</div><div class="sec-title">✅ ${t('Tâches','משימות','Tasks')}</div><div class="sec-sub">${nTaches(items.length)}</div></div></div>`;
   const cnt=s=>items.filter(x=>s==='prio'?x.t.priority==='haute':x.t.status===s).length;
-  html+=`<div class="filters"><button class="chip ${allFilter==='all'?'active':''}" data-act="setAllFilter('all')">Toutes (${items.length})</button><button class="chip ${allFilter==='todo'?'active':''}" data-act="setAllFilter('todo')">À faire (${cnt('todo')})</button><button class="chip ${allFilter==='inprogress'?'active':''}" data-act="setAllFilter('inprogress')">En cours (${cnt('inprogress')})</button><button class="chip ${allFilter==='done'?'active':''}" data-act="setAllFilter('done')">Fait (${cnt('done')})</button><button class="chip ${allFilter==='prio'?'active':''}" data-act="setAllFilter('prio')">🔴 Prioritaire (${cnt('prio')})</button></div>`;
-  if(!list.length) html+=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Aucune tâche</div><div class="empty-text">Touche le + en bas pour en créer une.</div></div>`;
+  html+=`<div class="filters"><button class="chip ${allFilter==='all'?'active':''}" data-act="setAllFilter('all')">${t('Toutes','הכול','All')} (${items.length})</button><button class="chip ${allFilter==='todo'?'active':''}" data-act="setAllFilter('todo')">${t('À faire','לביצוע','To do')} (${cnt('todo')})</button><button class="chip ${allFilter==='inprogress'?'active':''}" data-act="setAllFilter('inprogress')">${t('En cours','בתהליך','In progress')} (${cnt('inprogress')})</button><button class="chip ${allFilter==='done'?'active':''}" data-act="setAllFilter('done')">${t('Fait','בוצע','Done')} (${cnt('done')})</button><button class="chip ${allFilter==='prio'?'active':''}" data-act="setAllFilter('prio')">🔴 ${t('Prioritaire','דחוף','Priority')} (${cnt('prio')})</button></div>`;
+  if(!list.length) html+=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">${t('Aucune tâche','אין משימות','No task')}</div><div class="empty-text">${t('Touche le + en bas pour en créer une.','גע ב-+ למטה כדי ליצור אחת.','Tap + below to create one.')}</div></div>`;
   list.forEach(x=>{ const t=x.t; const st=stOf(t.status);
     html+=`<div class="task"><div class="task-main"><div class="check" style="border-color:${st.c};background:${t.status==='done'?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${t.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${t.id}')"><div class="task-text ${t.status==='done'?'done':''}">${esc(t.text)}</div><div class="task-tags"><span class="tag tag-sub">${esc(x.where)}</span>${t.priority==='haute'?'<span class="tag" style="background:#FBEAE8;color:#C0453F">🔴</span>':''}${t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:''}${t.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(t.date)}</span>`:''}</div></div></div></div>`;
   });
@@ -3213,7 +3218,7 @@ function mvProgram(pId){ syncInputs(); moveNav={pId:pId}; renderOverlay(); }
 function mvFete(fId){ syncInputs(); moveNav={mId:moveNav.mId,fId:fId}; renderOverlay(); }
 function mvTheme(thId){ syncInputs(); moveNav={thId:thId}; renderOverlay(); }
 function mvSec(key){ syncInputs(); if(!moveNav)moveNav={}; moveNav={open:(moveNav.open===key?null:key)}; renderOverlay(); }
-function _mvDossMeta(d){ const sub=dossierChildren(d.id).length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const tasks=(d.items||[]).filter(x=>!x.kind).length; return [titles?titles+' titre(s)':'', tasks?tasks+' tâche(s)':'', sub?sub+' sous-dossier(s)':''].filter(Boolean).join(' · ')||'toucher pour ouvrir'; }
+function _mvDossMeta(d){ const sub=dossierChildren(d.id).length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const tasks=(d.items||[]).filter(x=>!x.kind).length; return [titles?nTitres(titles):'', tasks?nTaches(tasks):'', sub?nSousDoss(sub):''].filter(Boolean).join(' · ')||t('toucher pour ouvrir','גע לפתיחה','tap to open'); }
 function mvMove(v){ moveNav=null; ebMoveTo(v); }
 function mvDup(v){ ebDuplicateTo(v); moveNav=null; renderOverlay(); }
 function mvCreateEvent(){ let cont=null, prefix=''; if(moveNav.pId){ cont=D.programs.find(x=>x.id===moveNav.pId); prefix='program|'+moveNav.pId+'||'; } else if(moveNav.mId&&moveNav.fId){ const m=D.months[moveNav.mId]; cont=m&&m.fetes.find(x=>x.id===moveNav.fId); prefix='fete|'+moveNav.mId+'|'+moveNav.fId+'|'; } if(!cont)return; const n=prompt('Nom du nouvel événement :','Nouvel événement'); if(n===null)return; const e=mkEvent(n.trim()||'Nouvel événement'); cont.events.push(e); mvMove(prefix+e.id); }
@@ -3239,7 +3244,7 @@ function moveExplorerHTML(){
     H.push(backBar((mm?mm.emoji+' '+mm.name:'Mois'),"mvOpenMonths()"));
     H.push(dropBtn('Mettre directement dans '+(mm?mm.name:'ce mois'),'monthtasks|'+moveNav.mId));
     const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
-    if(real.length){ H.push(hint('Ou ouvrir une fête pour aller plus loin :')); real.forEach(f=>H.push(drillRow('🎉',f.name,f.events.length+' événement(s)',"mvFete('"+f.id+"')"))); }
+    if(real.length){ H.push(hint(t('Ou ouvrir une fête pour aller plus loin :','או פתח חג כדי להמשיך:','Or open a holiday to go further:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
     H.push('<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateFete()">➕ Créer une nouvelle fête ici</button>');
   } else if(moveNav && moveNav.dId){
     const d=dossierById(moveNav.dId);
@@ -3254,7 +3259,7 @@ function moveExplorerHTML(){
     }
   } else if(moveNav && moveNav.open==='mois'){
     H.push(backBar('Choisis le mois',"mvOpen()"));
-    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mo.name,(n?n+' fête(s)':'toucher pour ouvrir'),"mvMonth('"+mo.id+"')")); });
+    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mo.name,(n?nFetes(n):t('toucher pour ouvrir','גע לפתיחה','tap to open')),"mvMonth('"+mo.id+"')")); });
   } else if(moveNav && moveNav.open==='dossier'){
     H.push(backBar('Choisis le dossier',"mvOpen()"));
     const roots=_sortDoss((D.dossiers||[]).filter(d=>!d.parentId));
@@ -4024,26 +4029,26 @@ function dossAddRow(titleId){ const idp = titleId?`'${titleId}'`:'null'; return 
 function delDossier(id){ const d=dossierById(id); if(!d)return; const kids=dossierChildren(id); if(!confirm('Supprimer le dossier « '+(d.name||'sans nom')+' » et son contenu ?'+(kids.length?' Ses '+kids.length+' sous-dossier(s) remonteront d\'un niveau.':'')))return; kids.forEach(k=>{ k.parentId=d.parentId||null; if(!k.parentId&&!k.anchor&&d.anchor) k.anchor=d.anchor; }); const back=(nav.view==='dossier'&&nav.dossierId===id); D.dossiers=(D.dossiers||[]).filter(x=>x.id!==id); save(); if(back){ dossierBack(); } else render(); }
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
-  return `<span style="display:flex;gap:5px">${c('list','☰','Liste (ligne par ligne)')}${c('grid','▦','Grille — 3 par ligne')}</span>`; }
+  return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
 function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
-  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}><div class="tile-ic">${d.icon||'🗂️'}</div><div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||'Sans nom')}</div><div class="tile-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}><div class="tile-ic">${d.icon||'🗂️'}</div><div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}</div><div class="tile-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
 function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
 function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body"><span class="card-icon">${d.icon||'🗂️'}</span><div class="card-main"><div class="card-name">${dot}${esc(d.name||'Dossier sans nom')}</div><div class="card-meta">${titles} titre(s) · ${tasks.length} tâche(s)${tasks.length?' · '+done+'/'+tasks.length+' fait':''}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body"><span class="card-icon">${d.icon||'🗂️'}</span><div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}</div><div class="card-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length+' '+TT('fait','בוצע','done'):''}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
-  if(!d){ c.innerHTML=emptyHTML('🗂️','Dossier introuvable','','← Retour','dossierBack()'); return; }
-  let html=`<div class="bc"><span class="bc-item" data-act="dossierBack()">‹ Retour</span><span class="bc-sep">▸</span><span class="bc-item active">${d.icon||'🗂️'} ${esc(d.name||'Dossier')}</span></div>`;
-  html+=`<div class="field" style="margin-top:10px;margin-bottom:10px"><input class="input" value="${esc(d.name)}" placeholder="Nom du dossier (ex. Organisation Pourim)" onchange="dossSetName(this.value)" style="font-family:var(--serif);font-size:22px;font-weight:600"></div>`;
+  if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
+  let html=`<div class="bc"><span class="bc-item" data-act="dossierBack()">‹ ${t('Retour','חזרה','Back')}</span><span class="bc-sep">▸</span><span class="bc-item active">${d.icon||'🗂️'} ${esc(d.name||t('Dossier','תיקייה','Folder'))}</span></div>`;
+  html+=`<div class="field" style="margin-top:10px;margin-bottom:10px"><input class="input" value="${esc(d.name)}" placeholder="${t('Nom du dossier (ex. Organisation Pourim)','שם התיקייה (למשל ארגון פורים)','Folder name (e.g. Purim organization)')}" onchange="dossSetName(this.value)" style="font-family:var(--serif);font-size:22px;font-weight:600"></div>`;
   html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap">
-    <button class="cbtn" data-act="dossSetIcon()" title="Icône du dossier">${d.icon||'🗂️'}</button>
+    <button class="cbtn" data-act="dossSetIcon()" title="${t('Icône du dossier','אייקון התיקייה','Folder icon')}">${d.icon||'🗂️'}</button>
     <span style="width:1px;height:20px;background:var(--line)"></span>
     ${THEME_COLS.map(cl=>`<span data-act="dossSetColor('${cl}')" title="Couleur (colore le calendrier)" style="width:22px;height:22px;border-radius:50%;background:${cl};cursor:pointer;display:inline-block;border:2px solid ${d.color===cl?'var(--ink)':'transparent'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}
     ${d.color?`<span data-act="dossSetColor('${d.color}')" style="font-size:12px;color:var(--ink-soft);cursor:pointer">✕</span>`:''}
   </div>`;
   const items=d.items||[];
-  if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.</div>'; }
+  if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">'+t('Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.','הוסף כותרת, ואז משימות מתחתיה. כל שורה משתייכת לכותרת שמעליה.','Add a title, then tasks below it. Each line belongs to the title above it.')+'</div>'; }
   let idx=0;
   while(idx<items.length){
     const it=items[idx];
@@ -4051,8 +4056,8 @@ function renderDossier(c){
       const lvl=(it.level||1); const ind=Math.min(lvl-1,6)*16; const fs=lvl===1?'16px':'14.5px'; const bord=lvl===1?'2px solid var(--line)':'1px solid var(--line-soft)'; const open=!!dossOpen[it.id];
       const editing=(dossEditId===it.id);
       const mid = editing
-        ? `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?'Sous-titre…':'Titre de section…'}" onchange="dossTitleCommit('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-radius:0;background:transparent;padding:4px 2px">`
-        : `<span data-act="dossToggle('${it.id}')" style="flex:1;min-width:0;cursor:pointer;font-weight:700;font-size:${fs};padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${it.text?'':'color:var(--ink-soft);font-weight:500'}">${esc(it.text||(lvl===2?'Sous-titre…':'Titre de section…'))}</span>`;
+        ? `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?t('Sous-titre…','כותרת משנה…','Subtitle…'):t('Titre de section…','כותרת מקטע…','Section title…')}" onchange="dossTitleCommit('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-radius:0;background:transparent;padding:4px 2px">`
+        : `<span data-act="dossToggle('${it.id}')" style="flex:1;min-width:0;cursor:pointer;font-weight:700;font-size:${fs};padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${it.text?'':'color:var(--ink-soft);font-weight:500'}">${esc(it.text||(lvl===2?t('Sous-titre…','כותרת משנה…','Subtitle…'):t('Titre de section…','כותרת מקטע…','Section title…')))}</span>`;
       html+=`<div style="display:flex;align-items:center;gap:5px;margin:${lvl===2?'10px':'16px'} 0 8px;margin-left:${ind}px;border-bottom:${bord};padding-bottom:2px">`+
         `<span data-act="dossToggle('${it.id}')" style="cursor:pointer;opacity:.55;font-size:13px;width:15px;text-align:center;flex:none">${open?'▾':'▸'}</span>`+
         mid+
@@ -4071,12 +4076,12 @@ function renderDossier(c){
     }
   }
   const devs=dossierEvents(d.id);
-  if(devs.length){ html+=`<div class="section-label" style="margin-top:16px">📌 Activités reliées (calendrier)</div>`; devs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); devs.forEach(x=>{ const done=countAllDone(x.e.tasks),tot=countAll(x.e.tasks); const act=x.isProgram?`setView('journal')`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})`; html+=`<div class="card" data-act="${act}"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):'sans date'}${tot?' · '+done+'/'+tot+' tâches':''}</div></div><span class="chev">›</span></div></div>`; }); }
+  if(devs.length){ html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Activités reliées (calendrier)','פעילויות מקושרות (לוח)','Linked activities (calendar)')}</div>`; devs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); devs.forEach(x=>{ const done=countAllDone(x.e.tasks),tot=countAll(x.e.tasks); const act=x.isProgram?`setView('journal')`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})`; html+=`<div class="card" data-act="${act}"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):t('sans date','ללא תאריך','no date')}${tot?' · '+done+'/'+tot+' '+t('tâches','משימות','tasks'):''}</div></div><span class="chev">›</span></div></div>`; }); }
   const kids=dossierChildren(d.id);
-  if(kids.length){ html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>📁 Sous-dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(kids,'child:'+d.id); }
+  if(kids.length){ html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>📁 ${t('Sous-dossiers','תת-תיקיות','Sub-folders')}</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(kids,'child:'+d.id); }
   html+=`<div style="height:1px;background:var(--line-soft);margin:14px 0"></div>`;
-  html+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;color:var(--ink-soft)">Ajouter au dossier</span>`+dossAddMenu({root:true})+`</div>`;
-  html+=`<div style="display:flex;gap:9px;margin-top:16px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="dossMoveOpen()">↗ Déplacer ce dossier</button><button class="btn btn-ghost btn-sm" style="flex:1;color:var(--red)" data-act="delDossier('${d.id}')">🗑 Supprimer</button></div>`;
+  html+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;color:var(--ink-soft)">${t('Ajouter au dossier','הוסף לתיקייה','Add to folder')}</span>`+dossAddMenu({root:true})+`</div>`;
+  html+=`<div style="display:flex;gap:9px;margin-top:16px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="dossMoveOpen()">↗ ${t('Déplacer ce dossier','העבר תיקייה זו','Move this folder')}</button><button class="btn btn-ghost btn-sm" style="flex:1;color:var(--red)" data-act="delDossier('${d.id}')">🗑 ${t('Supprimer','מחק','Delete')}</button></div>`;
   c.innerHTML=html;
 }
 function themesHome(){ themeNav=null; render(); }
