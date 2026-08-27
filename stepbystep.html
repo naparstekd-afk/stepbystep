@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z10">
+<meta name="app-build" content="b-2026-08-26-z11">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3706,6 +3706,12 @@ function jNav(dir){ const base=new Date((jDay||todayKey())+'T12:00:00');
 }
 function toggleExpand(id){ if(expanded[id])delete expanded[id]; else expanded[id]=true; render(); }
 function _subMatch(t,from,to){ return (t.subtasks||[]).some(s=>((s.status!=='done'&&s.date&&s.date>=from&&s.date<=to)||_subMatch(s,from,to))); }
+// « Fait pour aujourd'hui » : une tâche à sous-tâches dont TOUT le travail du jour (et antérieur, et sans date) est fait,
+// et dont il ne reste QUE des sous-tâches datées plus tard → on la retire de ce jour (elle reviendra à sa prochaine date).
+function _dayComplete(t,jKey){ const subs=t.subtasks||[]; if(!subs.length) return false;
+  const leaves=flattenTasks(subs).filter(x=>!(x.subtasks&&x.subtasks.length));
+  const undone=leaves.filter(x=>x.status!=='done'); if(!undone.length) return false;
+  return undone.every(x=> x.date && x.date>jKey ); }
 // carte de tâche (avec sous-tâches repliables) pour Ma Journée
 function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const st=stOf(t.status); const late=eff&&eff<todayKey()&&t.status!=='done';
@@ -3763,7 +3769,7 @@ function renderJournal(c){
   if(jPeriod==='today'){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
     const open=[]; const noDate=[];
-    const _handle=(t,where,eff0)=>{ if(t.status==='done')return; const eff=t.date||eff0;
+    const _handle=(t,where,eff0)=>{ if(t.status==='done')return; if(_dayComplete(t,jKey))return; const eff=t.date||eff0;
       // ⭐ Tâche prioritaire : épinglée tout en haut, CHAQUE jour, tant qu'elle n'est pas cochée.
       if(t.priority==='haute'){ open.push({t,where,eff,pinned:true}); return; }
       if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
