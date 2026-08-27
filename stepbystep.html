@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a18">
+<meta name="app-build" content="b-2026-08-27-a19">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -510,6 +510,7 @@ let journalKey = todayKey();  // jour affiché dans Compte rendu
 let groupedView = null; // résultat du tri intelligent {mode, groups}
 let jSort = null; // tri intelligent de Ma Journée : null | 'urgency' | 'theme' | 'where'
 let jFilter = {tasks:true, events:true, reminders:true}; // Ma Journée : affichage multichoix (tâches / événements / rappels)
+let jShowHidden = false; // Ma Journée : afficher aussi les tâches masquées
 let dossLayout = (function(){ try{ return localStorage.getItem('sbs_dosslayout')||'list'; }catch(e){ return 'list'; } })();  // affichage des dossiers : 'list' | 'grid'
 let shopRange='all'; // filtre échéance de la liste de courses
 let selMode=false; let selSet={}; // sélection multiple de tâches
@@ -1443,12 +1444,12 @@ function renderMonth(c){
   if(_free.length){
     html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Événements','אירועים','Events')} (${_free.length}) <span style="font-weight:400;color:var(--ink-soft);text-transform:none">— ${t('hors fête','ללא חג','no holiday')}</span></div>`;
     sortByDate(_free).forEach(e=>{
-      const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0;
+      const tot=countAll(e.tasks),dn=countAllDone(e.tasks),pct=tot?Math.round(dn/tot*100):0,edur=sumDur(e.tasks);
       html+=`<div class="card drag-row" data-dragid="${e.id}" data-dragkind="event" data-act="go({feteId:'${_mg.id}',eventId:'${e.id}',ctx:'fete'})">
         <div class="card-body">
           <div class="card-icon">📌</div>
           <div class="card-main"><div class="card-name">${esc(e.name)}</div>
-            <div class="card-meta">${e.date?'<span>📅 '+fmtDate(e.date)+'</span>':'<span>'+t('sans date','ללא תאריך','no date')+'</span>'}${tot?' <span>· '+nTaches(tot)+'</span>':''}</div></div>
+            <div class="card-meta">${e.date?'<span>📅 '+fmtDate(e.date)+'</span>':'<span>'+t('sans date','ללא תאריך','no date')+'</span>'}${edur?' <span>· ⏱ '+fmtM(edur)+'</span>':''}</div></div>
           <div class="card-side"><span class="pill ${pct===100&&tot?'pill-done':'pill-count'}">${tot?dn+'/'+tot:''}</span><button class="mini-btn danger" data-act="event.stopPropagation();delEventInMonth('${e.id}')" title="${t('Supprimer','מחק','Delete')}">🗑</button></div>
         </div>
       </div>`;
@@ -1779,6 +1780,11 @@ function openJSort(){ sheet={type:'jsort'}; renderOverlay(); }
 function setJSort(mode){ jSort=mode; closeSheet(); render(); }
 function jClearSort(){ jSort=null; render(); }
 function jFilterToggle(k){ if(k==='rappel'){ const on=!(jFilter.events||jFilter.reminders); jFilter.events=on; jFilter.reminders=on; } else { jFilter[k]=!jFilter[k]; } render(); }   // multichoix : garde le menu ouvert
+// — Masquage d'une tâche dans Ma Journée (elle reste dans son dossier / le calendrier) —
+function jHideTask(id){ const r=findTaskAnywhere(id); if(!r)return; r.task.jHidden=true; save(); render(); toast(TT('Masquée de Ma Journée','הוסתרה מהיום שלי','Hidden from My Day')); }
+function jUnhideTask(id){ const r=findTaskAnywhere(id); if(!r)return; r.task.jHidden=false; save(); render(); }
+function toggleJShowHidden(){ jShowHidden=!jShowHidden; render(); }
+function _jHiddenCount(){ let n=0; const chk=t=>{ if(t&&t.jHidden)n++; }; Object.values(D.months||{}).forEach(m=>{ (m.tasks||[]).forEach(chk); (m.fetes||[]).forEach(f=>{ (f.tasks||[]).forEach(chk); (f.events||[]).forEach(e=>(e.tasks||[]).forEach(chk)); }); }); (D.inbox||[]).forEach(chk); (D.dossiers||[]).forEach(d=>(d.items||[]).forEach(it=>{ if(!it.kind)chk(it); })); (D.themes||[]).forEach(th=>(th.tasks||[]).forEach(chk)); return n; }
 function jDisplayMenu(){
   const f=jFilter; const chk=(on)=>on?'☑':'☐';
   const opt=(k,ic,lbl)=>`<button class="dd-item" data-act="jFilterToggle('${k}')">${chk(k==='rappel'?(f.events||f.reminders):f[k])} ${ic} ${lbl}</button>`;
@@ -1788,6 +1794,7 @@ function jDisplayMenu(){
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Afficher','הצג','Show')}</div>
     ${opt('tasks','✅',t('Tâches','משימות','Tasks'))}
     ${opt('rappel','🔔',t('Rappel','תזכורת','Reminder'))}
+    ${(()=>{const hn=_jHiddenCount();return (hn||jShowHidden)?`<button class="dd-item" data-act="toggleJShowHidden()">${jShowHidden?'☑':'☐'} 🙈 ${t('Tâches masquées','משימות מוסתרות','Hidden tasks')}${hn?' ('+hn+')':''}</button>`:'';})()}
     <div class="divider" style="margin:6px 0"></div>
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Trier « À faire »','מיין « לביצוע »','Sort “To do”')}</div>
     <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ ${t('Ordre par défaut','סדר ברירת מחדל','Default order')}</button>
@@ -3787,13 +3794,17 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const _dur=totalDuration(t);
   const durTag=_dur?`<span class="tag tag-time">⏱ ${fmtM(_dur)}</span>`:'';
   const subLine = where||prio||remTag||dateTag||who||durTag;
-  let h=`<div class="wrap-task"><div class="jtask">
+  const hideBtn = t.jHidden
+    ? `<span class="mini-btn" style="align-self:center;color:var(--gold)" data-act="event.stopPropagation();jUnhideTask('${t.id}')" title="${TT('Réafficher dans Ma Journée','הצג שוב','Show again')}">👁</span>`
+    : `<span class="mini-btn" style="align-self:center;opacity:.35" data-act="event.stopPropagation();jHideTask('${t.id}')" title="${TT('Masquer de Ma Journée','הסתר מהיום שלי','Hide from My Day')}">🙈</span>`;
+  let h=`<div class="wrap-task"${t.jHidden?' style="opacity:.55"':''}><div class="jtask">
     <div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>
     <div class="jtask-body" data-act="openTask('${t.id}')">
       <div class="jtask-title ${done?'done':''}">${(t.text&&t.text.trim())?esc(t.text):'<span style="color:var(--ink-soft);font-style:italic">Tâche sans titre — ouvrir pour modifier / supprimer</span>'}</div>
       ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${durTag}${prio}${remTag}${dateTag}${who}</div>`:''}
     </div>
     ${expBtn?`<div style="align-self:center">${expBtn}</div>`:''}
+    ${hideBtn}
   </div>`;
   if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${(s.text&&s.text.trim())?esc(s.text):'<span style="color:var(--ink-soft);font-style:italic">Sous-tâche sans titre</span>'}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
   h+=`</div>`; return h;
@@ -3827,7 +3838,7 @@ function renderJournal(c){
   if(jPeriod==='today'){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
     const open=[]; const noDate=[];
-    const _handle=(t,where,eff0)=>{ if(t.status==='done')return; if(_dayComplete(t,jKey))return; const eff=t.date||eff0;
+    const _handle=(t,where,eff0)=>{ if(t.status==='done')return; if(t.jHidden && !jShowHidden)return; if(_dayComplete(t,jKey))return; const eff=t.date||eff0;
       // ⭐ Tâche prioritaire : épinglée tout en haut, CHAQUE jour, tant qu'elle n'est pas cochée.
       if(t.priority==='haute'){ open.push({t,where,eff,pinned:true}); return; }
       if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
@@ -3885,7 +3896,7 @@ function renderJournal(c){
     // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
     let fT=jFilter.tasks, fE=jFilter.events, fR=jFilter.reminders; if(!fT&&!fE&&!fR){ fT=fE=fR=true; }
     const items=datedAll().filter(x=>x.iso&&x.iso>=rg.from&&x.iso<=rg.to);
-    const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; if(x.kind==='task'){ if(!fT)return; } else { if(!fE)return; } (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
+    const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; if(x.kind==='task'){ if(!fT)return; if(x.t&&x.t.jHidden&&!jShowHidden)return; } else { if(!fE)return; } (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
     const days=Object.keys(byDay).sort();
     if(!days.length){ html+=emptyHTML('🗓️',t('Rien sur la période','אין כלום בתקופה','Nothing in this period'),(fT&&fE)?t('Aucune fête, événement ou tâche datés sur cette période.','אין חגים, אירועים או משימות עם תאריך בתקופה זו.','No dated holiday, event or task in this period.'):t('Aucun élément ne correspond au filtre choisi (touchez 👁).','אין פריט התואם את הסינון (הקש 👁).','No item matches the filter (tap 👁).'),'',''); }
     else days.forEach(d=>{
@@ -4145,12 +4156,12 @@ function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayo
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
 function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const g=group||'root';
   const mins=tasks.reduce((a,x)=>a+totalDuration(x),0);
-  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}</div>${d.date?`<div class="tile-meta" style="color:var(--gold);font-weight:600">📅 ${esc(_dLabel(d.date))}</div>`:''}<div class="tile-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches','משימות','tasks'):nTaches(0)}${mins?' · ⏱ '+fmtM(mins):''}</div></div>`; }
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}</div>${d.date?`<div class="tile-meta" style="color:var(--gold);font-weight:600">📅 ${esc(_dLabel(d.date))}</div>`:''}<div class="tile-meta">${[tasks.length?done+'/'+tasks.length:'',mins?'⏱ '+fmtM(mins):''].filter(Boolean).join(' · ')||'—'}</div></div>`; }
 function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
 function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const g=group||'root';
   const mins=tasks.reduce((a,x)=>a+totalDuration(x),0);
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}${d.date?_datePill(d.date):''}</div><div class="card-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches faites','משימות בוצעו','tasks done'):nTaches(0)}${mins?' · ⏱ '+fmtM(mins):''}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}${d.date?_datePill(d.date):''}</div><div class="card-meta">${[tasks.length?done+'/'+tasks.length:'',mins?'⏱ '+fmtM(mins):''].filter(Boolean).join(' · ')||'—'}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
@@ -4935,7 +4946,7 @@ function commitDragOrder(kind){
 [setView,go,changeYear,openTask,openQuickTask,quickTaskSave,quickTaskMore,quickTaskCancel,quickTaskTogglePrio,quickTaskSync,closeSheet,sheetBackdrop,toggleTask,delTask,moveTask,saveTask,
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
- openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
+ openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
