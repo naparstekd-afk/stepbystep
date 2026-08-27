@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a21">
+<meta name="app-build" content="b-2026-08-27-a22">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1474,7 +1474,7 @@ function renderFete(c){
 }
 function renderProgramHome(c){
   const p=curProgram();
-  if(!p){c.innerHTML=emptyHTML('🤔','Introuvable','','← Retour','go({feteId:null})');return;}
+  if(!p){c.innerHTML=emptyHTML('🤔',t('Introuvable','לא נמצא','Not found'),'',t('← Retour','← חזרה','← Back'),'go({feteId:null})');return;}
   renderContainerEvents(c,p,'program');
 }
 function renderContainerEvents(c,cont,ctx){
@@ -1486,11 +1486,11 @@ function renderContainerEvents(c,cont,ctx){
     html+=`<div class="filters"><button class="chip" data-act="go({view:'programs'})" style="display:none"></button></div>`;
     // quick access to attendance/salaries
     html+=`<div class="card" data-act="openProgramTools('${cont.id}')" style="cursor:pointer"><div class="card-body">
-      <div class="card-icon">📊</div><div class="card-main"><div class="card-name">Présences & Salaires</div>
-      <div class="card-meta">${cont.sessions.length} journée(s) · ${cont.animateurs.length} animateur(s)</div></div><span class="chev">›</span></div></div>`;
+      <div class="card-icon">📊</div><div class="card-main"><div class="card-name">${t('Présences & Salaires','נוכחות ושכר','Attendance & Salaries')}</div>
+      <div class="card-meta">${cont.sessions.length} ${t('journée(s)','ימים','day(s)')} · ${cont.animateurs.length} ${t('animateur(s)','מדריכים','instructor(s)')}</div></div><span class="chev">›</span></div></div>`;
     html+=`<div class="card" data-act="openChildren('${cont.id}')" style="cursor:pointer"><div class="card-body">
-      <div class="card-icon">🧒</div><div class="card-main"><div class="card-name">Enfants & présences</div>
-      <div class="card-meta">${(cont.participants||[]).length} enfant(s)</div></div><span class="chev">›</span></div></div>`;
+      <div class="card-icon">🧒</div><div class="card-main"><div class="card-name">${t('Enfants & présences','ילדים ונוכחות','Children & attendance')}</div>
+      <div class="card-meta">${(cont.participants||[]).length} ${t('enfant(s)','ילדים','child(ren)')}</div></div><span class="chev">›</span></div></div>`;
   }
   if(!cont.events.length){
     // Pas d'événement : rien n'est affiché ici (ajout via le bouton + en bas à droite).
@@ -1516,13 +1516,13 @@ function renderContainerEvents(c,cont,ctx){
   }
   const _ctasks=(cont.tasks||[]);
   if(ctx==='program'){
-    html+=`<div class="section-label" style="margin-top:16px">✅ Tâches directes${_ctasks.length?' ('+_ctasks.length+')':''}</div>`;
+    html+=`<div class="section-label" style="margin-top:16px">✅ ${t('Tâches directes','משימות ישירות','Direct tasks')}${_ctasks.length?' ('+_ctasks.length+')':''}</div>`;
     if(_ctasks.length){ _ctasks.forEach((t,i)=>html+=taskHTML(t,null,i,_ctasks.length,false)); }
-    else html+=`<div class="hint" style="margin-bottom:6px">Aucune tâche directe.</div>`;
-    html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:16px" data-act="qaTaskInContainer()">＋ Nouvelle tâche dans ce programme</button>`;
+    else html+=`<div class="hint" style="margin-bottom:6px">${t('Aucune tâche directe.','אין משימות ישירות.','No direct tasks.')}</div>`;
+    html+=`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:16px" data-act="qaTaskInContainer()">＋ ${t('Nouvelle tâche dans ce programme','משימה חדשה בתוכנית זו','New task in this program')}</button>`;
   } else if(_ctasks.length){
     // Fête : on n'affiche les tâches directes que si elles existent déjà (pas de bouton d'ajout, sur demande).
-    html+=`<div class="section-label" style="margin-top:16px">✅ Tâches directes (${_ctasks.length})</div>`;
+    html+=`<div class="section-label" style="margin-top:16px">✅ ${t('Tâches directes','משימות ישירות','Direct tasks')} (${_ctasks.length})</div>`;
     _ctasks.forEach((t,i)=>html+=taskHTML(t,null,i,_ctasks.length,false));
   }
   // Récurrence (fête) — un simple rond dont l'icône EST l'état : 1️⃣ = unique, 🔁 = chaque année.
@@ -1530,15 +1530,15 @@ function renderContainerEvents(c,cont,ctx){
   if(ctx==='fete'){
     html+=`<div style="margin-top:16px">
       <span class="dd" style="position:relative">
-        <button class="cbtn" data-act="toggleDD('feterec')" title="Récurrence : ${cont.recurring?'chaque année':'unique'}" style="${cont.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${cont.recurring?'🔁':'1️⃣'}</button>
-        ${openDD==='feterec'?`<div class="dd-menu"><button class="dd-item ${!cont.recurring?'sel':''}" data-act="setContainerRecurring(false);closeDD()">1️⃣ Fête unique</button><button class="dd-item ${cont.recurring?'sel':''}" data-act="setContainerRecurring(true);closeDD()">🔁 Chaque année</button></div>`:''}
+        <button class="cbtn" data-act="toggleDD('feterec')" title="${t('Récurrence :','חזרתיות:','Recurrence:')} ${cont.recurring?t('chaque année','כל שנה','every year'):t('unique','חד-פעמי','one-off')}" style="${cont.recurring?'background:var(--gold-soft);border-color:var(--gold)':''}">${cont.recurring?'🔁':'1️⃣'}</button>
+        ${openDD==='feterec'?`<div class="dd-menu"><button class="dd-item ${!cont.recurring?'sel':''}" data-act="setContainerRecurring(false);closeDD()">1️⃣ ${t('Fête unique','חג חד-פעמי','One-off holiday')}</button><button class="dd-item ${cont.recurring?'sel':''}" data-act="setContainerRecurring(true);closeDD()">🔁 ${t('Chaque année','כל שנה','Every year')}</button></div>`:''}
       </span>
     </div>`;
   }
   // Exporter/Importer + Supprimer — côte à côte (compact)
   html+=`<div style="display:flex;gap:8px;margin-top:12px">
-    <button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('${ctx==='program'?'program':'fete'}')">⬇ Exporter / ⬆ Importer</button>
-    <button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentContainer()" title="Supprimer">🗑 Supprimer</button>
+    <button class="btn btn-ghost btn-sm" style="flex:1" data-act="openExport('${ctx==='program'?'program':'fete'}')">⬇ ${t('Exporter / ⬆ Importer','ייצוא / ⬆ ייבוא','Export / ⬆ Import')}</button>
+    <button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="delCurrentContainer()" title="${t('Supprimer','מחק','Delete')}">🗑 ${t('Supprimer','מחק','Delete')}</button>
   </div>`;
   c.innerHTML=html;
 }
@@ -2091,8 +2091,8 @@ function renderCalGrid(c, asJournal){
     arr.forEach(d=>{ days.push(d); monthDays.push(d); inMonth[todayKey(d)]=1; });
     let trail=(7-(days.length%7))%7; for(let i=1;i<=trail;i++){ const d=new Date(arr[arr.length-1]); d.setDate(d.getDate()+i); days.push(d); }
     { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); title=(_mo?_mo.name:ap.month)+' '+ap.year; } }
-  else { const a=new Date(anchor+'T12:00:00'); const start=new Date(a); start.setDate(a.getDate()-a.getDay()); for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d); monthDays.push(d); inMonth[todayKey(d)]=1; } title='Semaine du '+start.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
-  const wd=['D','L','M','M','J','V','S'];
+  else { const a=new Date(anchor+'T12:00:00'); const start=new Date(a); start.setDate(a.getDate()-a.getDay()); for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d); monthDays.push(d); inMonth[todayKey(d)]=1; } title=t('Semaine du','שבוע של','Week of')+' '+start.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
+  const wd=[t('D','א','S'),t('L','ב','M'),t('M','ג','T'),t('M','ד','W'),t('J','ה','T'),t('V','ו','F'),t('S','ש','S')];
   const rtl=(mode==='heb'); const rtlCls=rtl?' rtl':'';
   let sub=''; const _valid=monthDays;
   if(_valid.length){
@@ -2100,18 +2100,18 @@ function renderCalGrid(c, asJournal){
     else { const set=[]; _valid.forEach(d=>{ const mid=hebMonthIdOf(todayKey(d)); const mo=MONTHS.find(x=>x.id===mid); const lbl=(mo?mo.name:mid); if(!set.includes(lbl))set.push(lbl); }); sub='🕎 '+set.join(' · '); }
   }
   const desk=isDesktop();
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Agenda — tous les modules réunis</div><div class="sec-title" style="text-transform:capitalize">${title}</div>${sub?`<div class="sec-sub" style="text-transform:capitalize">${sub}</div>`:''}</div></div>`;
-  if(asJournal && desk){ html+=`<div class="filters"><button class="chip active" data-act="setJournalDeskMode('cal')">🗓️ Vue mois</button><button class="chip" data-act="setJournalDeskMode('cards')">📋 Ma journée (liste)</button></div>`; }
-  html+=`<div class="filters"><button class="chip ${mode==='civil'?'active':''}" data-act="setAgMode('civil')">📅 Mois civil</button><button class="chip ${mode==='heb'?'active':''}" data-act="setAgMode('heb')">🕎 Mois hébraïque</button><button class="chip ${mode==='week'?'active':''}" data-act="setAgMode('week')">🗓️ Semaine</button></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Agenda — tous les modules réunis','יומן — כל המודולים יחד','Agenda — all modules together')}</div><div class="sec-title" style="text-transform:capitalize">${title}</div>${sub?`<div class="sec-sub" style="text-transform:capitalize">${sub}</div>`:''}</div></div>`;
+  if(asJournal && desk){ html+=`<div class="filters"><button class="chip active" data-act="setJournalDeskMode('cal')">🗓️ ${t('Vue mois','תצוגת חודש','Month view')}</button><button class="chip" data-act="setJournalDeskMode('cards')">📋 ${t('Ma journée (liste)','היום שלי (רשימה)','My day (list)')}</button></div>`; }
+  html+=`<div class="filters"><button class="chip ${mode==='civil'?'active':''}" data-act="setAgMode('civil')">📅 ${t('Mois civil','חודש לועזי','Civil month')}</button><button class="chip ${mode==='heb'?'active':''}" data-act="setAgMode('heb')">🕎 ${t('Mois hébraïque','חודש עברי','Hebrew month')}</button><button class="chip ${mode==='week'?'active':''}" data-act="setAgMode('week')">🗓️ ${t('Semaine','שבוע','Week')}</button></div>`;
   // Légende + filtre par couleur/thème
   if(themeList.length || hasNone){
     html+=`<div class="cal-legend">`;
     themeList.forEach(th=>{ const off=agHidden[th.id]?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('${th.id}')"><span class="cal-legdot" style="background:${th.color||'#1E3A6E'}"></span>${th.icon||'🎯'} ${esc(th.name)}</span>`; });
-    if(hasNone){ const off=agHidden['__none']?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('__none')"><span class="cal-legdot" style="background:#9AA3AF"></span>Sans dossier</span>`; }
-    if(Object.keys(agHidden).length) html+=`<span class="cal-legch" data-act="agShowAllThemes()" style="border-style:dashed">Tout afficher</span>`;
+    if(hasNone){ const off=agHidden['__none']?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('__none')"><span class="cal-legdot" style="background:#9AA3AF"></span>${t('Sans dossier','ללא תיקייה','No folder')}</span>`; }
+    if(Object.keys(agHidden).length) html+=`<span class="cal-legch" data-act="agShowAllThemes()" style="border-style:dashed">${t('Tout afficher','הצג הכול','Show all')}</span>`;
     html+=`</div>`;
   }
-  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="cbtn" data-act="agShift(-1)">◀</button><div style="flex:1;text-align:center"><button class="btn btn-soft btn-sm" data-act="agToday()">📔 Aujourd'hui</button></div><button class="cbtn" data-act="agShift(1)">▶</button></div>`;
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="cbtn" data-act="agShift(-1)">◀</button><div style="flex:1;text-align:center"><button class="btn btn-soft btn-sm" data-act="agToday()">📔 ${t("Aujourd'hui",'היום','Today')}</button></div><button class="cbtn" data-act="agShift(1)">▶</button></div>`;
   html+=`<div class="cal-grid${rtlCls}">${wd.map(w=>`<div class="cal-wh">${w}</div>`).join('')}</div>`;
   html+=`<div class="cal-grid${rtlCls}">`;
   const MAXCHIP = desk?4:3;
@@ -2126,7 +2126,7 @@ function renderCalGrid(c, asJournal){
     let cell=`<div class="cal-cell${isTd?' today':''}${isFirst?' first':''}${out?' out':''}" data-act="openDayTasks('${iso}')"><div class="cal-dh"><span class="civ">${big}</span><span class="heb">${small}</span></div>`;
     if(items.length){
       if(desk){
-        cell+=items.slice(0,MAXCHIP).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; const lbl=x.kind==='task'?(x.t.text||'Tâche'):(x.kind==='fete'?('🎉 '+x.label):x.label.split(' › ').pop()); const dn=(x.kind==='task'&&x.t.status==='done')?' done':''; return `<div class="cal-chip${dn}" style="border-left-color:${col};background:${_hexA(col,'18')}">${esc(lbl)}</div>`; }).join('');
+        cell+=items.slice(0,MAXCHIP).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; const lbl=x.kind==='task'?(x.t.text||t('Tâche','משימה','Task')):(x.kind==='fete'?('🎉 '+x.label):x.label.split(' › ').pop()); const dn=(x.kind==='task'&&x.t.status==='done')?' done':''; return `<div class="cal-chip${dn}" style="border-left-color:${col};background:${_hexA(col,'18')}">${esc(lbl)}</div>`; }).join('');
         if(items.length>MAXCHIP) cell+=`<div class="cal-more">+${items.length-MAXCHIP}</div>`;
       } else {
         const dots=items.slice(0,8).map(x=>{ const col=agColorOf(x)||'#9AA3AF'; return `<span class="cal-dot" style="background:${col}"></span>`; }).join('');
@@ -2138,11 +2138,11 @@ function renderCalGrid(c, asJournal){
   });
   html+=`</div>`;
   html+=`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">`;
-  if(desk) html+=`<button class="btn btn-soft btn-sm" data-act="openDayTasks('${todayKey()}')">📔 Détail d'aujourd'hui</button>`;
-  html+=`<button class="btn btn-soft btn-sm" data-act="exportICS()">📤 Exporter (.ics)</button>`;
-  if(_org && (_org.role==='owner'||_isAdmin)) html+=`<button class="btn btn-soft btn-sm" data-act="gcalOpen()">🔗 Google Agenda</button>`;
+  if(desk) html+=`<button class="btn btn-soft btn-sm" data-act="openDayTasks('${todayKey()}')">📔 ${t("Détail d'aujourd'hui",'פירוט היום','Today\'s details')}</button>`;
+  html+=`<button class="btn btn-soft btn-sm" data-act="exportICS()">📤 ${t('Exporter (.ics)','ייצוא (.ics)','Export (.ics)')}</button>`;
+  if(_org && (_org.role==='owner'||_isAdmin)) html+=`<button class="btn btn-soft btn-sm" data-act="gcalOpen()">🔗 ${t('Google Agenda','יומן Google','Google Calendar')}</button>`;
   html+=`</div>`;
-  html+=`<div class="hint" style="margin-top:10px">Tout ce qui a une date (fêtes, événements, programmes, tâches) apparaît ici. Chaque couleur = un thème. Touche un jour pour voir le détail${desk?'':' ; filtre par thème avec la légende ci-dessus'}.</div>`;
+  html+=`<div class="hint" style="margin-top:10px">${t('Tout ce qui a une date (fêtes, événements, programmes, tâches) apparaît ici. Chaque couleur = un thème. Touche un jour pour voir le détail','כל דבר עם תאריך (חגים, אירועים, תוכניות, משימות) מופיע כאן. כל צבע = תיקייה. גע ביום כדי לראות את הפירוט','Everything with a date (holidays, events, programs, tasks) appears here. Each color = a folder. Tap a day to see the details')}${desk?'':t(' ; filtre par thème avec la légende ci-dessus','; סנן לפי תיקייה עם המקרא למעלה',' ; filter by folder with the legend above')}.</div>`;
   c.innerHTML=html;
 }
 function toggleProgDates(){ progDates=!progDates; renderOverlay(); }
@@ -2156,19 +2156,19 @@ function parseDatesText(txt){
   });
   return out;
 }
-function genFromDates(pid){ const p=D.programs.find(x=>x.id===pid); const ta=$('prog-dates'); if(!ta)return; const isos=parseDatesText(ta.value); if(!isos.length){ toast('Aucune date reconnue (ex. 23/06/2026 ou 2026-06-23)'); return; } const existing=new Set(p.sessions.map(s=>sessIso(s))); let added=0; isos.forEach(iso=>{ if(!existing.has(iso)){ p.sessions.push({id:uid(),iso:iso}); existing.add(iso); added++; } }); progYM=isos.slice().sort()[0].slice(0,7); progDates=false; save(); renderOverlay(); toast(added+' journée(s) créée(s) sur '+isos.length+' date(s)'); }
+function genFromDates(pid){ const p=D.programs.find(x=>x.id===pid); const ta=$('prog-dates'); if(!ta)return; const isos=parseDatesText(ta.value); if(!isos.length){ toast(t('Aucune date reconnue (ex. 23/06/2026 ou 2026-06-23)','לא זוהה תאריך (לדוגמה 23/06/2026 או 2026-06-23)','No date recognized (e.g. 23/06/2026 or 2026-06-23)')); return; } const existing=new Set(p.sessions.map(s=>sessIso(s))); let added=0; isos.forEach(iso=>{ if(!existing.has(iso)){ p.sessions.push({id:uid(),iso:iso}); existing.add(iso); added++; } }); progYM=isos.slice().sort()[0].slice(0,7); progDates=false; save(); renderOverlay(); toast(added+' '+t('journée(s) créée(s) sur','ימים נוצרו מתוך','day(s) created out of')+' '+isos.length+' '+t('date(s)','תאריכים','date(s)')); }
 function jDayNav(d){ const k=jDay||todayKey(); const dt=new Date(k+'T12:00:00'); dt.setDate(dt.getDate()+d); jDay=todayKey(dt); render(); }
 function jDayToday(){ jDay=todayKey(); render(); }
 function toggleChildBulk(){ childBulk=!childBulk; renderOverlay(); }
-function addChildBulk(pid){ const p=D.programs.find(x=>x.id===pid); const ta=$('child-bulk'); if(!ta)return; const gi=$('child-bulk-group'); const g=gi?gi.value.trim():''; const names=ta.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean); if(!names.length){ toast('Colle au moins un nom'); return; } if(!p.participants)p.participants=[]; names.forEach(n=>p.participants.push({id:uid(),name:n,group:g})); save(); childBulk=false; renderOverlay(); toast(names.length+' enfant(s) ajouté(s)'); }
-function renameContainer(){ const c=curContainer(); if(!c)return; const n=prompt('Nouveau nom :',c.name); if(n&&n.trim()){ c.name=n.trim(); save(); render(); } }
+function addChildBulk(pid){ const p=D.programs.find(x=>x.id===pid); const ta=$('child-bulk'); if(!ta)return; const gi=$('child-bulk-group'); const g=gi?gi.value.trim():''; const names=ta.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean); if(!names.length){ toast(t('Colle au moins un nom','הדבק לפחות שם אחד','Paste at least one name')); return; } if(!p.participants)p.participants=[]; names.forEach(n=>p.participants.push({id:uid(),name:n,group:g})); save(); childBulk=false; renderOverlay(); toast(names.length+' '+t('enfant(s) ajouté(s)','ילדים נוספו','child(ren) added')); }
+function renameContainer(){ const c=curContainer(); if(!c)return; const n=prompt(t('Nouveau nom :','שם חדש:','New name:'),c.name); if(n&&n.trim()){ c.name=n.trim(); save(); render(); } }
 function renameEvent(){ const e=curEvent(); if(!e)return; const n=prompt('Nouveau nom :',e.name); if(n&&n.trim()){ e.name=n.trim(); save(); render(); } }
 // ---------- PUBLIC (audience visée) ----------
 let publicFilter='all';
 function setEventPublic(v){ const e=curEvent(); if(!e)return; if(v==='__new'){ const n=prompt('Nom du nouveau public :',''); if(n===null||!n.trim()){ render(); return; } if(!Array.isArray(D.publics))D.publics=[]; if(!D.publics.includes(n.trim()))D.publics.push(n.trim()); e.public=n.trim(); } else { e.public=v; } save(); render(); }
-function addPublic(){ const n=prompt('Nom du nouveau public :',''); if(n===null||!n.trim())return; if(!Array.isArray(D.publics))D.publics=[]; if(!D.publics.includes(n.trim()))D.publics.push(n.trim()); save(); render(); }
-function editPublic(name){ const i=(D.publics||[]).indexOf(name); if(i<0)return; const n=prompt('Modifier le public :',name); if(n===null||!n.trim())return; const nn=n.trim(); D.publics[i]=nn; allEventsList().forEach(x=>{ if(x.e.public===name)x.e.public=nn; }); save(); render(); }
-function delPublic(name){ if(!confirm('Supprimer le public « '+name+' » ? (les événements ne seront plus rattachés à ce public)'))return; D.publics=(D.publics||[]).filter(p=>p!==name); allEventsList().forEach(x=>{ if(x.e.public===name)x.e.public=''; }); if(publicFilter===name)publicFilter='all'; save(); render(); }
+function addPublic(){ const n=prompt(t('Nom du nouveau public :','שם הקהל החדש:','New audience name:'),''); if(n===null||!n.trim())return; if(!Array.isArray(D.publics))D.publics=[]; if(!D.publics.includes(n.trim()))D.publics.push(n.trim()); save(); render(); }
+function editPublic(name){ const i=(D.publics||[]).indexOf(name); if(i<0)return; const n=prompt(t('Modifier le public :','ערוך את הקהל:','Edit the audience:'),name); if(n===null||!n.trim())return; const nn=n.trim(); D.publics[i]=nn; allEventsList().forEach(x=>{ if(x.e.public===name)x.e.public=nn; }); save(); render(); }
+function delPublic(name){ if(!confirm(t('Supprimer le public « ','למחוק את הקהל « ','Delete audience « ')+name+t(' » ? (les événements ne seront plus rattachés à ce public)',' »? (האירועים לא יהיו משויכים עוד לקהל זה)',' »? (events will no longer be linked to this audience)')))return; D.publics=(D.publics||[]).filter(p=>p!==name); allEventsList().forEach(x=>{ if(x.e.public===name)x.e.public=''; }); if(publicFilter===name)publicFilter='all'; save(); render(); }
 function setPublicFilter(v){ publicFilter=v; render(); }
 function allEventsList(){ const out=[]; Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>f.events.forEach(e=>out.push({e,where:(mm?mm.emoji+' '+mm.name:'')+' › '+f.name,date:e.date||f.date||'',mId,fId:f.id,ctx:'fete'}))); }); (D.programs||[]).filter(p=>!p._general).forEach(p=>p.events.forEach(e=>out.push({e,where:'📚 '+p.name,date:e.date||p.date||'',pId:p.id,ctx:'program'}))); return out; }
 function setEventPublicI(i){ const p=(D.publics||[])[i]; if(p!=null) setEventPublic(p); }
@@ -2177,7 +2177,7 @@ function openPublics(){ setView('publics'); }
 function tsData(){ if(!D.tsedaka)D.tsedaka={done:{},hour:'09:00',days:[0,1,2,3,4,5,6]}; if(!D.tsedaka.done)D.tsedaka.done={}; if(!Array.isArray(D.tsedaka.days))D.tsedaka.days=[0,1,2,3,4,5,6]; return D.tsedaka; }
 function tsGivenToday(){ return !!tsData().done[todayKey()]; }
 function tsIsDay(){ const d=new Date().getDay(); return tsData().days.indexOf(d)>=0; }
-function tsGive(){ const t=tsData(); t.done[todayKey()]=true; save(); render(); toast('🫙 Tsedakah donnée aujourd\'hui — Yasher Koa'+'h !'); }
+function tsGive(){ const t=tsData(); t.done[todayKey()]=true; save(); render(); toast('🫙 '+TT("Tsedakah donnée aujourd'hui — Yasher Koa"+'h !','צדקה ניתנה היום — יישר כוח!','Tsedaka given today — Yasher Koach!')); }
 function tsUndo(){ const t=tsData(); delete t.done[todayKey()]; save(); render(); }
 function tsToggleDay(d){ const t=tsData(); const i=t.days.indexOf(d); if(i>=0)t.days.splice(i,1); else t.days.push(d); save(); render(); }
 function tsSetHour(v){ tsData().hour=v; save(); }
@@ -2208,10 +2208,10 @@ function ideaSheet(){
 }
 function renderIdeas(c){
   const list=D.ideas||[];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Capture rapide</div><div class="sec-title">💡 Idées</div><div class="sec-sub">Note une idée en un instant — touche le + en bas</div></div></div>`;
-  if(!list.length){ html+=`<div class="empty"><div class="empty-icon">💡</div><div class="empty-title">Aucune idée</div><div class="empty-text">Touche le bouton + en bas pour en ajouter une.</div></div>`; }
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Capture rapide','לכידה מהירה','Quick capture')}</div><div class="sec-title">💡 ${t('Idées','רעיונות','Ideas')}</div><div class="sec-sub">${t('Note une idée en un instant — touche le + en bas','רשום רעיון ברגע אחד — גע ב-+ למטה','Jot an idea in an instant — tap + below')}</div></div></div>`;
+  if(!list.length){ html+=`<div class="empty"><div class="empty-icon">💡</div><div class="empty-title">${t('Aucune idée','אין רעיונות','No ideas')}</div><div class="empty-text">${t('Touche le bouton + en bas pour en ajouter une.','גע בכפתור + למטה כדי להוסיף אחד.','Tap the + button below to add one.')}</div></div>`; }
   list.forEach(it=>{ const nimg=(it.attachments||[]).length;
-    html+=`<div class="card" data-act="editIdea('${it.id}')"><div class="card-body"><div class="card-main"><div class="card-name">${it.title?esc(it.title):(it.text?esc(it.text.slice(0,40)):'(sans titre)')}</div><div class="card-meta">${it.title&&it.text?esc(it.text.slice(0,50)):''}${nimg?` <span class="tag tag-sub">📎 ${nimg}</span>`:''} <span style="color:var(--ink-soft);font-size:11px">${fmtDate(it.created)}</span></div></div><button class="mini-btn danger" data-act="event.stopPropagation();delIdea('${it.id}')">🗑</button></div></div>`;
+    html+=`<div class="card" data-act="editIdea('${it.id}')"><div class="card-body"><div class="card-main"><div class="card-name">${it.title?esc(it.title):(it.text?esc(it.text.slice(0,40)):t('(sans titre)','(ללא כותרת)','(untitled)'))}</div><div class="card-meta">${it.title&&it.text?esc(it.text.slice(0,50)):''}${nimg?` <span class="tag tag-sub">📎 ${nimg}</span>`:''} <span style="color:var(--ink-soft);font-size:11px">${fmtDate(it.created)}</span></div></div><button class="mini-btn danger" data-act="event.stopPropagation();delIdea('${it.id}')">🗑</button></div></div>`;
   });
   c.innerHTML=html;
 }
@@ -2221,6 +2221,7 @@ const SH_MORNING=['Ouverture du Hékhal','1ʳᵉ montée','2ᵉ montée','3ᵉ m
 const SH_MINHA=['Ouverture du Hékhal','1ʳᵉ montée','2ᵉ montée','3ᵉ montée','Hagbaa'];
 function shReco(poste){ if(poste==='1ʳᵉ montée')return 'cohen'; if(poste==='2ᵉ montée')return 'levi'; return null; }
 const TRIBE_LBL={cohen:'Cohen',levi:'Lévi',israel:'Israël'};
+function tribeLbl(k){ return t(TRIBE_LBL[k]||'', ({cohen:'כהן',levi:'לוי',israel:'ישראל'}[k]||''), (TRIBE_LBL[k]||'')); }
 let shAnchor=null;
 function openShabbat(){ shAnchor=nextShabbat(); setView('shabbat'); }
 function shNav(dir){ const d=new Date((shAnchor||nextShabbat())+'T12:00:00'); d.setDate(d.getDate()+dir*7); shAnchor=todayKey(d); render(); }
@@ -2228,9 +2229,9 @@ function shWeek(key){ if(!D.shabbat)D.shabbat={}; if(!D.shabbat[key])D.shabbat[k
 function shSetParacha(v){ shWeek(shAnchor||nextShabbat()).paracha=v; save(); }
 function shTogPresence(section,pid){ const w=shWeek(shAnchor||nextShabbat()); if(w.presence[section][pid])delete w.presence[section][pid]; else w.presence[section][pid]=true; save(); render(); }
 function personName(id){ const p=(D.persons||[]).find(x=>x.id===id); return p?p.name:''; }
-function shAddPerson(){ const n=prompt('Nom de la personne :'); if(!n||!n.trim())return; const tr=prompt('Cohen / Lévi / Israël ?','Israël')||''; const tribe=/coh/i.test(tr)?'cohen':(/lev|lév/i.test(tr)?'levi':'israel'); D.persons.push({id:uid(),name:n.trim(),tribe:tribe,hebBirth:'',yahrzeit:''}); save(); render(); }
+function shAddPerson(){ const n=prompt(t('Nom de la personne :','שם האדם:','Person\'s name:')); if(!n||!n.trim())return; const tr=prompt(t('Cohen / Lévi / Israël ?','כהן / לוי / ישראל?','Cohen / Levi / Israel?'),'Israël')||''; const tribe=/coh/i.test(tr)?'cohen':(/lev|lév/i.test(tr)?'levi':'israel'); D.persons.push({id:uid(),name:n.trim(),tribe:tribe,hebBirth:'',yahrzeit:''}); save(); render(); }
 function shAssign(block,poste,val){ const w=shWeek(shAnchor||nextShabbat());
-  if(val==='__new'){ const n=prompt('Nom de la personne :'); if(!n||!n.trim()){render();return;} const tr=prompt('Cohen / Lévi / Israël ?','Israël')||''; const tribe=/coh/i.test(tr)?'cohen':(/lev|lév/i.test(tr)?'levi':'israel'); const p={id:uid(),name:n.trim(),tribe:tribe,hebBirth:'',yahrzeit:''}; D.persons.push(p); w.aliyot[block][poste]=p.id; }
+  if(val==='__new'){ const n=prompt(t('Nom de la personne :','שם האדם:','Person\'s name:')); if(!n||!n.trim()){render();return;} const tr=prompt(t('Cohen / Lévi / Israël ?','כהן / לוי / ישראל?','Cohen / Levi / Israel?'),'Israël')||''; const tribe=/coh/i.test(tr)?'cohen':(/lev|lév/i.test(tr)?'levi':'israel'); const p={id:uid(),name:n.trim(),tribe:tribe,hebBirth:'',yahrzeit:''}; D.persons.push(p); w.aliyot[block][poste]=p.id; }
   else if(!val){ delete w.aliyot[block][poste]; }
   else { w.aliyot[block][poste]=val; }
   save(); render();
@@ -2242,110 +2243,110 @@ function shPriorBonus(p,key){ let b=0; if(p.hebBirth && shHebAnnivInRange(p.hebB
 function shSuggest(){ const key=shAnchor||nextShabbat(); const w=shWeek(key); const counts=shAssignCount(); const used=new Set(); ['morning','minha'].forEach(b=>Object.values(w.aliyot[b]).forEach(id=>used.add(id)));
   const pick=(tribe)=>{ let cand=(D.persons||[]).filter(p=>!used.has(p.id) && (!tribe||p.tribe===tribe)); if(!cand.length)return null; cand.sort((a,b)=>{ const pa=shPriorBonus(a,key),pb=shPriorBonus(b,key); if(pa!==pb)return pb-pa; return (counts[a.id]||0)-(counts[b.id]||0); }); used.add(cand[0].id); return cand[0].id; };
   SH_MORNING.forEach(poste=>{ if(poste==='Ouverture du Hékhal'||poste==='Hagbaa'||poste==='Maftir')return; if(w.aliyot.morning[poste])return; const id=pick(shReco(poste)); if(id)w.aliyot.morning[poste]=id; });
-  save(); render(); toast('Suggestions appliquées — tu peux tout modifier');
+  save(); render(); toast(t('Suggestions appliquées — tu peux tout modifier','ההצעות הוחלו — אפשר לשנות הכול','Suggestions applied — you can change everything'));
 }
 function shPlanningText(key){
   const w=shWeek(key); const _mid=hebMonthIdOf(key); const _mo=MONTHS.find(x=>x.id===_mid); const hp=hebParts(new Date(key+'T12:00:00'));
-  let t=`🕯️ PROGRAMME DU CHABBAT\n`;
-  if(w.paracha) t+=`Paracha ${w.paracha}\n`;
-  t+=`${civilDate(key)}\n🕎 ${hp.day} ${_mo?_mo.name:''} ${hp.year}\n${'─'.repeat(28)}\n\n📖 Chabbat matin\n`;
+  let t=`🕯️ ${TT('PROGRAMME DU CHABBAT','תוכנית השבת','SHABBAT PROGRAM')}\n`;
+  if(w.paracha) t+=`${TT('Paracha','פרשה','Parasha')} ${w.paracha}\n`;
+  t+=`${civilDate(key)}\n🕎 ${hp.day} ${_mo?_mo.name:''} ${hp.year}\n${'─'.repeat(28)}\n\n📖 ${TT('Chabbat matin','שבת בבוקר','Shabbat morning')}\n`;
   SH_MORNING.forEach(p=>{ const id=w.aliyot.morning[p]; t+=`• ${p} : ${id?personName(id):'—'}\n`; });
-  t+=`\n📖 Min'ha\n`;
+  t+=`\n📖 ${TT("Min'ha",'מנחה','Minha')}\n`;
   SH_MINHA.forEach(p=>{ const id=w.aliyot.minha[p]; t+=`• ${p} : ${id?personName(id):'—'}\n`; });
   t+=`\n— Beth Habad · stepbystep`;
   return t;
 }
-function shPlanCopy(){ const t=shPlanningText(shAnchor||nextShabbat()); try{navigator.clipboard.writeText(t);}catch(e){} toast('Planning copié ✓'); }
+function shPlanCopy(){ const t=shPlanningText(shAnchor||nextShabbat()); try{navigator.clipboard.writeText(t);}catch(e){} toast(TT('Planning copié ✓','התוכנית הועתקה ✓','Schedule copied ✓')); }
 function shPlanWA(){ const t=shPlanningText(shAnchor||nextShabbat()); window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }
 function shPlanExport(fmt){ const t=shPlanningText(shAnchor||nextShabbat()); const name='Planning_Chabbat_'+(shAnchor||nextShabbat());
-  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',t); toast('Texte téléchargé'); return; }
+  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',t); toast(TT('Texte téléchargé','הטקסט הורד','Text downloaded')); return; }
   const html='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(t)+'</body></html>';
-  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+html); toast('Word téléchargé'); return; }
-  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(html); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
+  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+html); toast(TT('Word téléchargé','Word הורד','Word downloaded')); return; }
+  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(html); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast(TT('Impression → PDF','הדפסה ← PDF','Print → PDF')); }
 }
 // Demandes de montée (structure responsable — l'espace membre + notifs = SaaS)
 function shPosteOk(poste,tribe){ const r=shReco(poste); if(!r)return true; return r===tribe; }
-function shAddRequest(){ const key=shAnchor||nextShabbat(); const w=shWeek(key); const persons=D.persons||[]; if(!persons.length){ toast('Ajoute d\'abord des personnes'); return; }
-  const list=persons.map((p,i)=>(i+1)+'. '+p.name+' ('+TRIBE_LBL[p.tribe]+')').join('\n');
-  const pick=prompt('Qui demande une montée ? Entre le numéro :\n'+list); if(pick===null)return; const p=persons[parseInt(pick)-1]; if(!p){ toast('Numéro invalide'); return; }
-  const pref=(prompt('Montée souhaitée (facultatif) — ex. 3ᵉ montée, Hagbaa, Ouverture du Hékhal :','')||'').trim();
-  if(!w.requests)w.requests=[]; w.requests.push({id:uid(),personId:p.id,pref:pref,status:'pending'}); save(); render(); toast('Demande enregistrée (en attente de validation)');
+function shAddRequest(){ const key=shAnchor||nextShabbat(); const w=shWeek(key); const persons=D.persons||[]; if(!persons.length){ toast(t('Ajoute d\'abord des personnes','הוסף קודם אנשים','Add people first')); return; }
+  const list=persons.map((p,i)=>(i+1)+'. '+p.name+' ('+tribeLbl(p.tribe)+')').join('\n');
+  const pick=prompt(t('Qui demande une montée ? Entre le numéro :','מי מבקש עלייה? הזן מספר:','Who is requesting an aliyah? Enter the number:')+'\n'+list); if(pick===null)return; const p=persons[parseInt(pick)-1]; if(!p){ toast(t('Numéro invalide','מספר לא תקין','Invalid number')); return; }
+  const pref=(prompt(t('Montée souhaitée (facultatif) — ex. 3ᵉ montée, Hagbaa, Ouverture du Hékhal :','עלייה מבוקשת (רשות) — לדוגמה 3ᵉ montée, Hagbaa, Ouverture du Hékhal :','Desired aliyah (optional) — e.g. 3ᵉ montée, Hagbaa, Ouverture du Hékhal :'),'')||'').trim();
+  if(!w.requests)w.requests=[]; w.requests.push({id:uid(),personId:p.id,pref:pref,status:'pending'}); save(); render(); toast(t('Demande enregistrée (en attente de validation)','הבקשה נשמרה (ממתינה לאישור)','Request saved (pending approval)'));
 }
 function shReqAccept(rid){ const w=shWeek(shAnchor||nextShabbat()); const r=(w.requests||[]).find(x=>x.id===rid); if(!r)return; const p=(D.persons||[]).find(x=>x.id===r.personId); let poste=r.pref;
   // valider poste : compatible tribu ? sinon demander
   if(!poste || (SH_MORNING.indexOf(poste)<0 && SH_MINHA.indexOf(poste)<0) || (p && !shPosteOk(poste,p.tribe))){
     const ok=SH_MORNING.filter(x=>x!=='Ouverture du Hékhal'&&x!=='Hagbaa'&&(!p||shPosteOk(x,p.tribe)));
-    const choix=prompt('Montée à attribuer'+(r.pref?' (demandée « '+r.pref+' » — non dispo/incompatible)':'')+' :\n'+ok.map((x,i)=>(i+1)+'. '+x).join('\n')); if(choix===null)return; poste=ok[parseInt(choix)-1]; if(!poste){ toast('Choix invalide'); return; }
+    const choix=prompt(t('Montée à attribuer','עלייה לשיבוץ','Aliyah to assign')+(r.pref?' ('+t('demandée','מבוקשת','requested')+' « '+r.pref+' » — '+t('non dispo/incompatible','לא זמינה/לא תואמת','unavailable/incompatible')+')':'')+' :\n'+ok.map((x,i)=>(i+1)+'. '+x).join('\n')); if(choix===null)return; poste=ok[parseInt(choix)-1]; if(!poste){ toast(t('Choix invalide','בחירה לא תקינה','Invalid choice')); return; }
   }
-  w.aliyot.morning[poste]=r.personId; r.status='accepted'; r.poste=poste; save(); render(); toast('Demande validée → '+poste);
+  w.aliyot.morning[poste]=r.personId; r.status='accepted'; r.poste=poste; save(); render(); toast(t('Demande validée →','הבקשה אושרה →','Request approved →')+' '+poste);
 }
 function shReqRefuse(rid){ const w=shWeek(shAnchor||nextShabbat()); const r=(w.requests||[]).find(x=>x.id===rid); if(!r)return; r.status='refused'; save(); render(); }
 function shReqDel(rid){ const w=shWeek(shAnchor||nextShabbat()); w.requests=(w.requests||[]).filter(x=>x.id!==rid); save(); render(); }
 function shPersonOpen(id){ _spPerson=id; sheet={type:'shabbatPerson'}; renderOverlay(); }
 let _spPerson=null;
 function shPersonSetTribe(tr){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(p){p.tribe=tr; save(); renderOverlay();} }
-function shPersonSave(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return; const n=$('sp-name'),hb=$('sp-heb'),yz=$('sp-yz'); if(n)p.name=n.value.trim()||p.name; if(hb)p.hebBirth=hb.value; if(yz)p.yahrzeit=yz.value; save(); closeSheet(); render(); toast('Personne enregistrée'); }
-function shPersonDel(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return; if(!confirm('Supprimer '+p.name+' ?'))return; D.persons=D.persons.filter(x=>x.id!==_spPerson); save(); closeSheet(); render(); }
-function shPersonSheet(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return `<div class="sheet-head"><div class="sheet-title">Personne</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">Introuvable.</div></div>`;
+function shPersonSave(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return; const n=$('sp-name'),hb=$('sp-heb'),yz=$('sp-yz'); if(n)p.name=n.value.trim()||p.name; if(hb)p.hebBirth=hb.value; if(yz)p.yahrzeit=yz.value; save(); closeSheet(); render(); toast(t('Personne enregistrée','האדם נשמר','Person saved')); }
+function shPersonDel(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return; if(!confirm(t('Supprimer','למחוק את','Delete')+' '+p.name+' ?'))return; D.persons=D.persons.filter(x=>x.id!==_spPerson); save(); closeSheet(); render(); }
+function shPersonSheet(){ const p=(D.persons||[]).find(x=>x.id===_spPerson); if(!p)return `<div class="sheet-head"><div class="sheet-title">${t('Personne','אדם','Person')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">${t('Introuvable.','לא נמצא.','Not found.')}</div></div>`;
   return `<div class="sheet-head"><div class="sheet-title">👤 ${esc(p.name)}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="field"><label class="field-label">Nom</label><input class="input" id="sp-name" value="${esc(p.name)}"></div>
-    <div class="field"><label class="field-label">Statut</label><div class="statuses">${['cohen','levi','israel'].map(k=>`<button class="st-opt" style="${p.tribe===k?'border-color:var(--primary);background:var(--primary-soft);color:var(--primary)':''}" data-act="shPersonSetTribe('${k}')">${TRIBE_LBL[k]}</button>`).join('')}</div></div>
-    <div class="field"><label class="field-label">Date de naissance (pour anniversaire hébraïque)</label><input class="input" id="sp-heb" type="date" value="${esc(p.hebBirth||'')}"></div>
-    <div class="field"><label class="field-label">Yahrzeit / Azkara (date du décès)</label><input class="input" id="sp-yz" type="date" value="${esc(p.yahrzeit||'')}"></div>
-    <div class="hint">L'app proposera cette personne en priorité pour une montée la semaine de son anniversaire hébraïque ou de son Yahrzeit.</div>
-    <button class="btn btn-primary btn-block" style="margin-top:10px" data-act="shPersonSave()">Enregistrer</button>
-    <button class="btn btn-ghost btn-block" style="margin-top:8px;color:var(--red)" data-act="shPersonDel()">🗑 Supprimer</button>
+    <div class="field"><label class="field-label">${t('Nom','שם','Name')}</label><input class="input" id="sp-name" value="${esc(p.name)}"></div>
+    <div class="field"><label class="field-label">${t('Statut','מעמד','Status')}</label><div class="statuses">${['cohen','levi','israel'].map(k=>`<button class="st-opt" style="${p.tribe===k?'border-color:var(--primary);background:var(--primary-soft);color:var(--primary)':''}" data-act="shPersonSetTribe('${k}')">${tribeLbl(k)}</button>`).join('')}</div></div>
+    <div class="field"><label class="field-label">${t('Date de naissance (pour anniversaire hébraïque)','תאריך לידה (ליום הולדת עברי)','Date of birth (for Hebrew birthday)')}</label><input class="input" id="sp-heb" type="date" value="${esc(p.hebBirth||'')}"></div>
+    <div class="field"><label class="field-label">${t('Yahrzeit / Azkara (date du décès)','יארצייט / אזכרה (תאריך הפטירה)','Yahrzeit / Azkara (date of passing)')}</label><input class="input" id="sp-yz" type="date" value="${esc(p.yahrzeit||'')}"></div>
+    <div class="hint">${t("L'app proposera cette personne en priorité pour une montée la semaine de son anniversaire hébraïque ou de son Yahrzeit.",'האפליקציה תציע אדם זה בעדיפות לעלייה בשבוע של יום ההולדת העברי או היארצייט שלו.','The app will suggest this person first for an aliyah in the week of their Hebrew birthday or Yahrzeit.')}</div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px" data-act="shPersonSave()">${t('Enregistrer','שמור','Save')}</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;color:var(--red)" data-act="shPersonDel()">🗑 ${t('Supprimer','מחק','Delete')}</button>
   </div>`;
 }
-function shPersonOpts(sel,reco){ return `<option value="">—</option>${(D.persons||[]).map(p=>`<option value="${p.id}" ${sel===p.id?'selected':''}>${esc(p.name)}${p.tribe!=='israel'?' ('+TRIBE_LBL[p.tribe]+')':''}</option>`).join('')}<option value="__new">＋ Nouvelle personne…</option>`; }
+function shPersonOpts(sel,reco){ return `<option value="">—</option>${(D.persons||[]).map(p=>`<option value="${p.id}" ${sel===p.id?'selected':''}>${esc(p.name)}${p.tribe!=='israel'?' ('+tribeLbl(p.tribe)+')':''}</option>`).join('')}<option value="__new">＋ ${t('Nouvelle personne…','אדם חדש…','New person…')}</option>`; }
 function shAliyotBlock(block,postes){ const w=shWeek(shAnchor||nextShabbat());
   return postes.map(poste=>{ const reco=shReco(poste); const sel=w.aliyot[block][poste]||'';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft)"><div style="flex:0 0 118px;font-size:13px">${poste}${reco?` <span style="font-size:10px;color:var(--gold)">(${TRIBE_LBL[reco]})</span>`:''}</div><select class="select" style="flex:1" onchange="shAssign('${block}','${poste}',this.value)">${shPersonOpts(sel,reco)}</select></div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft)"><div style="flex:0 0 118px;font-size:13px">${poste}${reco?` <span style="font-size:10px;color:var(--gold)">(${tribeLbl(reco)})</span>`:''}</div><select class="select" style="flex:1" onchange="shAssign('${block}','${poste}',this.value)">${shPersonOpts(sel,reco)}</select></div>`;
   }).join('');
 }
 function renderShabbat(c){
   const key=shAnchor||nextShabbat(); const w=shWeek(key); const persons=D.persons||[];
   const _mid=hebMonthIdOf(key); const _mo=MONTHS.find(x=>x.id===_mid); const hp=hebParts(new Date(key+'T12:00:00'));
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Organisation</div><div class="sec-title">🕯️ Shabbat</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Organisation','ארגון','Organization')}</div><div class="sec-title">🕯️ ${t('Shabbat','שבת','Shabbat')}</div></div></div>`;
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="cbtn" data-act="shNav(-1)">◀</button><div style="flex:1;text-align:center"><div style="font-family:var(--serif);font-size:17px;color:var(--primary);text-transform:capitalize">${civilDate(key)}</div><div style="font-size:12.5px;color:var(--ink-soft)">🕎 ${hp.day} ${_mo?_mo.name:''} ${hp.year}</div></div><button class="cbtn" data-act="shNav(1)">▶</button></div>`;
-  html+=`<div class="field"><label class="field-label">Paracha</label><input class="input" value="${esc(w.paracha||'')}" placeholder="Nom de la Paracha (ex. Balak)" onchange="shSetParacha(this.value)"></div>`;
-  html+=`<div class="hint" style="margin-bottom:8px">⚠️ Le calcul <b>automatique</b> de la Paracha viendra avec la version en ligne — pour l'instant tu saisis le nom (une fois par semaine).</div>`;
+  html+=`<div class="field"><label class="field-label">${t('Paracha','פרשה','Parasha')}</label><input class="input" value="${esc(w.paracha||'')}" placeholder="${t('Nom de la Paracha (ex. Balak)','שם הפרשה (לדוגמה בלק)','Parasha name (e.g. Balak)')}" onchange="shSetParacha(this.value)"></div>`;
+  html+=`<div class="hint" style="margin-bottom:8px">⚠️ ${t('Le calcul <b>automatique</b> de la Paracha viendra avec la version en ligne — pour l\'instant tu saisis le nom (une fois par semaine).','חישוב <b>אוטומטי</b> של הפרשה יגיע בגרסה המקוונת — בינתיים מזינים את השם (פעם בשבוע).','<b>Automatic</b> parasha calculation will come with the online version — for now you enter the name (once a week).')}</div>`;
   // rappels anniv/yahrzeit
   const rem=persons.filter(p=>shPriorBonus(p,key)>0);
-  if(rem.length){ html+=`<div class="card" style="padding:11px 13px;margin-bottom:12px;border-color:var(--gold);background:var(--gold-soft)"><div style="font-weight:700;color:var(--gold);margin-bottom:4px">🎗️ À proposer une montée cette semaine</div>${rem.map(p=>`<div style="font-size:13px">• ${esc(p.name)} — ${p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?'anniversaire hébraïque':''}${p.yahrzeit&&shHebAnnivInRange(p.yahrzeit,key)?(p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?' + ':'')+'Yahrzeit':''}</div>`).join('')}</div>`; }
+  if(rem.length){ html+=`<div class="card" style="padding:11px 13px;margin-bottom:12px;border-color:var(--gold);background:var(--gold-soft)"><div style="font-weight:700;color:var(--gold);margin-bottom:4px">🎗️ ${t('À proposer une montée cette semaine','להציע עלייה השבוע','To offer an aliyah this week')}</div>${rem.map(p=>`<div style="font-size:13px">• ${esc(p.name)} — ${p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?t('anniversaire hébraïque','יום הולדת עברי','Hebrew birthday'):''}${p.yahrzeit&&shHebAnnivInRange(p.yahrzeit,key)?(p.hebBirth&&shHebAnnivInRange(p.hebBirth,key)?' + ':'')+'Yahrzeit':''}</div>`).join('')}</div>`; }
   // Demandes de montée
   const reqs=(w.requests||[]);
-  html+=`<div class="section-label" style="margin-top:6px">📩 Demandes de montée${reqs.filter(r=>r.status==='pending').length?` <span class="tag" style="background:var(--amber-soft);color:var(--amber)">${reqs.filter(r=>r.status==='pending').length} en attente</span>`:''}</div>`;
-  if(reqs.length){ reqs.forEach(r=>{ const p=(D.persons||[]).find(x=>x.id===r.personId); const nm=p?p.name:'?'; const badge=r.status==='pending'?'<span class="tag" style="background:var(--amber-soft);color:var(--amber)">⏳ En attente</span>':r.status==='accepted'?('<span class="tag" style="background:var(--green-soft);color:var(--green)">✓ Validée'+(r.poste?' · '+r.poste:'')+'</span>'):'<span class="tag" style="background:var(--red-soft);color:var(--red)">✕ Refusée</span>';
-    html+=`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(nm)}${p?` <span style="font-size:11px;color:var(--ink-soft)">(${TRIBE_LBL[p.tribe]})</span>`:''}</div><div style="font-size:12px;color:var(--ink-soft)">${r.pref?'Souhait : '+esc(r.pref):'Sans préférence'} · ${badge}</div></div>${r.status==='pending'?`<button class="btn btn-primary btn-sm" data-act="shReqAccept('${r.id}')">Accepter</button><button class="btn btn-ghost btn-sm" data-act="shReqRefuse('${r.id}')">Refuser</button>`:`<button class="mini-btn danger" data-act="shReqDel('${r.id}')">🗑</button>`}</div></div>`;
-  }); } else html+=`<div class="hint">Aucune demande pour ce Chabbat.</div>`;
-  html+=`<button class="btn btn-soft btn-sm" style="margin-top:4px" data-act="shAddRequest()">＋ Enregistrer une demande</button>`;
-  html+=`<div class="hint" style="margin:6px 0 14px">⚠️ La demande directe par les <b>membres</b> (espace perso) + les <b>notifications</b> au responsable et au membre = version en ligne (SaaS). Ici, le responsable enregistre et valide ; la validation met le planning à jour automatiquement.</div>`;
+  html+=`<div class="section-label" style="margin-top:6px">📩 ${t('Demandes de montée','בקשות עלייה','Aliyah requests')}${reqs.filter(r=>r.status==='pending').length?` <span class="tag" style="background:var(--amber-soft);color:var(--amber)">${reqs.filter(r=>r.status==='pending').length} ${t('en attente','ממתינות','pending')}</span>`:''}</div>`;
+  if(reqs.length){ reqs.forEach(r=>{ const p=(D.persons||[]).find(x=>x.id===r.personId); const nm=p?p.name:'?'; const badge=r.status==='pending'?'<span class="tag" style="background:var(--amber-soft);color:var(--amber)">⏳ '+t('En attente','ממתין','Pending')+'</span>':r.status==='accepted'?('<span class="tag" style="background:var(--green-soft);color:var(--green)">✓ '+t('Validée','אושר','Approved')+(r.poste?' · '+r.poste:'')+'</span>'):'<span class="tag" style="background:var(--red-soft);color:var(--red)">✕ '+t('Refusée','נדחה','Declined')+'</span>';
+    html+=`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(nm)}${p?` <span style="font-size:11px;color:var(--ink-soft)">(${tribeLbl(p.tribe)})</span>`:''}</div><div style="font-size:12px;color:var(--ink-soft)">${r.pref?t('Souhait :','בקשה:','Wish:')+' '+esc(r.pref):t('Sans préférence','ללא העדפה','No preference')} · ${badge}</div></div>${r.status==='pending'?`<button class="btn btn-primary btn-sm" data-act="shReqAccept('${r.id}')">${t('Accepter','אשר','Accept')}</button><button class="btn btn-ghost btn-sm" data-act="shReqRefuse('${r.id}')">${t('Refuser','דחה','Decline')}</button>`:`<button class="mini-btn danger" data-act="shReqDel('${r.id}')">🗑</button>`}</div></div>`;
+  }); } else html+=`<div class="hint">${t('Aucune demande pour ce Chabbat.','אין בקשות לשבת זו.','No requests for this Shabbat.')}</div>`;
+  html+=`<button class="btn btn-soft btn-sm" style="margin-top:4px" data-act="shAddRequest()">＋ ${t('Enregistrer une demande','רשום בקשה','Record a request')}</button>`;
+  html+=`<div class="hint" style="margin:6px 0 14px">⚠️ ${t('La demande directe par les <b>membres</b> (espace perso) + les <b>notifications</b> au responsable et au membre = version en ligne (SaaS). Ici, le responsable enregistre et valide ; la validation met le planning à jour automatiquement.','בקשה ישירה של <b>חברים</b> (אזור אישי) + <b>התראות</b> לאחראי ולחבר = גרסה מקוונת (SaaS). כאן האחראי רושם ומאשר; האישור מעדכן את התוכנית אוטומטית.','Direct requests by <b>members</b> (personal area) + <b>notifications</b> to the manager and member = online version (SaaS). Here the manager records and validates; validation updates the schedule automatically.')}</div>`;
   // Minyan
-  html+=`<div class="section-label" style="margin-top:6px">🙏 Présence au Minyan</div>`;
-  const secLbl={friday:'Vendredi soir',morning:'Chabbat matin',minha:'Min\'ha'};
+  html+=`<div class="section-label" style="margin-top:6px">🙏 ${t('Présence au Minyan','נוכחות במניין','Minyan attendance')}</div>`;
+  const secLbl={friday:t('Vendredi soir','ליל שישי','Friday evening'),morning:t('Chabbat matin','שבת בבוקר','Shabbat morning'),minha:t("Min'ha",'מנחה','Minha')};
   ['friday','morning','minha'].forEach(sec=>{
     const cnt=Object.keys(w.presence[sec]).length;
-    html+=`<div class="card" style="padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">${secLbl[sec]} <span style="color:var(--ink-soft);font-weight:400">· ${cnt} présent(s)</span></div>`;
+    html+=`<div class="card" style="padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">${secLbl[sec]} <span style="color:var(--ink-soft);font-weight:400">· ${cnt} ${t('présent(s)','נוכחים','present')}</span></div>`;
     if(persons.length) html+=`<div style="display:flex;flex-wrap:wrap;gap:6px">${persons.map(p=>`<button class="chip ${w.presence[sec][p.id]?'active':''}" data-act="shTogPresence('${sec}','${p.id}')">${w.presence[sec][p.id]?'✓ ':''}${esc(p.name)}</button>`).join('')}</div>`;
-    else html+=`<div class="hint">Ajoute des personnes ci-dessous.</div>`;
+    else html+=`<div class="hint">${t('Ajoute des personnes ci-dessous.','הוסף אנשים למטה.','Add people below.')}</div>`;
     html+=`</div>`;
   });
-  html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:14px" data-act="shAddPerson()">＋ Ajouter une personne (habitué)</button>`;
+  html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:14px" data-act="shAddPerson()">＋ ${t('Ajouter une personne (habitué)','הוסף אדם (קבוע)','Add a person (regular)')}</button>`;
   // Aliyot
-  html+=`<div class="section-label">📖 Montées à la Torah — Chabbat matin</div><div class="card" style="padding:6px 12px">${shAliyotBlock('morning',SH_MORNING)}</div>`;
-  html+=`<button class="btn btn-primary btn-sm btn-block" style="margin:10px 0" data-act="shSuggest()">✨ Suggérer les montées (rotation équilibrée)</button>`;
-  html+=`<div class="section-label">📖 Montées à la Torah — Min'ha</div><div class="card" style="padding:6px 12px">${shAliyotBlock('minha',SH_MINHA)}</div>`;
+  html+=`<div class="section-label">📖 ${t('Montées à la Torah — Chabbat matin','עליות לתורה — שבת בבוקר','Torah aliyot — Shabbat morning')}</div><div class="card" style="padding:6px 12px">${shAliyotBlock('morning',SH_MORNING)}</div>`;
+  html+=`<button class="btn btn-primary btn-sm btn-block" style="margin:10px 0" data-act="shSuggest()">✨ ${t('Suggérer les montées (rotation équilibrée)','הצע עליות (סבב מאוזן)','Suggest aliyot (balanced rotation)')}</button>`;
+  html+=`<div class="section-label">📖 ${t("Montées à la Torah — Min'ha",'עליות לתורה — מנחה','Torah aliyot — Minha')}</div><div class="card" style="padding:6px 12px">${shAliyotBlock('minha',SH_MINHA)}</div>`;
   // Partage du planning
-  html+=`<div class="section-label" style="margin-top:16px">📤 Partager le planning</div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px"><button class="btn btn-primary btn-sm" data-act="shPlanCopy()">📋 Copier</button><button class="btn btn-gold btn-sm" data-act="shPlanWA()">📱 WhatsApp</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('pdf')">📄 PDF</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('doc')">📝 Word</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('txt')">📃 Texte</button></div>
-    <div class="hint" style="margin-bottom:8px">⚠️ Export <b>Google Docs</b> = version en ligne (SaaS). Le document reprend Paracha, dates, toutes les montées, ouvertures, Hagbaa.</div>`;
+  html+=`<div class="section-label" style="margin-top:16px">📤 ${t('Partager le planning','שתף את התוכנית','Share the schedule')}</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px"><button class="btn btn-primary btn-sm" data-act="shPlanCopy()">📋 ${t('Copier','העתק','Copy')}</button><button class="btn btn-gold btn-sm" data-act="shPlanWA()">📱 WhatsApp</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('pdf')">📄 PDF</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('doc')">📝 Word</button><button class="btn btn-soft btn-sm" data-act="shPlanExport('txt')">📃 ${t('Texte','טקסט','Text')}</button></div>
+    <div class="hint" style="margin-bottom:8px">⚠️ ${t('Export <b>Google Docs</b> = version en ligne (SaaS). Le document reprend Paracha, dates, toutes les montées, ouvertures, Hagbaa.','ייצוא <b>Google Docs</b> = גרסה מקוונת (SaaS). המסמך כולל פרשה, תאריכים, כל העליות, פתיחות והגבהה.','<b>Google Docs</b> export = online version (SaaS). The document includes parasha, dates, all aliyot, openings, Hagbaa.')}</div>`;
   // gestion personnes
-  html+=`<div class="section-label" style="margin-top:16px">👥 Personnes (CRM)</div>`;
-  if(persons.length) persons.forEach(p=>{ html+=`<div class="card" data-act="shPersonOpen('${p.id}')"><div class="card-body"><div class="card-icon">👤</div><div class="card-main"><div class="card-name">${esc(p.name)}</div><div class="card-meta"><span class="tag tag-sub">${TRIBE_LBL[p.tribe]||'Israël'}</span>${p.hebBirth?' 🎂':''}${p.yahrzeit?' 🕯️':''}</div></div><span class="chev">›</span></div></div>`; });
-  else html+=`<div class="hint">Aucune personne. Ajoute-en via « ＋ Ajouter une personne » ou en attribuant une montée.</div>`;
-  html+=`<div class="hint" style="margin-top:12px">⚠️ Notifications <b>push (mardi/mercredi, app fermée)</b> = version en ligne (SaaS). L'historique des montées est gardé et sert aux suggestions.</div>`;
+  html+=`<div class="section-label" style="margin-top:16px">👥 ${t('Personnes (CRM)','אנשים (CRM)','People (CRM)')}</div>`;
+  if(persons.length) persons.forEach(p=>{ html+=`<div class="card" data-act="shPersonOpen('${p.id}')"><div class="card-body"><div class="card-icon">👤</div><div class="card-main"><div class="card-name">${esc(p.name)}</div><div class="card-meta"><span class="tag tag-sub">${tribeLbl(p.tribe)||tribeLbl('israel')}</span>${p.hebBirth?' 🎂':''}${p.yahrzeit?' 🕯️':''}</div></div><span class="chev">›</span></div></div>`; });
+  else html+=`<div class="hint">${t('Aucune personne. Ajoute-en via « ＋ Ajouter une personne » ou en attribuant une montée.','אין אנשים. הוסף דרך « ＋ הוסף אדם » או על ידי שיבוץ עלייה.','No people. Add via « ＋ Add a person » or by assigning an aliyah.')}</div>`;
+  html+=`<div class="hint" style="margin-top:12px">⚠️ ${t('Notifications <b>push (mardi/mercredi, app fermée)</b> = version en ligne (SaaS). L\'historique des montées est gardé et sert aux suggestions.','התראות <b>Push (שלישי/רביעי, אפליקציה סגורה)</b> = גרסה מקוונת (SaaS). היסטוריית העליות נשמרת ומשמשת להצעות.','<b>Push</b> notifications <b>(Tue/Wed, app closed)</b> = online version (SaaS). Aliyah history is kept and used for suggestions.')}</div>`;
   c.innerHTML=html;
 }
 
@@ -2449,38 +2450,38 @@ function annExport(fmt){ const el=$('ann-text'); const txt=el?el.value:''; const
 }
 function renderTsedaka(c){
   const t=tsData(); const given=tsGivenToday();
-  const WD=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Mitsva quotidienne</div><div class="sec-title">🫙 Tsedakah</div><div class="sec-sub">Donne chaque jour, en un clic — l'historique est gardé</div></div></div>`;
+  const WD=[TT('Dim','א','Sun'),TT('Lun','ב','Mon'),TT('Mar','ג','Tue'),TT('Mer','ד','Wed'),TT('Jeu','ה','Thu'),TT('Ven','ו','Fri'),TT('Sam','ש','Sat')];
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${TT('Mitsva quotidienne','מצווה יומית','Daily mitzvah')}</div><div class="sec-title">🫙 ${TT('Tsedakah','צדקה','Tsedaka')}</div><div class="sec-sub">${TT("Donne chaque jour, en un clic — l'historique est gardé",'תן כל יום, בלחיצה אחת — ההיסטוריה נשמרת','Give every day, in one click — the history is kept')}</div></div></div>`;
   // bouton principal
   html+=`<div class="card" style="padding:18px;text-align:center;margin-bottom:14px">
-    ${given?`<div style="font-size:40px">✓</div><div style="font-weight:700;color:var(--green);font-size:16px;margin:6px 0">Tsedakah donnée aujourd'hui</div><button class="btn btn-ghost btn-sm" data-act="tsUndo()">Annuler</button>`
-    :`<div style="font-size:15px;color:var(--ink-soft);margin-bottom:12px">${tsIsDay()?"C'est un jour de Tsedakah — tu n'as pas encore donné.":"Tu peux donner ta Tsedakah du jour."}</div><button class="btn btn-primary btn-block" style="font-size:16px;padding:14px" data-act="tsGive()">🫙 Donner la Tsedakah</button>`}
+    ${given?`<div style="font-size:40px">✓</div><div style="font-weight:700;color:var(--green);font-size:16px;margin:6px 0">${TT("Tsedakah donnée aujourd'hui",'צדקה ניתנה היום','Tsedaka given today')}</div><button class="btn btn-ghost btn-sm" data-act="tsUndo()">${TT('Annuler','ביטול','Cancel')}</button>`
+    :`<div style="font-size:15px;color:var(--ink-soft);margin-bottom:12px">${tsIsDay()?TT("C'est un jour de Tsedakah — tu n'as pas encore donné.",'זהו יום צדקה — עדיין לא נתת.','It\'s a Tsedaka day — you haven\'t given yet.'):TT("Tu peux donner ta Tsedakah du jour.",'אפשר לתת את הצדקה של היום.','You can give your Tsedaka for today.')}</div><button class="btn btn-primary btn-block" style="font-size:16px;padding:14px" data-act="tsGive()">🫙 ${TT('Donner la Tsedakah','תן צדקה','Give Tsedaka')}</button>`}
   </div>`;
   // stats
   const total=Object.keys(t.done).length; const streak=tsStreak();
-  html+=`<div class="stat-grid"><div class="stat"><span class="stat-em">🔥</span><div class="stat-val">${streak}</div><div class="stat-label">jours d'affilée</div></div><div class="stat"><span class="stat-em">📅</span><div class="stat-val">${total}</div><div class="stat-label">jours au total</div></div></div>`;
+  html+=`<div class="stat-grid"><div class="stat"><span class="stat-em">🔥</span><div class="stat-val">${streak}</div><div class="stat-label">${TT("jours d'affilée",'ימים ברצף','days in a row')}</div></div><div class="stat"><span class="stat-em">📅</span><div class="stat-val">${total}</div><div class="stat-label">${TT('jours au total','ימים בסך הכול','days in total')}</div></div></div>`;
   // réglages
-  html+=`<div class="phead" style="padding:15px"><div class="section-label" style="margin:0 0 8px">Rappel</div>
-    <div class="field"><label class="field-label">Heure du rappel</label><input class="input" type="time" value="${esc(t.hour||'09:00')}" onchange="tsSetHour(this.value)"></div>
-    <div class="field"><label class="field-label">Jours</label><div class="toggle-group" style="flex-wrap:wrap">${WD.map((w,i)=>`<button class="toggle-opt ${t.days.indexOf(i)>=0?'active':''}" data-act="tsToggleDay(${i})">${w}</button>`).join('')}</div></div>
-    <div class="hint" style="margin-top:8px">⚠️ La <b>notification push même application fermée</b> nécessite la version hébergée avancée (SaaS) — pour l'instant, un rappel s'affiche <b>dans l'app</b> sur « Ma Journée » les jours choisis tant que tu n'as pas donné. Le <b>don en 1 clic ici</b> et l'<b>historique</b> fonctionnent déjà.</div>
+  html+=`<div class="phead" style="padding:15px"><div class="section-label" style="margin:0 0 8px">${TT('Rappel','תזכורת','Reminder')}</div>
+    <div class="field"><label class="field-label">${TT('Heure du rappel','שעת התזכורת','Reminder time')}</label><input class="input" type="time" value="${esc(t.hour||'09:00')}" onchange="tsSetHour(this.value)"></div>
+    <div class="field"><label class="field-label">${TT('Jours','ימים','Days')}</label><div class="toggle-group" style="flex-wrap:wrap">${WD.map((w,i)=>`<button class="toggle-opt ${t.days.indexOf(i)>=0?'active':''}" data-act="tsToggleDay(${i})">${w}</button>`).join('')}</div></div>
+    <div class="hint" style="margin-top:8px">⚠️ ${TT("La <b>notification push même application fermée</b> nécessite la version hébergée avancée (SaaS) — pour l'instant, un rappel s'affiche <b>dans l'app</b> sur « Ma Journée » les jours choisis tant que tu n'as pas donné. Le <b>don en 1 clic ici</b> et l'<b>historique</b> fonctionnent déjà.",'<b>התראת Push גם כשהאפליקציה סגורה</b> דורשת את הגרסה המתקדמת המתארחת (SaaS) — בינתיים, תזכורת מוצגת <b>באפליקציה</b> ב-« היום שלי » בימים שנבחרו כל עוד לא נתת. <b>הנתינה בלחיצה אחת כאן</b> וה<b>היסטוריה</b> כבר עובדות.','<b>Push notifications even when the app is closed</b> require the advanced hosted version (SaaS) — for now, a reminder appears <b>in the app</b> on « My Day » on the chosen days until you have given. <b>One-click giving here</b> and <b>history</b> already work.')}</div>
   </div>`;
   // historique récent
   const keys=Object.keys(t.done).sort().reverse().slice(0,30);
-  html+=`<div class="section-label" style="margin-top:16px">Historique</div>`;
+  html+=`<div class="section-label" style="margin-top:16px">${TT('Historique','היסטוריה','History')}</div>`;
   if(keys.length) keys.forEach(k=>{ html+=`<div class="shop-item"><div class="shop-item-main"><div class="shop-item-name">✓ ${fmtDate(k)}</div><div class="shop-item-meta">🕎 ${hebrewDate(k)}</div></div></div>`; });
-  else html+=`<div class="hint">Aucun don enregistré pour l'instant.</div>`;
+  else html+=`<div class="hint">${TT("Aucun don enregistré pour l'instant.",'עדיין לא נרשמה נתינה.','No donation recorded yet.')}</div>`;
   c.innerHTML=html;
 }
 function renderPublics(c){
   const pubs=D.publics||[];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Audiences</div><div class="sec-title">🎯 Mon public</div><div class="sec-sub">Filtre et retrouve tes événements par public visé</div></div></div>`;
-  html+=`<div class="filters"><button class="chip ${publicFilter==='all'?'active':''}" data-act="setPublicFilter('all')">Tous</button>${pubs.map(p=>`<button class="chip ${publicFilter===p?'active':''}" data-act="setPublicFilter('${esc(p)}')">${esc(p)}</button>`).join('')}<button class="chip ${publicFilter==='none'?'active':''}" data-act="setPublicFilter('none')">Sans public</button></div>`;
-  html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:10px" data-act="addPublic()">＋ Ajouter un public</button>`;
-  if(publicFilter!=='all'&&publicFilter!=='none'){ html+=`<button class="btn btn-ghost btn-sm" style="margin:0 0 10px 8px" data-act="editPublic('${esc(publicFilter)}')">✏️ Renommer</button><button class="btn btn-ghost btn-sm" style="margin:0 0 10px 8px;color:var(--red)" data-act="delPublic('${esc(publicFilter)}')">🗑 Supprimer</button>`; }
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Audiences','קהלים','Audiences')}</div><div class="sec-title">🎯 ${t('Mon public','הקהל שלי','My audience')}</div><div class="sec-sub">${t('Filtre et retrouve tes événements par public visé','סנן ומצא את האירועים שלך לפי הקהל','Filter and find your events by target audience')}</div></div></div>`;
+  html+=`<div class="filters"><button class="chip ${publicFilter==='all'?'active':''}" data-act="setPublicFilter('all')">${t('Tous','הכול','All')}</button>${pubs.map(p=>`<button class="chip ${publicFilter===p?'active':''}" data-act="setPublicFilter('${esc(p)}')">${esc(p)}</button>`).join('')}<button class="chip ${publicFilter==='none'?'active':''}" data-act="setPublicFilter('none')">${t('Sans public','ללא קהל','No audience')}</button></div>`;
+  html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:10px" data-act="addPublic()">＋ ${t('Ajouter un public','הוסף קהל','Add an audience')}</button>`;
+  if(publicFilter!=='all'&&publicFilter!=='none'){ html+=`<button class="btn btn-ghost btn-sm" style="margin:0 0 10px 8px" data-act="editPublic('${esc(publicFilter)}')">✏️ ${t('Renommer','שנה שם','Rename')}</button><button class="btn btn-ghost btn-sm" style="margin:0 0 10px 8px;color:var(--red)" data-act="delPublic('${esc(publicFilter)}')">🗑 ${t('Supprimer','מחק','Delete')}</button>`; }
   let list=allEventsList().filter(x=> publicFilter==='all'?true : publicFilter==='none'?!x.e.public : x.e.public===publicFilter);
   list.sort((a,b)=>(a.date||'zzzz')<(b.date||'zzzz')?-1:(a.date>b.date?1:0));
-  if(!list.length){ html+=`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Aucun événement</div><div class="empty-text">Choisis un public sur la page d'un événement (🎯 Public).</div></div>`; }
+  if(!list.length){ html+=`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">${t('Aucun événement','אין אירועים','No events')}</div><div class="empty-text">${t("Choisis un public sur la page d'un événement (🎯 Public).",'בחר קהל בעמוד של אירוע (🎯 קהל).','Choose an audience on an event page (🎯 Audience).')}</div></div>`; }
   list.forEach(x=>{ const nav=x.ctx==='program'?`go({view:'programs',feteId:'${x.pId}',eventId:'${x.e.id}',ctx:'program'})`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}',ctx:'fete'})`;
     html+=`<div class="card" data-act="${nav}"><div class="card-body"><div class="card-icon">📌</div><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta"><span class="tag tag-sub">${esc(x.where)}</span>${x.e.public?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🎯 ${esc(x.e.public)}</span>`:''}${x.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(x.date)}</span>`:''}</div></div><span class="chev">›</span></div></div>`;
   });
@@ -2645,7 +2646,7 @@ function delFeteById(fid){ if(!confirm('Supprimer cette fête et tout son conten
 function delEventById(eid){ const c=curContainer(); if(!c)return; const e=(c.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » et ses tâches ?'))return; c.events=c.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
 function delEventInMonth(eid){ const md=D.months[nav.monthId]; if(!md)return; const mg=md.fetes.find(f=>f._monthGeneral); if(!mg)return; const e=(mg.events||[]).find(x=>x.id===eid); if(!e)return; if(!confirm('Supprimer l\'événement « '+e.name+' » ?'))return; mg.events=mg.events.filter(x=>x.id!==eid); save(); render(); toast('Événement supprimé'); }
 function delCurrentEvent(){ if(!confirm('Supprimer cet événement et ses tâches ?'))return; const c=curContainer(); const e=curEvent(); if(!c||!e)return; c.events=c.events.filter(x=>x.id!==e.id); save(); if(nav.view==='themeEvent'){ leaveThemeEvent(); } else { go({eventId:null}); } toast('Événement supprimé'); }
-function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm('Supprimer définitivement « '+c.name+' » et tout son contenu ?'))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast('Supprimé'); }
+function delCurrentContainer(){ const c=curContainer(); if(!c)return; if(!confirm(t('Supprimer définitivement « ','למחוק לצמיתות « ','Permanently delete « ')+c.name+t(' » et tout son contenu ?',' » ואת כל התוכן שלו?',' » and all its content?')))return; if(nav.ctx==='program'){ D.programs=D.programs.filter(x=>x.id!==c.id); save(); setView('journal'); } else { const m=curMonth(); if(m)m.fetes=m.fetes.filter(x=>x.id!==c.id); save(); go({feteId:null,eventId:null}); } toast(t('Supprimé','נמחק','Deleted')); }
 function listFeteDests(){ const out=[]; MONTHS.forEach(mm=>{ const mId=mm.id; const m=D.months[mId]; out.push({v:'month|'+mId,label:mm.emoji+' '+mm.name+' › 📌 Événements (hors fête)'}); if(m){ m.fetes.filter(f=>!f._monthGeneral).forEach(f=>out.push({v:'fete|'+mId+'|'+f.id,label:mm.name+' › '+f.name})); } }); D.programs.forEach(p=>out.push({v:'program|'+p.id,label:'📚 '+p.name})); return out; }
 function destContainer(v){ const pr=v.split('|'); if(pr[0]==='program'){ return D.programs.find(x=>x.id===pr[1]); } if(pr[0]==='month'){ return monthFete(pr[1]); } const m=D.months[pr[1]]; return m?m.fetes.find(x=>x.id===pr[2]):null; }
 function cloneEventNewIds(ev){ const c=JSON.parse(JSON.stringify(ev)); c.id=uid(); const reid=(t)=>{ t.id=uid(); t.dependsOn=[]; (t.subtasks||[]).forEach(reid); }; (c.tasks||[]).forEach(reid); return c; }
@@ -3451,11 +3452,11 @@ function doAdd(kind){
 //  PROGRAMMES — liste
 // ============================================================
 function renderProgramsList(c){
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Activités du Beth Habad</div><div class="sec-title">Programmes</div>
-    <div class="sec-sub">${D.programs.length} programme(s)</div></div>
-    <button class="btn btn-soft btn-sm" data-act="addProgramPrompt()">+ Programme</button></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Activités du Beth Habad','פעילויות בית חב״ד','Beth Habad activities')}</div><div class="sec-title">${t('Programmes','תוכניות','Programs')}</div>
+    <div class="sec-sub">${D.programs.length} ${t('programme(s)','תוכניות','program(s)')}</div></div>
+    <button class="btn btn-soft btn-sm" data-act="addProgramPrompt()">+ ${t('Programme','תוכנית','Program')}</button></div>`;
   if(!D.programs.length){
-    html+=emptyHTML('📚','Aucun programme','Club Casher, Talmud Torah, Gan Israël…','+ Créer un programme','addProgramPrompt()');
+    html+=emptyHTML('📚',t('Aucun programme','אין תוכניות','No programs'),t('Club Casher, Talmud Torah, Gan Israël…','מועדון כשר, תלמוד תורה, גן ישראל…','Kosher Club, Talmud Torah, Gan Israel…'),t('+ Créer un programme','+ צור תוכנית','+ Create a program'),'addProgramPrompt()');
   } else {
     D.programs.forEach(p=>{
       const tot=p.events.reduce((a,e)=>a+countAll(e.tasks),0);
@@ -3464,12 +3465,12 @@ function renderProgramsList(c){
         <div class="card-body"><div class="card-accent" style="background:${p.color}"></div>
           <div class="card-icon">📚</div>
           <div class="card-main"><div class="card-name">${esc(p.name)}</div>
-            <div class="card-meta"><span>${p.events.length} événement(s)</span>${p.sessions.length?`<span class="pill pill-mut">${p.sessions.length} journées</span>`:''}</div></div>
+            <div class="card-meta"><span>${p.events.length} ${t('événement(s)','אירועים','event(s)')}</span>${p.sessions.length?`<span class="pill pill-mut">${p.sessions.length} ${t('journées','ימים','days')}</span>`:''}</div></div>
           <div class="card-side">${tot?`<span class="pill pill-count">${dn}/${tot}</span>`:''}<span class="chev">›</span></div>
         </div></div>`;
     });
   }
-  html+=`<div class="hint" style="margin-top:16px">📌 <b>Module complet à venir (SaaS) :</b> présences rapides, fiches participants, planification par glisser-déposer, calcul des trajets et tableaux de bord détaillés.</div>`;
+  html+=`<div class="hint" style="margin-top:16px">📌 <b>${t('Module complet à venir (SaaS) :','מודול מלא בקרוב (SaaS):','Full module coming soon (SaaS):')}</b> ${t('présences rapides, fiches participants, planification par glisser-déposer, calcul des trajets et tableaux de bord détaillés.','נוכחות מהירה, כרטיסי משתתפים, תכנון בגרירה, חישוב מסלולים ולוחות בקרה מפורטים.','quick attendance, participant cards, drag-and-drop planning, route calculation and detailed dashboards.')}</div>`;
   c.innerHTML=html;
 }
 
@@ -3488,33 +3489,33 @@ function childSheet(){
   const presentCount = sess? shown.filter(c=>!absOf(c.id)).length : 0;
   const yy=ym.split('-')[0], mm=ym.split('-')[1];
   const moLabel=new Date(yy,mm-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-  return `<div class="sheet-head"><div class="sheet-title">${esc(p.name)} — Enfants & présences</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  return `<div class="sheet-head"><div class="sheet-title">${esc(p.name)} — ${t('Enfants & présences','ילדים ונוכחות','Children & attendance')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <button class="cbtn" data-act="progPrevM()">◀</button>
       <div style="flex:1;text-align:center;font-weight:600;text-transform:capitalize">${moLabel}</div>
       <button class="cbtn" data-act="progNextM()">▶</button>
     </div>
-    ${monthSess.length?`<div class="filters">${monthSess.map(s=>`<button class="chip ${s.id===childDay?'active':''}" data-act="setChildDay('${s.id}')">${fmtDate(sessIso(s))}</button>`).join('')}</div>`:'<div class="hint">Aucune journée ce mois. Génère des journées dans « Présences & Salaires ».</div>'}
-    ${groups.length?`<div class="filters"><button class="chip ${childFilter==='all'?'active':''}" data-act="setChildFilter('all')">Tous</button>${groups.map(g=>`<button class="chip ${childFilter===g?'active':''}" data-act="setChildFilter('${esc(g)}')">${esc(g)}</button>`).join('')}</div>`:''}
-    ${sess?`<div class="section-label">${fmtDate(sessIso(sess))} — ${presentCount}/${shown.length} présent(s)</div>`:'<div class="section-label">Enfants</div>'}
+    ${monthSess.length?`<div class="filters">${monthSess.map(s=>`<button class="chip ${s.id===childDay?'active':''}" data-act="setChildDay('${s.id}')">${fmtDate(sessIso(s))}</button>`).join('')}</div>`:'<div class="hint">'+t('Aucune journée ce mois. Génère des journées dans « Présences & Salaires ».','אין ימים בחודש זה. צור ימים ב-« נוכחות ושכר ».','No days this month. Generate days in « Attendance & Salaries ».')+'</div>'}
+    ${groups.length?`<div class="filters"><button class="chip ${childFilter==='all'?'active':''}" data-act="setChildFilter('all')">${t('Tous','הכול','All')}</button>${groups.map(g=>`<button class="chip ${childFilter===g?'active':''}" data-act="setChildFilter('${esc(g)}')">${esc(g)}</button>`).join('')}</div>`:''}
+    ${sess?`<div class="section-label">${fmtDate(sessIso(sess))} — ${presentCount}/${shown.length} ${t('présent(s)','נוכחים','present')}</div>`:'<div class="section-label">'+t('Enfants','ילדים','Children')+'</div>'}
     ${shown.length?shown.map(c=>{ const ab=absOf(c.id); return `<div class="shop-item"><div class="shop-item-main"><div class="shop-item-name">${esc(c.name)}${c.group?` <span class="tag tag-sub">${esc(c.group)}</span>`:''}</div></div>
-      ${sess?`<button class="pill ${ab?'':'pill-done'}" style="${ab?'background:var(--red-soft);color:var(--red)':''}" data-act="togChild('${p.id}','${sess.id}','${c.id}')">${ab?'❌ Absent':'✓ Présent'}</button>`:''}
-      <button class="mini-btn" data-act="editChild('${p.id}','${c.id}')">✏️</button></div>`;}).join(''):'<div class="empty-text" style="text-align:left">Aucun enfant. Ajoute-en ci-dessous.</div>'}
-    ${childBulk?`<div class="card" style="padding:11px;margin-top:8px"><div class="field-label">Coller une liste — un nom par ligne</div>
+      ${sess?`<button class="pill ${ab?'':'pill-done'}" style="${ab?'background:var(--red-soft);color:var(--red)':''}" data-act="togChild('${p.id}','${sess.id}','${c.id}')">${ab?'❌ '+t('Absent','נעדר','Absent'):'✓ '+t('Présent','נוכח','Present')}</button>`:''}
+      <button class="mini-btn" data-act="editChild('${p.id}','${c.id}')">✏️</button></div>`;}).join(''):'<div class="empty-text" style="text-align:left">'+t('Aucun enfant. Ajoute-en ci-dessous.','אין ילדים. הוסף למטה.','No children. Add some below.')+'</div>'}
+    ${childBulk?`<div class="card" style="padding:11px;margin-top:8px"><div class="field-label">${t('Coller une liste — un nom par ligne','הדבק רשימה — שם בכל שורה','Paste a list — one name per line')}</div>
       <textarea class="textarea" id="child-bulk" placeholder="Lévi Cohen&#10;Sarah Bénichou&#10;…" style="min-height:96px"></textarea>
-      <input class="input" id="child-bulk-group" placeholder="Groupe pour tous (optionnel)" style="margin-top:6px">
-      <button class="btn btn-primary btn-block" style="margin-top:7px" data-act="addChildBulk('${p.id}')">Ajouter tous</button></div>`:''}
+      <input class="input" id="child-bulk-group" placeholder="${t('Groupe pour tous (optionnel)','קבוצה לכולם (רשות)','Group for all (optional)')}" style="margin-top:6px">
+      <button class="btn btn-primary btn-block" style="margin-top:7px" data-act="addChildBulk('${p.id}')">${t('Ajouter tous','הוסף את כולם','Add all')}</button></div>`:''}
     <div style="display:flex;gap:7px;margin-top:8px">
-      <button class="btn btn-ghost btn-sm" style="flex:1" data-act="addChild('${p.id}')">+ Un enfant</button>
-      <button class="btn btn-ghost btn-sm" style="flex:1" data-act="toggleChildBulk()">📋 Plusieurs (liste)</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" data-act="addChild('${p.id}')">+ ${t('Un enfant','ילד','A child')}</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" data-act="toggleChildBulk()">📋 ${t('Plusieurs (liste)','כמה (רשימה)','Several (list)')}</button>
     </div>
   </div>`;
 }
 function setChildFilter(g){ childFilter=g; renderOverlay(); }
 function setChildDay(sid){ childDay=sid; renderOverlay(); }
-function addChild(pid){ const p=D.programs.find(x=>x.id===pid); const n=prompt('Nom de l\'enfant :'); if(!n||!n.trim())return; const g=prompt('Groupe (nom ou numéro, optionnel) :','')||''; if(!p.participants)p.participants=[]; p.participants.push({id:uid(),name:n.trim(),group:g.trim()}); save(); renderOverlay(); }
-function editChild(pid,cid){ const p=D.programs.find(x=>x.id===pid); const c=p.participants.find(x=>x.id===cid); if(!c)return; const n=prompt('Nom (laisser vide pour supprimer) :',c.name); if(n===null)return; if(!n.trim()){ if(confirm('Supprimer cet enfant ?')){ p.participants=p.participants.filter(x=>x.id!==cid); save(); renderOverlay(); } return; } c.name=n.trim(); const g=prompt('Groupe :',c.group||''); if(g!==null)c.group=g.trim(); save(); renderOverlay(); }
+function addChild(pid){ const p=D.programs.find(x=>x.id===pid); const n=prompt(t('Nom de l\'enfant :','שם הילד:','Child\'s name:')); if(!n||!n.trim())return; const g=prompt(t('Groupe (nom ou numéro, optionnel) :','קבוצה (שם או מספר, רשות):','Group (name or number, optional):'),'')||''; if(!p.participants)p.participants=[]; p.participants.push({id:uid(),name:n.trim(),group:g.trim()}); save(); renderOverlay(); }
+function editChild(pid,cid){ const p=D.programs.find(x=>x.id===pid); const c=p.participants.find(x=>x.id===cid); if(!c)return; const n=prompt(t('Nom (laisser vide pour supprimer) :','שם (השאר ריק כדי למחוק):','Name (leave empty to delete):'),c.name); if(n===null)return; if(!n.trim()){ if(confirm(t('Supprimer cet enfant ?','למחוק ילד זה?','Delete this child?'))){ p.participants=p.participants.filter(x=>x.id!==cid); save(); renderOverlay(); } return; } c.name=n.trim(); const g=prompt(t('Groupe :','קבוצה:','Group:'),c.group||''); if(g!==null)c.group=g.trim(); save(); renderOverlay(); }
 function togChild(pid,sid,cid){ const p=D.programs.find(x=>x.id===pid); if(!p.childAbs)p.childAbs={}; if(!p.childAbs[sid])p.childAbs[sid]={}; p.childAbs[sid][cid]=!p.childAbs[sid][cid]; save(); renderOverlay(); }
 function openProgramTools(pid){ progYM=todayKey().slice(0,7); progGen=false; sheet={type:'programTools',pid}; renderOverlay(); }
 function sessIso(s){ if(s.iso)return s.iso; if(s.date&&/^\d{2}\/\d{2}\/\d{4}/.test(s.date)){ const pp=s.date.split('/'); return pp[2]+'-'+pp[1]+'-'+pp[0]; } return ''; }
@@ -3529,50 +3530,50 @@ function programToolsSheet(){
   const moLabel=new Date(yy,mm-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const presentOf=(aid)=>{ let pr=0; monthSess.forEach(s=>{ const ab=p.absences&&p.absences[s.id]&&p.absences[s.id][aid]; if(!ab)pr++; }); return pr; };
   let totalPay=0; p.animateurs.forEach(a=>totalPay+=presentOf(a.id)*(a.taux||0));
-  return `<div class="sheet-head"><div class="sheet-title">${esc(p.name)} — Présences & Salaires</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  return `<div class="sheet-head"><div class="sheet-title">${esc(p.name)} — ${t('Présences & Salaires','נוכחות ושכר','Attendance & Salaries')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <button class="cbtn" data-act="progPrevM()">◀</button>
       <div style="flex:1;text-align:center;font-weight:600;text-transform:capitalize">${moLabel}</div>
       <button class="cbtn" data-act="progNextM()">▶</button>
     </div>
-    <div class="section-label">Salaires — ${sessN} journée(s) ce mois</div>
+    <div class="section-label">${t('Salaires','שכר','Salaries')} — ${sessN} ${t('journée(s) ce mois','ימים בחודש זה','day(s) this month')}</div>
     ${p.animateurs.length?p.animateurs.map(a=>{
       const pr=presentOf(a.id); const pay=pr*(a.taux||0); const paid=p.paid[ym][a.id];
       return `<div class="shop-item"><div class="shop-item-main"><div class="shop-item-name">${esc(a.name)}</div>
-        <div class="shop-item-meta">${pr}/${sessN} prés. · ${a.taux||0} €/journée</div></div>
+        <div class="shop-item-meta">${pr}/${sessN} ${t('prés.','נוכ.','att.')} · ${a.taux||0} ${t('€/journée','€/יום','€/day')}</div></div>
         <span class="pill pill-budget">${fmtE(pay)}</span>
-        <button class="pill ${paid?'pill-done':''}" style="${paid?'':'background:var(--amber-soft);color:var(--amber)'}" data-act="togPaid('${p.id}','${a.id}')">${paid?'✓ Payé':'À payer'}</button>
+        <button class="pill ${paid?'pill-done':''}" style="${paid?'':'background:var(--amber-soft);color:var(--amber)'}" data-act="togPaid('${p.id}','${a.id}')">${paid?'✓ '+t('Payé','שולם','Paid'):t('À payer','לתשלום','To pay')}</button>
         <button class="mini-btn" data-act="editAnim('${p.id}','${a.id}')">✏️</button></div>`;
-    }).join(''):'<div class="empty-text" style="text-align:left">Aucun animateur.</div>'}
-    ${totalPay?`<div style="text-align:right;font-weight:700;color:var(--primary);margin-top:6px">Total ce mois : ${fmtE(totalPay)}</div>`:''}
-    <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="addAnim('${p.id}')">+ Animateur</button>
+    }).join(''):'<div class="empty-text" style="text-align:left">'+t('Aucun animateur.','אין מדריכים.','No instructors.')+'</div>'}
+    ${totalPay?`<div style="text-align:right;font-weight:700;color:var(--primary);margin-top:6px">${t('Total ce mois :','סה״כ החודש:','Total this month:')} ${fmtE(totalPay)}</div>`:''}
+    <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="addAnim('${p.id}')">+ ${t('Animateur','מדריך','Instructor')}</button>
 
     <div class="divider"></div>
-    <div class="section-label">Journées</div>
+    <div class="section-label">${t('Journées','ימים','Days')}</div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-soft btn-sm" style="flex:1" data-act="addSession('${p.id}')">+ Aujourd'hui</button>
-      <button class="btn btn-soft btn-sm" style="flex:1" data-act="toggleGen()">📅 Générer (calendrier)</button>
+      <button class="btn btn-soft btn-sm" style="flex:1" data-act="addSession('${p.id}')">+ ${t("Aujourd'hui",'היום','Today')}</button>
+      <button class="btn btn-soft btn-sm" style="flex:1" data-act="toggleGen()">📅 ${t('Générer (calendrier)','צור (לוח שנה)','Generate (calendar)')}</button>
     </div>
     ${progGen?`<div class="card" style="padding:12px;margin-top:9px">
-      <div class="row2"><div class="field" style="margin:0"><label class="field-label">Du</label><input class="input" type="date" id="gen-from"></div>
-        <div class="field" style="margin:0"><label class="field-label">Au</label><input class="input" type="date" id="gen-to"></div></div>
-      <div style="margin-top:8px;font-size:12px;color:var(--ink-soft)">Jours (vide = tous les jours)</div>
-      <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((w,i)=>`<label class="pill" style="cursor:pointer"><input type="checkbox" id="gen-wd-${i}" style="margin-right:4px">${w}</label>`).join('')}</div>
-      <button class="btn btn-primary btn-block" style="margin-top:10px" data-act="genSessions('${p.id}')">Générer les journées</button>
+      <div class="row2"><div class="field" style="margin:0"><label class="field-label">${t('Du','מ־','From')}</label><input class="input" type="date" id="gen-from"></div>
+        <div class="field" style="margin:0"><label class="field-label">${t('Au','עד','To')}</label><input class="input" type="date" id="gen-to"></div></div>
+      <div style="margin-top:8px;font-size:12px;color:var(--ink-soft)">${t('Jours (vide = tous les jours)','ימים (ריק = כל הימים)','Days (empty = every day)')}</div>
+      <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">${[t('Lun','ב׳','Mon'),t('Mar','ג׳','Tue'),t('Mer','ד׳','Wed'),t('Jeu','ה׳','Thu'),t('Ven','ו׳','Fri'),t('Sam','ש׳','Sat'),t('Dim','א׳','Sun')].map((w,i)=>`<label class="pill" style="cursor:pointer"><input type="checkbox" id="gen-wd-${i}" style="margin-right:4px">${w}</label>`).join('')}</div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" data-act="genSessions('${p.id}')">${t('Générer les journées','צור את הימים','Generate the days')}</button>
     </div>`:''}
-    <button class="btn btn-soft btn-sm btn-block" style="margin-top:6px" data-act="toggleProgDates()">📋 Importer une liste de dates</button>
+    <button class="btn btn-soft btn-sm btn-block" style="margin-top:6px" data-act="toggleProgDates()">📋 ${t('Importer une liste de dates','ייבא רשימת תאריכים','Import a date list')}</button>
     ${progDates?`<div class="card" style="padding:12px;margin-top:8px">
-      <div class="field-label">Colle des dates (une par ligne) — 23/06/2026 ou 2026-06-23</div>
+      <div class="field-label">${t('Colle des dates (une par ligne) — 23/06/2026 ou 2026-06-23','הדבק תאריכים (אחד בכל שורה) — 23/06/2026 או 2026-06-23','Paste dates (one per line) — 23/06/2026 or 2026-06-23')}</div>
       <textarea class="textarea" id="prog-dates" placeholder="23/06/2026&#10;30/06/2026&#10;…" style="min-height:90px"></textarea>
-      <label class="btn btn-soft btn-sm btn-block" style="margin-top:6px">📎 …ou charger un fichier .csv / .txt<input type="file" accept=".csv,.txt" style="display:none" onchange="(function(f){if(!f)return;const r=new FileReader();r.onload=function(){const ta=document.getElementById('prog-dates');if(ta)ta.value=(ta.value?ta.value+String.fromCharCode(10):'')+r.result;};r.readAsText(f);})(this.files[0])"></label>
-      <button class="btn btn-primary btn-block" style="margin-top:7px" data-act="genFromDates('${p.id}')">Créer les journées</button>
+      <label class="btn btn-soft btn-sm btn-block" style="margin-top:6px">📎 ${t('…ou charger un fichier .csv / .txt','…או טען קובץ .csv / .txt','…or load a .csv / .txt file')}<input type="file" accept=".csv,.txt" style="display:none" onchange="(function(f){if(!f)return;const r=new FileReader();r.onload=function(){const ta=document.getElementById('prog-dates');if(ta)ta.value=(ta.value?ta.value+String.fromCharCode(10):'')+r.result;};r.readAsText(f);})(this.files[0])"></label>
+      <button class="btn btn-primary btn-block" style="margin-top:7px" data-act="genFromDates('${p.id}')">${t('Créer les journées','צור את הימים','Create the days')}</button>
     </div>`:''}
     <div style="margin-top:11px">
     ${monthSess.length?monthSess.slice().sort((a,b)=>sessIso(a)<sessIso(b)?-1:1).map(s=>{ const iso=sessIso(s); const isToday=iso===todayKey();
-      return `<div class="shop-item" style="${isToday?'border:1.5px solid var(--primary);border-radius:9px':''}"><div class="shop-item-main"><div class="shop-item-name">${fmtDate(iso)||esc(s.date||'')}${isToday?' <span style="color:var(--primary);font-weight:700">• aujourd\'hui</span>':''}</div></div><button class="mini-btn danger" data-act="delSession('${p.id}','${s.id}')">🗑</button></div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px 4px">${p.animateurs.map(a=>{const absent=p.absences&&p.absences[s.id]&&p.absences[s.id][a.id];return `<button class="pill ${absent?'':'pill-done'}" style="${absent?'background:var(--red-soft);color:var(--red)':''}" data-act="togAbs('${p.id}','${s.id}','${a.id}')">${esc(a.name)} : ${absent?'❌ Absent':'✓ Présent'}</button>`;}).join('')}</div>`;
-    }).join(''):'<div class="empty-text" style="text-align:left">Aucune journée ce mois. Ajoute-en ou génère depuis un calendrier.</div>'}
+      return `<div class="shop-item" style="${isToday?'border:1.5px solid var(--primary);border-radius:9px':''}"><div class="shop-item-main"><div class="shop-item-name">${fmtDate(iso)||esc(s.date||'')}${isToday?' <span style="color:var(--primary);font-weight:700">• '+t("aujourd'hui",'היום','today')+'</span>':''}</div></div><button class="mini-btn danger" data-act="delSession('${p.id}','${s.id}')">🗑</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px 4px">${p.animateurs.map(a=>{const absent=p.absences&&p.absences[s.id]&&p.absences[s.id][a.id];return `<button class="pill ${absent?'':'pill-done'}" style="${absent?'background:var(--red-soft);color:var(--red)':''}" data-act="togAbs('${p.id}','${s.id}','${a.id}')">${esc(a.name)} : ${absent?'❌ '+t('Absent','נעדר','Absent'):'✓ '+t('Présent','נוכח','Present')}</button>`;}).join('')}</div>`;
+    }).join(''):'<div class="empty-text" style="text-align:left">'+t('Aucune journée ce mois. Ajoute-en ou génère depuis un calendrier.','אין ימים בחודש זה. הוסף או צור מלוח שנה.','No days this month. Add some or generate from a calendar.')+'</div>'}
     </div>
   </div>`;
 }
@@ -3584,7 +3585,7 @@ function delSession(pid,sid){ const p=D.programs.find(x=>x.id===pid); p.sessions
 function genSessions(pid){
   const p=D.programs.find(x=>x.id===pid);
   const from=$('gen-from')&&$('gen-from').value, to=$('gen-to')&&$('gen-to').value;
-  if(!from||!to){ toast('Choisis les dates de début et de fin'); return; }
+  if(!from||!to){ toast(t('Choisis les dates de début et de fin','בחר תאריכי התחלה וסיום','Choose the start and end dates')); return; }
   const wds=[]; for(let i=0;i<7;i++){ const c=$('gen-wd-'+i); if(c&&c.checked) wds.push((i+1)%7); }
   const existing=new Set(p.sessions.map(s=>sessIso(s)));
   let d=new Date(from+'T12:00:00'); const end=new Date(to+'T12:00:00'); let added=0;
@@ -3593,11 +3594,11 @@ function genSessions(pid){
     if((wds.length===0 || wds.includes(dow)) && !existing.has(iso)){ p.sessions.push({id:uid(),iso:iso}); existing.add(iso); added++; }
     d.setDate(d.getDate()+1);
   }
-  progYM=from.slice(0,7); progGen=false; save(); renderOverlay(); toast(added+' journée(s) créée(s)');
+  progYM=from.slice(0,7); progGen=false; save(); renderOverlay(); toast(added+' '+t('journée(s) créée(s)','ימים נוצרו','day(s) created'));
 }
-function addAnim(pid){ const p=D.programs.find(x=>x.id===pid); const n=prompt('Nom de l\'animateur :'); if(!n)return; const t=parseFloat(prompt('Taux par journée (€) :','80'))||0; p.animateurs.push({id:uid(),name:n.trim(),taux:t}); save(); renderOverlay(); }
-function editAnim(pid,aid){ const p=D.programs.find(x=>x.id===pid); const a=p.animateurs.find(x=>x.id===aid); const nm=prompt('Nom de l\'animateur :',a.name); if(nm&&nm.trim())a.name=nm.trim(); const t=parseFloat(prompt('Taux par journée (€) :',a.taux)); if(!isNaN(t))a.taux=t; save(); renderOverlay(); }
-function addSession(pid){ const p=D.programs.find(x=>x.id===pid); const iso=todayKey(); if(p.sessions.some(s=>sessIso(s)===iso)){ toast('Journée du jour déjà créée'); progYM=iso.slice(0,7); renderOverlay(); return; } p.sessions.push({id:uid(),iso:iso}); progYM=iso.slice(0,7); save(); renderOverlay(); }
+function addAnim(pid){ const p=D.programs.find(x=>x.id===pid); const n=prompt(TT('Nom de l\'animateur :','שם המדריך:','Instructor\'s name:')); if(!n)return; const t=parseFloat(prompt(TT('Taux par journée (€) :','תעריף ליום (€):','Rate per day (€):'),'80'))||0; p.animateurs.push({id:uid(),name:n.trim(),taux:t}); save(); renderOverlay(); }
+function editAnim(pid,aid){ const p=D.programs.find(x=>x.id===pid); const a=p.animateurs.find(x=>x.id===aid); const nm=prompt(TT('Nom de l\'animateur :','שם המדריך:','Instructor\'s name:'),a.name); if(nm&&nm.trim())a.name=nm.trim(); const t=parseFloat(prompt(TT('Taux par journée (€) :','תעריף ליום (€):','Rate per day (€):'),a.taux)); if(!isNaN(t))a.taux=t; save(); renderOverlay(); }
+function addSession(pid){ const p=D.programs.find(x=>x.id===pid); const iso=todayKey(); if(p.sessions.some(s=>sessIso(s)===iso)){ toast(t('Journée du jour déjà créée','היום כבר נוצר','Today already created')); progYM=iso.slice(0,7); renderOverlay(); return; } p.sessions.push({id:uid(),iso:iso}); progYM=iso.slice(0,7); save(); renderOverlay(); }
 function togAbs(pid,sid,aid){ const p=D.programs.find(x=>x.id===pid); if(!p.absences)p.absences={}; if(!p.absences[sid])p.absences[sid]={}; p.absences[sid][aid]=!p.absences[sid][aid]; save(); renderOverlay(); }
 
 // ============================================================
@@ -4394,30 +4395,30 @@ function saveNote(key,v){ const j=ensureJournal(key); j.note=v; save(); }
 function dashboardInline(){
   const r=computeRange(dashRange);
   return `<div class="filters">
-    ${[['today','Jour'],['week','Semaine'],['month','Mois'],['custom','Plage…']].map(([v,l])=>`<button class="chip ${dashRange===v?'active':''}" data-act="setDashRange('${v}')">${l}</button>`).join('')}
+    ${[['today',t('Jour','יום','Day')],['week',t('Semaine','שבוע','Week')],['month',t('Mois','חודש','Month')],['custom',t('Plage…','טווח…','Range…')]].map(([v,l])=>`<button class="chip ${dashRange===v?'active':''}" data-act="setDashRange('${v}')">${l}</button>`).join('')}
   </div>
   ${dashRange==='custom'?`<div class="daterange">
-    <div class="field" style="margin:0;flex:1"><label class="field-label">Du</label><input class="input" type="date" id="dr-from" value="${customFrom||''}" onchange="customFrom=this.value;render()"></div>
-    <div class="field" style="margin:0;flex:1"><label class="field-label">Au</label><input class="input" type="date" id="dr-to" value="${customTo||''}" onchange="customTo=this.value;render()"></div>
+    <div class="field" style="margin:0;flex:1"><label class="field-label">${t('Du','מ־','From')}</label><input class="input" type="date" id="dr-from" value="${customFrom||''}" onchange="customFrom=this.value;render()"></div>
+    <div class="field" style="margin:0;flex:1"><label class="field-label">${t('Au','עד','To')}</label><input class="input" type="date" id="dr-to" value="${customTo||''}" onchange="customTo=this.value;render()"></div>
   </div>`:''}
   <div class="stat-grid">
-    <div class="stat"><span class="stat-em">✅</span><div class="stat-val">${r.taskDone||0}</div><div class="stat-label">Tâches faites${dashRange==='today'?" aujourd'hui":''}</div></div>
-    <div class="stat"><span class="stat-em">📋</span><div class="stat-val">${r.taskTotal||0}</div><div class="stat-label">Tâches (missions)</div></div>
+    <div class="stat"><span class="stat-em">✅</span><div class="stat-val">${r.taskDone||0}</div><div class="stat-label">${t('Tâches faites','משימות שהושלמו','Tasks done')}${dashRange==='today'?" "+t("aujourd'hui",'היום','today'):''}</div></div>
+    <div class="stat"><span class="stat-em">📋</span><div class="stat-val">${r.taskTotal||0}</div><div class="stat-label">${t('Tâches (missions)','משימות (מטלות)','Tasks (missions)')}</div></div>
     ${COUNTERS.map(cn=>`<div class="stat"><span class="stat-em">${cn.em}</span><div class="stat-val">${r.totals[cn.k]||0}</div><div class="stat-label">${cn.label}</div></div>`).join('')}
   </div>
-  <div class="phead" style="padding:15px"><div class="section-label" style="margin:0 0 8px">${r.label} · ${r.days} jour(s) renseigné(s)</div>
-    ${r.notes.length?r.notes.map(n=>`<div data-act="openReportDay('${n.key}')" style="padding:8px 0;border-top:1px solid var(--line-soft);cursor:pointer"><div style="font-size:12px;color:var(--gold);font-weight:600">${n.date} <span style="color:var(--ink-soft);font-weight:400">· ✏️ modifier</span></div><div style="font-size:13.5px;color:var(--ink)">${esc(n.note)}</div></div>`).join(''):'<div style="color:var(--ink-soft);font-size:13.5px">Aucune note sur la période.</div>'}
+  <div class="phead" style="padding:15px"><div class="section-label" style="margin:0 0 8px">${r.label} · ${r.days} ${t('jour(s) renseigné(s)','ימים עם נתונים','day(s) filled in')}</div>
+    ${r.notes.length?r.notes.map(n=>`<div data-act="openReportDay('${n.key}')" style="padding:8px 0;border-top:1px solid var(--line-soft);cursor:pointer"><div style="font-size:12px;color:var(--gold);font-weight:600">${n.date} <span style="color:var(--ink-soft);font-weight:400">· ✏️ ${t('modifier','ערוך','edit')}</span></div><div style="font-size:13.5px;color:var(--ink)">${esc(n.note)}</div></div>`).join(''):'<div style="color:var(--ink-soft);font-size:13.5px">'+t('Aucune note sur la période.','אין הערות לתקופה זו.','No notes for this period.')+'</div>'}
   </div>
-  <button class="btn btn-soft btn-block" style="margin-top:12px" data-act="openDashExport()">📤 Exporter ce bilan</button>`;
+  <button class="btn btn-soft btn-block" style="margin-top:12px" data-act="openDashExport()">📤 ${t('Exporter ce bilan','ייצא סיכום זה','Export this summary')}</button>`;
 }
 let customFrom='', customTo='';
 function setDashRange(v){ dashRange=v; render(); }
 function computeRange(mode){
   const now=new Date(); let from,to,label;
-  if(mode==='today'){ from=to=todayKey(now); label='Aujourd\'hui'; }
-  else if(mode==='week'){ const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=todayKey(d); to=todayKey(now); label='Cette semaine'; }
-  else if(mode==='month'){ const d=new Date(now.getFullYear(),now.getMonth(),1); from=todayKey(d); to=todayKey(now); label='Ce mois-ci'; }
-  else { from=customFrom||todayKey(now); to=customTo||todayKey(now); label='Du '+fmtDate(from)+' au '+fmtDate(to); }
+  if(mode==='today'){ from=to=todayKey(now); label=t('Aujourd\'hui','היום','Today'); }
+  else if(mode==='week'){ const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=todayKey(d); to=todayKey(now); label=t('Cette semaine','השבוע','This week'); }
+  else if(mode==='month'){ const d=new Date(now.getFullYear(),now.getMonth(),1); from=todayKey(d); to=todayKey(now); label=t('Ce mois-ci','החודש','This month'); }
+  else { from=customFrom||todayKey(now); to=customTo||todayKey(now); label=t('Du','מ־','From')+' '+fmtDate(from)+' '+t('au','עד','to')+' '+fmtDate(to); }
   const totals={}; COUNTERS.forEach(c=>totals[c.k]=0); const notes=[]; let days=0;
   Object.entries(D.journal).forEach(([k,j])=>{
     if(k>=from&&k<=to){ let any=false; COUNTERS.forEach(c=>{const v=(j.counters[c.k]||0)+((j.archived&&j.archived[c.k])||0);totals[c.k]+=v;if(v)any=true;}); if(j.note){notes.push({date:fmtDate(k),note:j.note,key:k});any=true;} if(any)days++; }
@@ -4433,33 +4434,33 @@ function fmtDate(k){ try{return new Date(k).toLocaleDateString(_jLocale(),{day:'
 function openDashExport(){ sheet={type:'dashExport'}; renderOverlay(); }
 function dashExportSheet(){
   const r=computeRange(dashRange);
-  let txt=`📊 BILAN — ${r.label}\n${'─'.repeat(28)}\n`;
-  txt+=`✅ Tâches faites : ${r.taskDone||0} / ${r.taskTotal||0}\n`;
+  let txt=`📊 ${t('BILAN','סיכום','SUMMARY')} — ${r.label}\n${'─'.repeat(28)}\n`;
+  txt+=`✅ ${t('Tâches faites','משימות שהושלמו','Tasks done')} : ${r.taskDone||0} / ${r.taskTotal||0}\n`;
   COUNTERS.forEach(c=>{ txt+=`${c.em} ${c.label} : ${r.totals[c.k]||0}\n`; });
-  if(r.notes.length){ txt+=`\nNotes :\n`; r.notes.forEach(n=>txt+=`• ${n.date} — ${n.note}\n`); }
+  if(r.notes.length){ txt+=`\n${t('Notes','הערות','Notes')} :\n`; r.notes.forEach(n=>txt+=`• ${n.date} — ${n.note}\n`); }
   txt+=`\n— Beth Habad · stepbystep`;
-  return `<div class="sheet-head"><div class="sheet-title">📤 Export du bilan</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  return `<div class="sheet-head"><div class="sheet-title">📤 ${t('Export du bilan','ייצוא הסיכום','Summary export')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="field"><label class="field-label">Aperçu (modifiable)</label><textarea class="textarea" id="exp-txt" style="min-height:200px;font-family:monospace;font-size:13px">${esc(txt)}</textarea></div>
+    <div class="field"><label class="field-label">${t('Aperçu (modifiable)','תצוגה מקדימה (ניתן לעריכה)','Preview (editable)')}</label><textarea class="textarea" id="exp-txt" style="min-height:200px;font-family:monospace;font-size:13px">${esc(txt)}</textarea></div>
     <div class="row2">
-      <button class="btn btn-primary" data-act="copyExport()">📋 Copier</button>
+      <button class="btn btn-primary" data-act="copyExport()">📋 ${t('Copier','העתק','Copy')}</button>
       <button class="btn btn-gold" data-act="shareWhatsApp()">📱 WhatsApp</button>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-soft btn-sm" data-act="crExport('pdf')">📄 PDF</button>
       <button class="btn btn-soft btn-sm" data-act="crExport('doc')">📝 Word</button>
-      <button class="btn btn-soft btn-sm" data-act="crExport('txt')">📃 Texte</button>
+      <button class="btn btn-soft btn-sm" data-act="crExport('txt')">📃 ${t('Texte','טקסט','Text')}</button>
     </div>
-    <div class="hint" style="margin-top:8px">⚠️ Rédaction automatique par <b>IA</b> = version en ligne (SaaS). Ici : compte rendu structuré (compteurs, tâches faites, notes) exportable.</div>
+    <div class="hint" style="margin-top:8px">⚠️ ${t('Rédaction automatique par <b>IA</b> = version en ligne (SaaS). Ici : compte rendu structuré (compteurs, tâches faites, notes) exportable.','ניסוח אוטומטי על ידי <b>בינה מלאכותית</b> = גרסה מקוונת (SaaS). כאן: דו״ח מובנה (מונים, משימות שהושלמו, הערות) הניתן לייצוא.','Automatic drafting by <b>AI</b> = online version (SaaS). Here: a structured report (counters, tasks done, notes) that can be exported.')}</div>
   </div>`;
 }
 function crExport(fmt){ const el=$('exp-txt'); const txt=el?el.value:''; const name='Compte_rendu_'+todayKey();
-  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast('Texte téléchargé'); return; }
+  if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast(t('Texte téléchargé','הטקסט הורד','Text downloaded')); return; }
   const htmlDoc='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(txt)+'</body></html>';
-  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+htmlDoc); toast('Word téléchargé'); return; }
-  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(htmlDoc); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
+  if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+htmlDoc); toast(t('Word téléchargé','Word הורד','Word downloaded')); return; }
+  if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(htmlDoc); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast(t('Impression → PDF','הדפסה ← PDF','Print → PDF')); }
 }
-function copyExport(){ const el=$('exp-txt'); el.select(); try{navigator.clipboard.writeText(el.value);toast('Copié ✓');}catch(e){document.execCommand('copy');toast('Copié ✓');} }
+function copyExport(){ const el=$('exp-txt'); el.select(); try{navigator.clipboard.writeText(el.value);toast(t('Copié ✓','הועתק ✓','Copied ✓'));}catch(e){document.execCommand('copy');toast(t('Copié ✓','הועתק ✓','Copied ✓'));} }
 function shareWhatsApp(){ const t=$('exp-txt').value; window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }
 
 // vue dashboard dédiée (depuis le menu)
@@ -4494,18 +4495,18 @@ function renderShopping(c){
   D.programs.forEach(p=>p.events.forEach(e=>collect(e.tasks,p.name,e.date||p.date||'')));
 
   let html=`<div class="sec"><div><div class="sec-eyebrow">${t("Ce qu'il reste à acheter",'מה שנותר לקנות','What\'s left to buy')}</div><div class="sec-title">${t('Liste de courses','רשימת קניות','Shopping List')}</div></div></div>`;
-  const ranges=[['all','Tout'],['30','30 jours'],['14','14 jours'],['7','7 jours']];
+  const ranges=[['all',t('Tout','הכול','All')],['30',t('30 jours','30 ימים','30 days')],['14',t('14 jours','14 ימים','14 days')],['7',t('7 jours','7 ימים','7 days')]];
   html+=`<div class="filters">${ranges.map(([v,l])=>`<button class="chip ${shopRange===v?'active':''}" data-act="setShopRange('${v}')">${l}</button>`).join('')}</div>`;
   const stores=Object.keys(byStore);
   if(!stores.length){
     html+= shopRange==='all'
-      ? emptyHTML('🛒','Rien à acheter','Marque des tâches en « 🛒 À acheter » avec un magasin pour les voir regroupées ici.','','')
-      : emptyHTML('🛒','Rien sur cette période','Aucun achat daté dans cette fenêtre. Pense à dater les fêtes/événements concernés.','','');
+      ? emptyHTML('🛒',t('Rien à acheter','אין מה לקנות','Nothing to buy'),t('Marque des tâches en « 🛒 À acheter » avec un magasin pour les voir regroupées ici.','סמן משימות כ־« 🛒 לקנייה » עם חנות כדי לראותן מקובצות כאן.','Mark tasks as « 🛒 To buy » with a store to see them grouped here.'),'','')
+      : emptyHTML('🛒',t('Rien sur cette période','אין כלום בתקופה זו','Nothing in this period'),t('Aucun achat daté dans cette fenêtre. Pense à dater les fêtes/événements concernés.','אין קניות מתוארכות בחלון זה. זכור לתארך את החגים/האירועים הרלוונטיים.','No dated purchases in this window. Remember to date the relevant holidays/events.'),'','');
   } else {
-    html+=`<div class="hint">${shopRange==='all'?'Tous les achats, regroupés par magasin.':'À acheter dans les '+shopRange+' prochains jours, par magasin.'}</div>`;
+    html+=`<div class="hint">${shopRange==='all'?t('Tous les achats, regroupés par magasin.','כל הקניות, מקובצות לפי חנות.','All purchases, grouped by store.'):t('À acheter dans les','לקנייה בתוך','To buy within the next')+' '+shopRange+' '+t('prochains jours, par magasin.','הימים הבאים, לפי חנות.','days, by store.')}</div>`;
     stores.sort().forEach(store=>{
       const items=byStore[store];
-      html+=`<div class="shop-store"><div class="shop-store-head"><div class="shop-store-name">🏪 ${esc(store)}</div><span class="shop-store-count">${items.length}</span></div>`;
+      html+=`<div class="shop-store"><div class="shop-store-head"><div class="shop-store-name">🏪 ${store==='Sans magasin'?t('Sans magasin','ללא חנות','No store'):esc(store)}</div><span class="shop-store-count">${items.length}</span></div>`;
       items.forEach(({t,where,date,line})=>{
         const m=t.material;
         const ech = date? ' · 📅 '+fmtDate(date) : '';
@@ -4536,43 +4537,43 @@ function renderSuppliers(c){
     {id:uid(),name:'Pinchas Asoulim (sukkah)',info:'0767269750 — entrée au centre'},
     {id:uid(),name:'Pro Emballage',info:'contact@proembaljet.com — min. 70 €'},
   ];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Carnet</div><div class="sec-title">Prestataires & contacts</div><div class="sec-sub">Numéro + historique des prestations</div></div>
-    <button class="btn btn-soft btn-sm" data-act="addSupplier()">+ Prestataire</button></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Carnet','פנקס','Directory')}</div><div class="sec-title">${t('Prestataires & contacts','ספקים ואנשי קשר','Suppliers & contacts')}</div><div class="sec-sub">${t('Numéro + historique des prestations','מספר + היסטוריית שירותים','Number + service history')}</div></div>
+    <button class="btn btn-soft btn-sm" data-act="addSupplier()">+ ${t('Prestataire','ספק','Supplier')}</button></div>`;
   D.suppliers.forEach(s=>{ const np=(s.prestations||[]).length;
     html+=`<div class="card" data-act="openSupplier('${s.id}')"><div class="card-body"><div class="card-icon">📇</div>
-      <div class="card-main"><div class="card-name">${esc(s.name)}</div><div class="card-meta">${esc(s.info||'')}${np?` <span class="tag tag-sub">${np} prestation(s)</span>`:''}</div></div><span class="chev">›</span></div></div>`;
+      <div class="card-main"><div class="card-name">${esc(s.name)}</div><div class="card-meta">${esc(s.info||'')}${np?` <span class="tag tag-sub">${np} ${t('prestation(s)','שירותים','service(s)')}</span>`:''}</div></div><span class="chev">›</span></div></div>`;
   });
   c.innerHTML=html;
 }
 let _supId=null;
-function addSupplier(){ const n=prompt('Nom du prestataire :'); if(!n||!n.trim())return; const s={id:uid(),name:n.trim(),info:'',prestations:[]}; D.suppliers.push(s); save(); _supId=s.id; sheet={type:'supplier'}; renderOverlay(); }
+function addSupplier(){ const n=prompt(t('Nom du prestataire :','שם הספק:','Supplier name:')); if(!n||!n.trim())return; const s={id:uid(),name:n.trim(),info:'',prestations:[]}; D.suppliers.push(s); save(); _supId=s.id; sheet={type:'supplier'}; renderOverlay(); }
 function editSupplier(id){ openSupplier(id); }
 function openSupplier(id){ _supId=id; sheet={type:'supplier'}; renderOverlay(); }
 function curSupplier(){ const s=D.suppliers.find(x=>x.id===_supId); if(s&&!s.prestations)s.prestations=[]; return s; }
-function spRename(){ const s=curSupplier(); if(!s)return; const n=prompt('Nom du prestataire :',s.name); if(n&&n.trim()){ s.name=n.trim(); save(); renderOverlay(); } }
+function spRename(){ const s=curSupplier(); if(!s)return; const n=prompt(t('Nom du prestataire :','שם הספק:','Supplier name:'),s.name); if(n&&n.trim()){ s.name=n.trim(); save(); renderOverlay(); } }
 function spSetInfo(v){ const s=curSupplier(); if(s){ s.info=v; save(); } }
-function spAddPrestation(){ const s=curSupplier(); if(!s)return; const d=$('sp-date'),de=$('sp-desc'),wh=$('sp-who'),am=$('sp-amt'); const desc=de?de.value.trim():''; if(!desc){ toast('Décris la prestation'); return; } s.prestations.push({id:uid(),date:d?d.value:'',desc:desc,who:wh?wh.value.trim():'',amount:am?(parseFloat(am.value)||0):0}); save(); renderOverlay(); toast('Prestation ajoutée'); }
+function spAddPrestation(){ const s=curSupplier(); if(!s)return; const d=$('sp-date'),de=$('sp-desc'),wh=$('sp-who'),am=$('sp-amt'); const desc=de?de.value.trim():''; if(!desc){ toast(t('Décris la prestation','תאר את השירות','Describe the service')); return; } s.prestations.push({id:uid(),date:d?d.value:'',desc:desc,who:wh?wh.value.trim():'',amount:am?(parseFloat(am.value)||0):0}); save(); renderOverlay(); toast(t('Prestation ajoutée','השירות נוסף','Service added')); }
 function spDelPrestation(pid){ const s=curSupplier(); if(!s)return; s.prestations=s.prestations.filter(p=>p.id!==pid); save(); renderOverlay(); }
-function spDelSupplier(){ const s=curSupplier(); if(!s)return; if(!confirm('Supprimer le prestataire « '+s.name+' » et son historique ?'))return; D.suppliers=D.suppliers.filter(x=>x.id!==s.id); save(); closeSheet(); render(); }
+function spDelSupplier(){ const s=curSupplier(); if(!s)return; if(!confirm(t('Supprimer le prestataire « ','למחוק את הספק « ','Delete supplier « ')+s.name+t(' » et son historique ?',' » ואת ההיסטוריה שלו?',' » and its history?')))return; D.suppliers=D.suppliers.filter(x=>x.id!==s.id); save(); closeSheet(); render(); }
 function supplierSheet(){
-  const s=curSupplier(); if(!s) return `<div class="sheet-head"><div class="sheet-title">Prestataire</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">Introuvable.</div></div>`;
+  const s=curSupplier(); if(!s) return `<div class="sheet-head"><div class="sheet-title">${t('Prestataire','ספק','Supplier')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">${t('Introuvable.','לא נמצא.','Not found.')}</div></div>`;
   const pres=(s.prestations||[]).slice().sort((a,b)=>(a.date||'')<(b.date||'')?1:-1);
   const totAmt=pres.reduce((a,p)=>a+(p.amount||0),0);
-  return `<div class="sheet-head"><div class="sheet-title">📇 Fiche prestataire</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  return `<div class="sheet-head"><div class="sheet-title">📇 ${t('Fiche prestataire','כרטיס ספק','Supplier card')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="field"><label class="field-label">Nom</label><div style="display:flex;gap:7px;align-items:center"><div style="flex:1;font-weight:700;font-size:16px">${esc(s.name)}</div><button class="btn btn-ghost btn-sm" data-act="spRename()">✏️ Renommer</button></div></div>
-    <div class="field"><label class="field-label">Numéro / contact / infos</label><input class="input" id="sp-info" value="${esc(s.info||'')}" placeholder="Téléphone, email, notes…" onchange="spSetInfo(this.value)"></div>
+    <div class="field"><label class="field-label">${t('Nom','שם','Name')}</label><div style="display:flex;gap:7px;align-items:center"><div style="flex:1;font-weight:700;font-size:16px">${esc(s.name)}</div><button class="btn btn-ghost btn-sm" data-act="spRename()">✏️ ${t('Renommer','שנה שם','Rename')}</button></div></div>
+    <div class="field"><label class="field-label">${t('Numéro / contact / infos','מספר / איש קשר / מידע','Number / contact / info')}</label><input class="input" id="sp-info" value="${esc(s.info||'')}" placeholder="${t('Téléphone, email, notes…','טלפון, אימייל, הערות…','Phone, email, notes…')}" onchange="spSetInfo(this.value)"></div>
     <div class="divider"></div>
-    <div class="section-label">Prestations ${pres.length?`(${pres.length}${totAmt?' · '+fmtE(totAmt):''})`:''}</div>
-    ${pres.length?pres.map(p=>`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(p.desc)}</div><div style="font-size:12px;color:var(--ink-soft)">${p.date?'📅 '+fmtDate(p.date):'sans date'}${p.who?' · 👤 '+esc(p.who):''}${p.amount?' · '+fmtE(p.amount):''}</div></div><button class="mini-btn danger" data-act="spDelPrestation('${p.id}')">🗑</button></div></div>`).join(''):'<div class="hint" style="margin-bottom:8px">Aucune prestation enregistrée.</div>'}
+    <div class="section-label">${t('Prestations','שירותים','Services')} ${pres.length?`(${pres.length}${totAmt?' · '+fmtE(totAmt):''})`:''}</div>
+    ${pres.length?pres.map(p=>`<div class="card" style="padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(p.desc)}</div><div style="font-size:12px;color:var(--ink-soft)">${p.date?'📅 '+fmtDate(p.date):t('sans date','ללא תאריך','no date')}${p.who?' · 👤 '+esc(p.who):''}${p.amount?' · '+fmtE(p.amount):''}</div></div><button class="mini-btn danger" data-act="spDelPrestation('${p.id}')">🗑</button></div></div>`).join(''):'<div class="hint" style="margin-bottom:8px">'+t('Aucune prestation enregistrée.','לא נרשמו שירותים.','No services recorded.')+'</div>'}
     <div class="card" style="padding:11px 12px;margin-top:6px">
-      <div class="section-label" style="margin:0 0 6px">＋ Ajouter une prestation</div>
-      <div class="field" style="margin:0 0 7px"><input class="input" id="sp-desc" placeholder="Quoi ? (ex. Sonorisation Rosh Hashana)"></div>
-      <div class="row2" style="gap:7px"><input class="input" id="sp-date" type="date"><input class="input" id="sp-amt" type="number" placeholder="Montant €"></div>
-      <div class="field" style="margin:7px 0 0"><input class="input" id="sp-who" list="dl-sp-people" placeholder="Qui l'a faite / commandée ?"><datalist id="dl-sp-people">${(D.people||[]).map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
-      <button class="btn btn-primary btn-block" style="margin-top:8px" data-act="spAddPrestation()">Ajouter</button>
+      <div class="section-label" style="margin:0 0 6px">＋ ${t('Ajouter une prestation','הוסף שירות','Add a service')}</div>
+      <div class="field" style="margin:0 0 7px"><input class="input" id="sp-desc" placeholder="${t('Quoi ? (ex. Sonorisation Rosh Hashana)','מה? (לדוגמה הגברה לראש השנה)','What? (e.g. Sound system for Rosh Hashana)')}"></div>
+      <div class="row2" style="gap:7px"><input class="input" id="sp-date" type="date"><input class="input" id="sp-amt" type="number" placeholder="${t('Montant €','סכום €','Amount €')}"></div>
+      <div class="field" style="margin:7px 0 0"><input class="input" id="sp-who" list="dl-sp-people" placeholder="${t("Qui l'a faite / commandée ?",'מי ביצע / הזמין?','Who did / ordered it?')}"><datalist id="dl-sp-people">${(D.people||[]).map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
+      <button class="btn btn-primary btn-block" style="margin-top:8px" data-act="spAddPrestation()">${t('Ajouter','הוסף','Add')}</button>
     </div>
-    <button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="spDelSupplier()">🗑 Supprimer ce prestataire</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="spDelSupplier()">🗑 ${t('Supprimer ce prestataire','מחק ספק זה','Delete this supplier')}</button>
   </div>`;
 }
 
