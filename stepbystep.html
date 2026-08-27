@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a15">
+<meta name="app-build" content="b-2026-08-27-a16">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1154,6 +1154,11 @@ function mkProgramSeed(){
 // Réinitialise/duplique les éléments récurrents pour l'année cible.
 // Stratégie V1.1 : chaque année a son propre arbre. Si une année n'existe pas encore,
 // on clone les éléments récurrents de l'année modèle, statuts remis à zéro.
+// — Statuts des dossiers PAR ANNÉE — la structure des dossiers est partagée entre les années,
+// mais les cases cochées sont propres à chaque année (réinitialisées quand on passe à une année jamais vue).
+function _allDossTasks(){ const out=[]; (D.dossiers||[]).forEach(d=>{ (d.items||[]).forEach(it=>{ if(!it.kind) flattenTasks([it],out); }); }); return out; }
+function _snapshotDossStatuses(year){ if(!D.dossierStatus)D.dossierStatus={}; const map={}; _allDossTasks().forEach(t=>{ if(t.status&&t.status!=='todo') map[t.id]=t.status; }); D.dossierStatus[String(year)]=map; }
+function _applyDossStatuses(year){ if(!D.dossierStatus)D.dossierStatus={}; const map=D.dossierStatus[String(year)]||{}; _allDossTasks().forEach(t=>{ t.status = map[t.id]||'todo'; }); }
 function ensureRecurring(year){
   // On stocke par année dans D.byYear ; D.months pointe vers l'année courante.
   if(!D.byYear) D.byYear = {};
@@ -1161,6 +1166,7 @@ function ensureRecurring(year){
   // Sauver l'état courant dans l'année précédemment active
   if(D._activeYear){
     D.byYear[D._activeYear] = {months:D.months, programs:D.programs, journal:D.journal};
+    _snapshotDossStatuses(D._activeYear);   // mémoriser les cases cochées des dossiers pour cette année
   }
   if(D.byYear[year]){
     const y=D.byYear[year]; D.months=y.months||{}; D.programs=y.programs||[]; D.journal=y.journal||{};
@@ -1176,6 +1182,7 @@ function ensureRecurring(year){
   Object.entries(D.byYear).forEach(([yy,s])=>{ if(yy!==String(year) && s && s.months){ mergeRecurring({months:D.months}, s); } });
   D.byYear[year] = {months:D.months, programs:D.programs, journal:D.journal};  // persister l'année (fusionnée)
   D._activeYear = year;
+  _applyDossStatuses(year);   // appliquer les cases de cette année aux dossiers (ou tout remettre à faire si année jamais vue)
 }
 // Fusionne les éléments RÉCURRENTS d'une année source dans l'année cible, sans doublon
 // (appariement par nom / libellé), en réinitialisant les cases des éléments ajoutés.
@@ -1892,11 +1899,9 @@ function drawerHTML(){
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard'),null],
       ['suppliers','📇',t('Fournisseurs & contacts','ספקים ואנשי קשר','Suppliers & Contacts'),null],
-      ['coach','🧠',t('Coach','מאמן','Coach'),null],
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
       ['agenda','📆',t('Agenda (jour/semaine/mois)','יומן','Agenda'),null],
       ['publics','🎯',t('Mon public','הקהל שלי','My Audience'),null],
-      ['tsedaka','🫙',t('Tsedakah','צדקה','Tsedakah'),null],
       ['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat Announcements'),null],
       ['shabbat','🕯️',t('Shabbat','שבת','Shabbat'),null],
       ['ideas','💡',t('Idées','רעיונות','Ideas'),null],
@@ -1915,7 +1920,7 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='coach'||v==='templates'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='templates'||menuVisible(v));
     if(!vis.length) return;
     body+=`<div class="drawer-sec">${sec}</div>`;
     vis.forEach(([v,ic,label,badge])=>{
@@ -4125,12 +4130,14 @@ function dossResetCycle(){ const d=dossierById(nav.dossierId); if(!d)return; ope
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
-function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
-  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}</div>${d.date?`<div class="tile-meta" style="color:var(--gold);font-weight:600">📅 ${esc(_dLabel(d.date))}</div>`:''}<div class="tile-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches','משימות','tasks'):nTaches(0)}</div></div>`; }
+function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const g=group||'root';
+  const mins=tasks.reduce((a,x)=>a+totalDuration(x),0);
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}</div>${d.date?`<div class="tile-meta" style="color:var(--gold);font-weight:600">📅 ${esc(_dLabel(d.date))}</div>`:''}<div class="tile-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches','משימות','tasks'):nTaches(0)}${mins?' · ⏱ '+fmtM(mins):''}</div></div>`; }
 function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
-function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
+function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const g=group||'root';
+  const mins=tasks.reduce((a,x)=>a+totalDuration(x),0);
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}${d.date?_datePill(d.date):''}</div><div class="card-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches faites','משימות בוצעו','tasks done'):nTaches(0)}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}${d.date?_datePill(d.date):''}</div><div class="card-meta">${tasks.length?done+'/'+tasks.length+' '+TT('tâches faites','משימות בוצעו','tasks done'):nTaches(0)}${mins?' · ⏱ '+fmtM(mins):''}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
