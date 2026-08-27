@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a12">
+<meta name="app-build" content="b-2026-08-27-a13">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1708,7 +1708,7 @@ function taskHTML(t,ev,idx,total,reorder){
   if(t.subtasks&&t.subtasks.length) tags+=`<span class="tag tag-sub">${subDn}/${t.subtasks.length} sous-tâches</span>`;
   if(t.notes) tags+=`<span class="tag tag-note">📝 ${esc(t.notes)}</span>`;
   if(t.recurring) tags+=`<span class="tag tag-sub" style="color:var(--gold)">↻ annuel</span>`;
-  if(t.repeat) tags+=`<span class="tag tag-sub" style="color:var(--gold)">🔄 ${esc(_repeatLabel(t.repeat))}</span>`;
+  if(t.repeat&&t.repeat.freq) tags+=`<span class="tag tag-sub" style="color:var(--gold)">${esc(repeatLabel(t.repeat))}</span>`;
 
   if(selMode){
     const on=!!selSet[t.id];
@@ -1819,21 +1819,12 @@ function _repeatLabel(p){ return p==='day'?t('chaque jour','כל יום','every 
 function toggleTask(tid){
   const r=findTaskAnywhere(tid); if(!r)return;
   const t=r.task;
-  const wasDone=_leafAllDone(t);
   if(t.subtasks && t.subtasks.length){
     // Case « générale » : coche tout / décoche tout selon l'état actuel.
     _setDone(t, !_leafAllDone(t));
   } else {
     // Cocher = Fait ; recocher = À faire. (« En cours » reste dispo dans l'éditeur.)
     t.status = (t.status==='done') ? 'todo' : 'done';
-  }
-  // Tâche récurrente (se reprogramme) : quand elle passe à « faite », on avance sa date et on la remet à faire.
-  if(t.repeat && !wasDone && _leafAllDone(t)){
-    t.date=_nextDate(t.date, t.repeat);
-    _resetTaskInPlace(t);
-    normalizeAllTasks(); save(); render();
-    toast('🔄 '+t.text.slice(0,24)+' → '+(lang==='he'?hebrewDate(t.date):fmtDate(t.date)));
-    return;
   }
   normalizeAllTasks();   // le parent devient « fait » quand toutes ses feuilles le sont
   save(); render();
@@ -2727,7 +2718,7 @@ function taskSheet(){
   const hasRem = !!t._showRem;   // le rappel n'apparaît que via « + Ajouter un champ »
   const hasContact = (t.contact&&(t.contact.name||t.contact.phone))||t._showContact;
   // options restant à révéler via « + »
-  const more=[]; if(!hasWho)more.push(['who','👤 '+TT('Responsable','אחראי','Responsible')]); if(!hasContact)more.push(['contact','📞 '+TT('Contact / Prestataire','איש קשר / ספק','Contact / Supplier')]); if(!isTpl&&!hasRem)more.push(['rem','🔔 '+TT('Rappel','תזכורת','Reminder')]); if(!hasBudget)more.push(['budget','💶 '+TT('Budget','תקציב','Budget')]); if(!hasMat)more.push(['mat','🛒 '+TT('Matériel','ציוד','Supplies')]); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 '+TT('Dépendances','תלויות','Dependencies')]); if(!isTpl&&!hasRec)more.push(['rec','🔄 '+TT('Se répète (récurrence)','חוזרת (חזרתיות)','Repeats (recurrence)')]); if(!isTpl)more.push(['timer','⏱️ '+TT('Minuteur','טיימר','Timer')]);
+  const more=[]; if(!hasWho)more.push(['who','👤 '+TT('Responsable','אחראי','Responsible')]); if(!hasContact)more.push(['contact','📞 '+TT('Contact / Prestataire','איש קשר / ספק','Contact / Supplier')]); if(!isTpl&&!hasRem)more.push(['rem','🔔 '+TT('Rappel','תזכורת','Reminder')]); if(!hasBudget)more.push(['budget','💶 '+TT('Budget','תקציב','Budget')]); if(!hasMat)more.push(['mat','🛒 '+TT('Matériel','ציוד','Supplies')]); if(!isTpl&&siblings.length&&!hasDeps)more.push(['deps','🔗 '+TT('Dépendances','תלויות','Dependencies')]); if(!isTpl)more.push(['timer','⏱️ '+TT('Minuteur','טיימר','Timer')]);
   // petite poubelle à placer à côté du nom d'un champ ajouté, pour le retirer
   const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="${TT('Retirer ce champ','הסר שדה זה','Remove this field')}" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
   return `
@@ -2735,22 +2726,21 @@ function taskSheet(){
   <div class="sheet-body">
     ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`}
 
-    ${(!isTpl&&t.date)?`<div style="font-size:12.5px;color:var(--primary);font-weight:700;margin-bottom:4px">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</div>`:''}
+    ${(!isTpl&&(t.date||t.duration||(t.repeat&&t.repeat.freq)))?`<div style="font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${t.date?`<span style="color:var(--primary)">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</span>`:''}${t.duration?`<span style="color:var(--gold);font-size:11.5px">⏱ ${fmtDurH(t.duration)}</span>`:''}${(t.repeat&&t.repeat.freq)?`<span style="color:var(--gold);font-size:11.5px">${repeatLabel(t.repeat)}</span>`:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rendez-vous (ex. Mariage de …)','שם הפגישה (למשל חתונה של…)','Appointment name (e.g. Wedding of …)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
 
     ${isRdv?`<div class="field"><label class="field-label">📍 ${TT('Lieu','מקום','Place')}</label><input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="${TT('Salle, adresse…','אולם, כתובת…','Venue, address…')}"></div>`:''}
     <div class="field"><label class="field-label">${isRdv?TT('Détails','פרטים','Details'):TT('Description','תיאור','Description')}</label><textarea class="textarea" id="f-notes" placeholder="${TT('Détails, description…','פרטים, תיאור…','Details, description…')}">${esc(t.notes||'')}</textarea></div>
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-      ${isRdv?'':`<button class="tpill ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="Prioritaire" style="font-size:19px;line-height:1;padding:6px 13px">${prio?'⭐':'☆'}</button>`}
-      ${isTpl?'':`<button class="tpill ${t.date?'on theme':''}" data-act="openDatePicker('task')" title="${TT('Choisir une date / heure','בחר תאריך / שעה','Choose a date / time')}">🗓${t.date?' '+fmtDate(t.date)+(t.time?' · '+t.time:''):' '+TT('Date / heure','תאריך / שעה','Date / time')}</button>${t.date?`<span class="dep-x" style="font-size:16px" data-act="ebSet('date','')">✕</span>`:''}`}
-      <span class="dd" style="position:relative">
-        <button class="tpill ${t.duration?'on theme':''}" data-act="toggleDD('ebdur')" title="${TT('Durée','משך','Duration')}" style="font-size:16px;line-height:1;padding:6px 13px">🕐${t.duration?' '+fmtDurH(t.duration):' '+TT('Durée','משך','Duration')}</button>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      ${isRdv?'':`<button class="cbtn ${prio?'on':''}" id="f-star" data-act="ebTogglePrio()" title="${TT('Prioritaire','דחוף','Priority')}" style="${prio?'border-color:var(--gold);background:var(--gold-soft)':''}">${prio?'⭐':'☆'}</button>`}
+      ${isTpl?'':`<button class="cbtn" data-act="openDatePicker('task')" title="${TT('Choisir une date / heure','בחר תאריך / שעה','Choose a date / time')}" style="${t.date?'border-color:var(--primary);color:var(--primary);background:var(--primary-soft)':''}">🗓</button>`}
+      <span class="dd" style="position:relative;display:inline-block">
+        <button class="cbtn" data-act="toggleDD('ebdur')" title="${TT('Durée','משך','Duration')}" style="${t.duration?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">🕐</button>
         ${openDD==='ebdur'?`<div class="dd-menu">${[5,15,30,45,60].map(v=>`<button class="dd-item ${t.duration===v?'sel':''}" data-act="ebDurPick(${v})">${v} min</button>`).join('')}<button class="dd-item" data-act="ebDurManual()">✏️ ${TT('Saisir manuellement…','הזנה ידנית…','Enter manually…')}</button>${t.duration?`<button class="dd-item" style="color:var(--red)" data-act="ebDurPick(0)">✕ ${TT('Aucune','ללא','None')}</button>`:''}</div>`:''}
       </span>
       ${t._durManual?`<input class="input" id="f-dur" value="${t.duration?fmtDurH(t.duration):''}" placeholder="ex. 20" style="max-width:110px" onchange="ebDurMode(true)"><button class="btn btn-ghost btn-sm" data-act="ebDurMode(false)">↩</button>`:''}
     </div>
-    ${(!isTpl&&t.repeat)?`<div style="font-size:12px;color:var(--primary);font-weight:600;margin:-8px 0 12px">${repeatLabel(t.repeat)}${t.repeat.endType==='after'?' · '+t.repeat.count+'×':(t.repeat.endType==='on'&&t.repeat.endDate?' · jusqu\'au '+fmtDate(t.repeat.endDate):'')}</div>`:''}
     ${(!isTpl&&_eff&&!t.date)?`<div style="font-size:12px;color:var(--ink-soft);margin:-8px 0 12px">${TT('Date héritée','תאריך שהוירש','Inherited date')} : 📅 ${fmtDate(_eff)} · 🕎 ${hebrewDate(_eff)}</div>`:''}
 
 
@@ -2786,19 +2776,6 @@ function taskSheet(){
     ${hasDeps&&siblings.length?`<div class="section-label">🔗 ${TT('Cette tâche dépend de','משימה זו תלויה ב','This task depends on')}${trash('deps')}</div>
       <div class="field"><div class="deps">${(t.dependsOn||[]).map(id=>{const d=siblings.find(s=>s.id===id);return d?`<span class="dep">${esc(d.text.slice(0,28))}<span class="dep-x" data-act="ebRmDep('${id}')">✕</span></span>`:''}).join('')}</div>
       <select class="select" onchange="ebAddDep(this.value);this.value=''"><option value="">+ ${TT('Choisir une tâche…','בחר משימה…','Choose a task…')}</option>${siblings.filter(s=>!(t.dependsOn||[]).includes(s.id)).map(s=>`<option value="${s.id}">${esc(s.text.slice(0,44))}</option>`).join('')}</select></div>`:''}
-
-    ${hasRec?`<div class="section-label">🔄 ${TT('Se répète','חוזרת','Repeats')}${trash('rec')}</div>
-      <div class="field"><span class="dd" style="position:relative">
-        <button class="cbtn" data-act="toggleDD('taskrec')" title="${TT('Se répète','חוזרת','Repeats')}" style="${t.repeat?'background:var(--gold-soft);border-color:var(--gold)':''}">${t.repeat?'🔄 '+_repeatLabel(t.repeat):('1️⃣ '+TT('Non','לא','No'))}</button>
-        ${openDD==='taskrec'?`<div class="dd-menu">
-          <button class="dd-item ${!t.repeat?'sel':''}" data-act="ebSet('repeat','');closeDD()">1️⃣ ${TT('Non (unique)','לא (חד-פעמי)','No (one-time)')}</button>
-          <button class="dd-item ${t.repeat==='day'?'sel':''}" data-act="ebSet('repeat','day');closeDD()">🔄 ${TT('Chaque jour','כל יום','Every day')}</button>
-          <button class="dd-item ${t.repeat==='week'?'sel':''}" data-act="ebSet('repeat','week');closeDD()">🔄 ${TT('Chaque semaine','כל שבוע','Every week')}</button>
-          <button class="dd-item ${t.repeat==='month'?'sel':''}" data-act="ebSet('repeat','month');closeDD()">🔄 ${TT('Chaque mois','כל חודש','Every month')}</button>
-          <button class="dd-item ${t.repeat==='year'?'sel':''}" data-act="ebSet('repeat','year');closeDD()">🔄 ${TT('Chaque année','כל שנה','Every year')}</button>
-        </div>`:''}
-        <span style="font-size:11.5px;color:var(--ink-soft);margin-inline-start:8px">${TT('Quand tu la coches, elle revient à la prochaine échéance.','כשמסמנים, חוזרת למועד הבא.','When you tick it, it comes back on the next due date.')}</span>
-      </span></div>`:''}
 
     ${isRdv?'':`<div class="divider"></div>
     <div id="subedit-list">${(t.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join('')}</div>
