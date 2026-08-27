@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a8">
+<meta name="app-build" content="b-2026-08-27-a9">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3984,6 +3984,7 @@ function dossSetColor(cl){ const d=dossierById(nav.dossierId); if(d){ d.color=(d
 function dossSetIcon(){ const d=dossierById(nav.dossierId); if(!d)return; const v=prompt('Icône du dossier (emoji) :',d.icon||'🗂️'); if(v===null)return; d.icon=(v.trim()||'🗂️'); save(); render(); }
 function dossSetDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.date=val||''; save(); render(); }
 function dossToggleRecurring(){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!d.recurring; save(); render(); }
+function dossSetRecurring(v){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!!v; save(); render(); }
 // Tri des dossiers : A→Z par défaut ; si l'utilisateur a réordonné manuellement (champ .ord), on respecte cet ordre.
 function _sortDoss(list){ const hasOrd=list.some(d=>typeof d.ord==='number'); if(hasOrd){ return list.slice().sort((a,b)=>((a.ord==null?1e9:a.ord)-(b.ord==null?1e9:b.ord))||(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); } return list.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); }
 function commitDossOrder(ids){ if(!Array.isArray(ids)||!ids.length)return; ids.forEach((id,i)=>{ const d=dossierById(id); if(d) d.ord=i; }); save(); render(); toast('Ordre enregistré ✓'); }
@@ -4131,17 +4132,30 @@ function renderDossier(c){
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
   let html=`<div class="bc"><span class="bc-item" data-act="dossierBack()">‹ ${t('Retour','חזרה','Back')}</span><span class="bc-sep">▸</span><span class="bc-item active">${d.icon||'🗂️'} ${esc(d.name||t('Dossier','תיקייה','Folder'))}</span></div>`;
   html+=`<div class="field" style="margin-top:10px;margin-bottom:10px"><input class="input" value="${esc(d.name)}" placeholder="${t('Nom du dossier (ex. Organisation Pourim)','שם התיקייה (למשל ארגון פורים)','Folder name (e.g. Purim organization)')}" onchange="dossSetName(this.value)" style="font-family:var(--serif);font-size:22px;font-weight:600"></div>`;
-  html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap">
-    <button class="cbtn" data-act="dossSetIcon()" title="${t('Icône du dossier','אייקון התיקייה','Folder icon')}">${d.icon||'🗂️'}</button>
-    <span style="width:1px;height:20px;background:var(--line)"></span>
-    ${THEME_COLS.map(cl=>`<span data-act="dossSetColor('${cl}')" title="Couleur (colore le calendrier)" style="width:22px;height:22px;border-radius:50%;background:${cl};cursor:pointer;display:inline-block;border:2px solid ${d.color===cl?'var(--ink)':'transparent'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}
-    ${d.color?`<span data-act="dossSetColor('${d.color}')" style="font-size:12px;color:var(--ink-soft);cursor:pointer">✕</span>`:''}
-  </div>`;
-  // Date + récurrence annuelle : un dossier peut se comporter comme une fête / un événement.
-  html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft)">📅 <input type="date" class="input" style="width:auto;padding:6px 9px;font-size:14px" value="${d.date||''}" onchange="dossSetDate(this.value)"></label>
-    ${d.date?`<button class="cbtn" data-act="dossSetDate('')" title="${t('Retirer la date','הסר תאריך','Remove date')}" style="padding:4px 9px;font-size:12px;color:var(--ink-soft)">✕ ${t('date','תאריך','date')}</button>`:''}
-    <button class="cbtn" data-act="dossToggleRecurring()" title="${t('Revient chaque année','חוזר כל שנה','Comes back every year')}" style="padding:4px 11px;font-size:13px;${d.recurring?'color:var(--gold);border-color:var(--gold);background:var(--gold-soft)':'color:var(--ink-soft)'}">↻ ${t('Récurrent annuel','חוזר שנתי','Yearly recurring')}${d.recurring?' ✓':''}</button>
+  // En-tête compact : 3 boutons-icônes ronds (couleur, date, récurrence), chacun ouvre un menu déroulant.
+  html+=`<div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap">
+    <span class="dd" style="position:relative;display:inline-block">
+      <button class="cbtn" data-act="toggleDD('dosscolor')" title="${t('Couleur du dossier','צבע התיקייה','Folder color')}" style="${d.color?`border-color:${d.color};box-shadow:0 0 0 2px ${d.color}`:''}">${d.icon||'🗂️'}</button>
+      ${openDD==='dosscolor'?`<div class="dd-menu" style="min-width:auto;padding:9px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;max-width:214px">${THEME_COLS.map(cl=>`<span data-act="dossSetColor('${cl}');closeDD()" title="${esc(cl)}" style="width:26px;height:26px;border-radius:50%;background:${cl};cursor:pointer;display:inline-block;border:2px solid ${d.color===cl?'var(--ink)':'transparent'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div>
+        ${d.color?`<button class="dd-item" data-act="dossSetColor('${d.color}');closeDD()">✕ ${t('Retirer la couleur','הסר צבע','Remove color')}</button>`:''}
+        <button class="dd-item" data-act="closeDD();dossSetIcon()">✏️ ${t("Changer l'emoji",'שנה אמוji','Change emoji')}</button>
+      </div>`:''}
+    </span>
+    <span class="dd" style="position:relative;display:inline-block">
+      <button class="cbtn" data-act="toggleDD('dossdate')" title="${t('Date','תאריך','Date')}" style="${d.date?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">📅</button>
+      ${openDD==='dossdate'?`<div class="dd-menu" style="min-width:auto;padding:10px">
+        <input type="date" class="input" style="width:auto;padding:6px 9px;font-size:14px" value="${d.date||''}" onchange="dossSetDate(this.value)">
+        ${d.date?`<button class="dd-item" data-act="dossSetDate('');closeDD()">✕ ${t('Retirer la date','הסר תאריך','Remove date')}</button>`:''}
+      </div>`:''}
+    </span>
+    <span class="dd" style="position:relative;display:inline-block">
+      <button class="cbtn" data-act="toggleDD('dossrec')" title="${t('Récurrence','חזרתיות','Recurrence')}" style="${d.recurring?'border-color:var(--gold);background:var(--gold-soft)':''}">${d.recurring?'🔄':'1️⃣'}</button>
+      ${openDD==='dossrec'?`<div class="dd-menu">
+        <button class="dd-item ${!d.recurring?'sel':''}" data-act="dossSetRecurring(false);closeDD()">1️⃣ ${t('Unique','חד-פעמי','One-time')}</button>
+        <button class="dd-item ${d.recurring?'sel':''}" data-act="dossSetRecurring(true);closeDD()">🔄 ${t('Chaque année','כל שנה','Every year')}</button>
+      </div>`:''}
+    </span>
     ${d.date?`<span style="font-size:12px;color:var(--gold);font-weight:600">${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}</span>`:''}
   </div>`;
   if(d.recurring){ html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:14px;color:var(--gold)" data-act="dossResetCycle()" title="${t('Repartir à zéro pour la prochaine occurrence','להתחיל מחדש לפעם הבאה','Start fresh for the next occurrence')}">🔁 ${t('Nouveau cycle — réinitialiser les tâches','מחזור חדש — אפס את המשימות','New cycle — reset the tasks')}</button>`; }
@@ -4895,7 +4909,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossResetCycle,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
