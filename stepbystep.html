@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a2">
+<meta name="app-build" content="b-2026-08-27-a3">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -47,10 +47,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .mvstep{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-soft);margin-bottom:10px}
 .mvback{cursor:pointer;color:var(--primary);font-weight:700}
 .mvnav{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:12px;margin-bottom:7px;cursor:pointer;font-size:13.5px}
-.mvdest{background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:11px 12px;margin-bottom:8px}
-.mvdest-name{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px}
-.mvdest-acts{display:flex;gap:8px}
-.mvdest-acts .btn{flex:1}
+.mvdest{background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:7px 10px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.mvdest-name{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvdest-acts{display:flex;gap:8px;flex:0 0 auto}
+.mvdest-acts .btn{flex:0 0 auto}
 .selbox{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;flex-shrink:0;cursor:pointer}
 .selbox.on{background:var(--primary);border-color:var(--primary)}
 .task.selrow{background:var(--primary-soft);border-color:#cdd9ee}
@@ -3971,7 +3971,7 @@ function dossMoveSheet(){ const d=dossierById(sheet.id); if(!d) return '<div cla
   let h=`<div class="sheet-head"><div class="sheet-title">↗ Déplacer « ${esc(d.name||'dossier')} »</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">`;
   h+=`<div class="hint" style="margin-bottom:8px">Où ranger ce dossier ?</div>`;
   h+=`<div class="mvdest"><div class="mvdest-name">🏠 Dossier général (racine)</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="dossMoveTo('__root')">Ici</button></div></div>`;
-  if(others.length){ h+=`<div class="section-label" style="margin-top:8px">Dans un autre dossier</div>`; others.forEach(x=>{ h+=`<div class="mvdest"><div class="mvdest-name">🗂️ ${esc(x.name||'Dossier sans nom')}</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="dossMoveTo('${x.id}')">Ici</button></div></div>`; }); }
+  if(others.length){ h+=`<div class="section-label" style="margin-top:8px">Dans un autre dossier</div>`; others.forEach(x=>{ h+=`<div class="mvdest"><div class="mvdest-name">${(x.icon&&x.icon!=='🗂️')?x.icon+' ':''}${esc(x.name||'Dossier sans nom')}</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="dossMoveTo('${x.id}')">Ici</button></div></div>`; }); }
   else h+=`<div class="hint">Aucun autre dossier disponible.</div>`;
   h+=`</div>`; return h; }
 function newDossier(anchor){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; D.dossiers.push(d); save(); openDossier(d.id); }
@@ -4060,11 +4060,11 @@ function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayo
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
 function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
-  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}><div class="tile-ic">${d.icon||'🗂️'}</div><div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}</div><div class="tile-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}</div><div class="tile-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
 function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
 function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body"><span class="card-icon">${d.icon||'🗂️'}</span><div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}</div><div class="card-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length+' '+TT('fait','בוצע','done'):''}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}</div><div class="card-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length+' '+TT('fait','בוצע','done'):''}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
@@ -4234,9 +4234,9 @@ function renderBDD(c){
     c.innerHTML=html; return;
   }
   // — accueil : Dossiers uniquement —
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Organisation','ארגון','Organization')}</div><div class="sec-title">${t('Dossiers','תיקיות','Folders')}</div><div class="sec-sub">${t('Tes plans : titres, sous-titres et tâches','התוכניות שלך: כותרות, כותרות משנה ומשימות','Your plans: titles, subtitles and tasks')}</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-title">${t('Dossiers','תיקיות','Folders')}</div></div></div>`;
   const sdoss=dossiersStandalone();
-  if(sdoss.length){ html+=`<div class="section-label" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ ${t('Dossiers','תיקיות','Folders')}</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
+  if(sdoss.length){ html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:4px;margin-bottom:6px">${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
   else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Crée ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). צור את התיקייה הראשונה שלך.','A folder is a free plan (titles + tasks). Create your first one.')}</div>`; }
   html+=`<button class="btn btn-primary btn-block" style="margin-top:10px" data-act="newDossier(null)">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
   c.innerHTML=html;
