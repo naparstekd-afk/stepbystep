@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a16">
+<meta name="app-build" content="b-2026-08-27-a17">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -4542,7 +4542,7 @@ function supplierSheet(){
 // ============================================================
 function setMenuHidden(v,hidden){ if(!D.menuHidden)D.menuHidden={}; if(hidden)D.menuHidden[v]=true; else delete D.menuHidden[v]; save(); render(); }
 function renderSettings(c){
-  const MODS=[['report','📋',t('Compte rendu','דיווח','Report')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')],['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping list')],['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard')],['suppliers','📇',t('Prestataires','ספקים','Suppliers')],['agenda','📆',t('Agenda','יומן שבועי','Agenda')],['publics','🎯',t('Mon public','הקהל שלי','My audience')],['tsedaka','🫙',t('Tsedakah','צדקה','Tsedakah')],['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat notices')],['shabbat','🕯️',t('Shabbat','שבת','Shabbat')],['ideas','💡',t('Idées','רעיונות','Ideas')],['alltasks','✅',t('Toutes les tâches','כל המשימות','All tasks')]];
+  const MODS=[['report','📋',t('Compte rendu','דיווח','Report')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')],['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping list')],['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard')],['suppliers','📇',t('Prestataires','ספקים','Suppliers')],['agenda','📆',t('Agenda','יומן שבועי','Agenda')],['publics','🎯',t('Mon public','הקהל שלי','My audience')],['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat notices')],['shabbat','🕯️',t('Shabbat','שבת','Shabbat')],['ideas','💡',t('Idées','רעיונות','Ideas')],['alltasks','✅',t('Toutes les tâches','כל המשימות','All tasks')]];
   c.innerHTML=`<div class="sec"><div><div class="sec-eyebrow">${t('Système','מערכת','System')}</div><div class="sec-title">${t('Réglages','הגדרות','Settings')}</div></div></div>
     <div class="section-label">${t('Personnalisation du menu','התאמת התפריט','Menu customization')}</div>
     <div class="hint" style="margin-bottom:10px">${t('Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.','הסתרת עמוד מוציאה אותו מהתפריט <b>בלי למחוק את הנתונים</b>. אפשר להחזירו כאן בכל עת.','Hiding a page removes it from the menu <b>without deleting its data</b>. Show it again here whenever you want.')}</div>
