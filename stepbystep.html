@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a6">
+<meta name="app-build" content="b-2026-08-27-a7">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -4082,6 +4082,15 @@ function dossAddRow(titleId){ const idp = titleId?`'${titleId}'`:'null'; return 
   `<button class="btn btn-ghost btn-sm" style="padding:4px 10px" data-act="dossPickFile(${idp})">📎 Fichier</button>`+
   `<button class="btn btn-ghost btn-sm" style="padding:4px 10px" data-act="dossAddLink(${idp})">🔗 Lien</button></div>`; }
 function delDossier(id){ const d=dossierById(id); if(!d)return; const kids=dossierChildren(id); if(!confirm('Supprimer le dossier « '+(d.name||'sans nom')+' » et son contenu ?'+(kids.length?' Ses '+kids.length+' sous-dossier(s) remonteront d\'un niveau.':'')))return; kids.forEach(k=>{ k.parentId=d.parentId||null; if(!k.parentId&&!k.anchor&&d.anchor) k.anchor=d.anchor; }); const back=(nav.view==='dossier'&&nav.dossierId===id); D.dossiers=(D.dossiers||[]).filter(x=>x.id!==id); save(); if(back){ dossierBack(); } else render(); }
+// Remet toutes les tâches d'une tâche (et ses sous-tâches) à « à faire », sur place.
+function _resetTaskInPlace(t){ if(!t)return; t.status='todo'; (t.subtasks||[]).forEach(_resetTaskInPlace); }
+// Nouveau cycle d'un dossier récurrent : réinitialise les tâches du dossier ET de ses sous-dossiers.
+function dossResetCycle(){ const d=dossierById(nav.dossierId); if(!d)return;
+  if(!confirm(t('Nouveau cycle : remettre toutes les tâches de ce dossier (et ses sous-dossiers) à « à faire » ?','מחזור חדש: לאפס את כל המשימות בתיקייה (ותת-התיקיות) ל״לביצוע״?','New cycle: reset every task in this folder (and its sub-folders) to “to do”?')))return;
+  const ids=dossDescendantIds(d.id);
+  (D.dossiers||[]).forEach(x=>{ if(ids.has(x.id)) (x.items||[]).forEach(it=>{ if(!it.kind) _resetTaskInPlace(it); }); });
+  save(); render(); toast(t('Nouveau cycle : tâches réinitialisées ✓','מחזור חדש: המשימות אופסו ✓','New cycle: tasks reset ✓'));
+}
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
@@ -4109,6 +4118,7 @@ function renderDossier(c){
     <button class="cbtn" data-act="dossToggleRecurring()" title="${t('Revient chaque année','חוזר כל שנה','Comes back every year')}" style="padding:4px 11px;font-size:13px;${d.recurring?'color:var(--gold);border-color:var(--gold);background:var(--gold-soft)':'color:var(--ink-soft)'}">↻ ${t('Récurrent annuel','חוזר שנתי','Yearly recurring')}${d.recurring?' ✓':''}</button>
     ${d.date?`<span style="font-size:12px;color:var(--gold);font-weight:600">${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}</span>`:''}
   </div>`;
+  if(d.recurring){ html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:14px;color:var(--gold)" data-act="dossResetCycle()" title="${t('Repartir à zéro pour la prochaine occurrence','להתחיל מחדש לפעם הבאה','Start fresh for the next occurrence')}">🔁 ${t('Nouveau cycle — réinitialiser les tâches','מחזור חדש — אפס את המשימות','New cycle — reset the tasks')}</button>`; }
   const items=d.items||[];
   if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">'+t('Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.','הוסף כותרת, ואז משימות מתחתיה. כל שורה משתייכת לכותרת שמעליה.','Add a title, then tasks below it. Each line belongs to the title above it.')+'</div>'; }
   let idx=0;
@@ -4859,7 +4869,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossResetCycle,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
