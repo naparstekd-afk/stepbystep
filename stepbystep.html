@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a4">
+<meta name="app-build" content="b-2026-08-27-a5">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2638,6 +2638,7 @@ function sheetHTML(){
   else if(sheet.type==='themeAssign') inner=themeAssignSheet();
   else if(sheet.type==='themeQuick') inner=themeQuickSheet();
   else if(sheet.type==='dossMove') inner=dossMoveSheet();
+  else if(sheet.type==='titleToTask') inner=titleToTaskSheet();
   else if(sheet.type==='backups') inner=backupSheet();
   return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -3990,7 +3991,30 @@ function dossMoveTitle(id,dir){ const d=dossierById(nav.dossierId); if(!d)return
   if(dir<0){ let p=blk.start-1; while(p>=0 && !(items[p].kind==='title' && (items[p].level||1)<=lvl)) p--; if(p<0 || (items[p].level||1)!==lvl){ toast('Déjà en haut de sa section'); return; } items.splice(blk.start,block.length); items.splice(p,0,...block); }
   else { if(blk.end>=items.length || !(items[blk.end].kind==='title' && (items[blk.end].level||1)===lvl)){ toast('Déjà en bas de sa section'); return; } const nb=_dossBlock(items,blk.end); const len=block.length; items.splice(blk.start,len); items.splice(nb.end-len,0,...block); }
   save(); render(); }
-function dossTitleToTask(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const it=d.items[i]; const t=mkTask(it.text||''); d.items.splice(i,1,t); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); render(); toast('Titre transformé en tâche ✓'); }
+function dossTitleToTask(id){ const d=dossierById(nav.dossierId); if(!d)return;
+  const i=d.items.findIndex(x=>x.id===id); if(i<0)return;
+  const blk=_dossBlock(d.items,i);
+  const inner=d.items.slice(i+1,blk.end);
+  const hasChildren=inner.some(x=>x.kind==='title' || !x.kind);   // sous-titres ou tâches en dessous
+  if(hasChildren){ openDD=null; sheet={type:'titleToTask',id:id}; renderOverlay(); return; }
+  _dossTitleToTaskOnly(id);
+}
+// Seulement le titre → tâche (en place, le contenu en dessous reste tel quel dans le dossier)
+function _dossTitleToTaskOnly(id){ const d=dossierById(nav.dossierId); if(!d){closeSheet();return;} const i=d.items.findIndex(x=>x.id===id); if(i<0){closeSheet();return;} const it=d.items[i]; const tk=mkTask(it.text||''); d.items.splice(i,1,tk); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); closeSheet(); render(); toast(t('Titre transformé en tâche ✓','הכותרת הפכה למשימה ✓','Title turned into a task ✓')); }
+// Titre + tout ce qui est en dessous → une tâche avec sous-tâches (les notes/médias restent dans le dossier)
+function _dossTitleToTaskDeep(id){ const d=dossierById(nav.dossierId); if(!d){closeSheet();return;} const i=d.items.findIndex(x=>x.id===id); if(i<0){closeSheet();return;} const it=d.items[i]; const blk=_dossBlock(d.items,i); const block=d.items.slice(i+1,blk.end); const keep=block.filter(x=>x.kind==='note'||x.kind==='media'); const subs=_blockToSubs(block); const tk=mkTask(it.text||''); tk.subtasks=subs; d.items.splice(i, blk.end-i, tk, ...keep); (block.filter(x=>x.kind==='title')||[]).forEach(x=>delete dossOpen[x.id]); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; save(); closeSheet(); render(); toast(t('Titre + sous-titres transformés en tâche ✓','הכותרת וכותרות המשנה הפכו למשימה ✓','Title + subtitles turned into a task ✓')); }
+// Aplatit un bloc de dossier en sous-tâches : chaque sous-titre = une sous-tâche ; les tâches se rangent sous le sous-titre au-dessus d'elles.
+function _blockToSubs(block){ const out=[]; let cur=null; block.forEach(it=>{ if(it.kind==='title'){ const n=mkTask(it.text||''); out.push(n); cur=n; } else if(!it.kind){ if(cur){ (cur.subtasks=cur.subtasks||[]).push(it); } else { out.push(it); } } }); return out; }
+function titleToTaskSheet(){ const d=dossierById(nav.dossierId); const it=d?d.items.find(x=>x.id===sheet.id):null; const nm=it?(it.text||t('ce titre','כותרת זו','this title')):'';
+  const blk=d&&it?_dossBlock(d.items,d.items.findIndex(x=>x.id===sheet.id)):{end:0,start:0};
+  const inner=(d&&it)?d.items.slice(d.items.findIndex(x=>x.id===sheet.id)+1,blk.end):[];
+  const nSub=inner.filter(x=>x.kind==='title').length; const nTk=inner.filter(x=>!x.kind).length;
+  const cnt=[nSub?nSub+' '+t('sous-titre(s)','כותרות משנה','subtitle(s)'):'', nTk?nTk+' '+t('tâche(s)','משימות','task(s)'):''].filter(Boolean).join(' + ');
+  return `<div class="sheet-head"><div class="sheet-title">☑️ ${t('Transformer en tâche','הפוך למשימה','Turn into a task')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
+    <div class="hint" style="margin-bottom:12px">« ${esc(nm)} » ${t('contient','מכיל','contains')} ${esc(cnt)}. ${t('Que veux-tu transformer ?','מה להפוך למשימה?','What do you want to turn into a task?')}</div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:10px;text-align:left" data-act="_dossTitleToTaskDeep('${sheet.id}')">📦 ${t('Le titre + tout ce qui est dessous','הכותרת + כל מה שמתחתיה','The title + everything below it')}<div style="font-weight:400;font-size:12px;opacity:.8;margin-top:2px">${t('Une tâche, et chaque sous-titre / tâche devient une sous-tâche.','משימה אחת, וכל כותרת משנה / משימה הופכת לתת-משימה.','One task; each subtitle / task becomes a subtask.')}</div></button>
+    <button class="btn btn-soft btn-block" style="text-align:left" data-act="_dossTitleToTaskOnly('${sheet.id}')">📄 ${t('Seulement le titre','רק הכותרת','Only the title')}<div style="font-weight:400;font-size:12px;opacity:.8;margin-top:2px">${t('Le contenu en dessous reste tel quel dans le dossier.','התוכן שמתחת נשאר כמו שהוא בתיקייה.','The content below stays as-is in the folder.')}</div></button>
+  </div>`; }
 function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.rdv))D.rdv=[]; const r=mkRdv(txt); D.rdv.push(r); save(); openTask(r.id); toast('Transformé en rendez-vous / invitation ✓'); }
 function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
@@ -4835,7 +4859,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
