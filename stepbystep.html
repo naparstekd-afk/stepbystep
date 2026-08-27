@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a9">
+<meta name="app-build" content="b-2026-08-27-a10">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3764,12 +3764,14 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const done=t.status==='done';
   const partial=(t.subtasks&&t.subtasks.length&&countAllDone(t.subtasks)>0&&!done)?`<span style="color:${st.c};font-size:12px;font-weight:800;line-height:1">–</span>`:'';
   const who=t.responsible?`<span class="tag tag-who">👤 ${esc(t.responsible)}</span>`:'';
-  const subLine = where||prio||remTag||dateTag||who;
+  const _dur=totalDuration(t);
+  const durTag=_dur?`<span class="tag tag-time">⏱ ${fmtM(_dur)}</span>`:'';
+  const subLine = where||prio||remTag||dateTag||who||durTag;
   let h=`<div class="wrap-task"><div class="jtask">
     <div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>
     <div class="jtask-body" data-act="openTask('${t.id}')">
       <div class="jtask-title ${done?'done':''}">${(t.text&&t.text.trim())?esc(t.text):'<span style="color:var(--ink-soft);font-style:italic">Tâche sans titre — ouvrir pour modifier / supprimer</span>'}</div>
-      ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${prio}${remTag}${dateTag}${who}</div>`:''}
+      ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${durTag}${prio}${remTag}${dateTag}${who}</div>`:''}
     </div>
     ${expBtn?`<div style="align-self:center">${expBtn}</div>`:''}
   </div>`;
@@ -4112,8 +4114,8 @@ function delDossier(id){ const d=dossierById(id); if(!d)return; const kids=dossi
 // Remet toutes les tâches d'une tâche (et ses sous-tâches) à « à faire », sur place.
 function _resetTaskInPlace(t){ if(!t)return; t.status='todo'; (t.subtasks||[]).forEach(_resetTaskInPlace); }
 // Nouveau cycle d'un dossier récurrent : réinitialise les tâches du dossier ET de ses sous-dossiers.
-function dossResetCycle(){ const d=dossierById(nav.dossierId); if(!d)return;
-  if(!confirm(t('Nouveau cycle : remettre toutes les tâches de ce dossier (et ses sous-dossiers) à « à faire » ?','מחזור חדש: לאפס את כל המשימות בתיקייה (ותת-התיקיות) ל״לביצוע״?','New cycle: reset every task in this folder (and its sub-folders) to “to do”?')))return;
+function dossResetCycle(){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null;
+  if(!confirm(t('Nouveau cycle : remettre toutes les tâches de ce dossier (et ses sous-dossiers) à « à faire » ?','מחזור חדש: לאפס את כל המשימות בתיקייה (ותת-התיקיות) ל״לביצוע״?','New cycle: reset every task in this folder (and its sub-folders) to “to do”?'))){ render(); return; }
   const ids=dossDescendantIds(d.id);
   (D.dossiers||[]).forEach(x=>{ if(ids.has(x.id)) (x.items||[]).forEach(it=>{ if(!it.kind) _resetTaskInPlace(it); }); });
   save(); render(); toast(t('Nouveau cycle : tâches réinitialisées ✓','מחזור חדש: המשימות אופסו ✓','New cycle: tasks reset ✓'));
@@ -4154,11 +4156,11 @@ function renderDossier(c){
       ${openDD==='dossrec'?`<div class="dd-menu">
         <button class="dd-item ${!d.recurring?'sel':''}" data-act="dossSetRecurring(false);closeDD()">1️⃣ ${t('Unique','חד-פעמי','One-time')}</button>
         <button class="dd-item ${d.recurring?'sel':''}" data-act="dossSetRecurring(true);closeDD()">🔄 ${t('Chaque année','כל שנה','Every year')}</button>
+        ${d.recurring?`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div><button class="dd-item" style="color:var(--gold)" data-act="dossResetCycle()">🔁 ${t('Nouveau cycle (réinitialiser les tâches)','מחזור חדש (אפס משימות)','New cycle (reset tasks)')}</button>`:''}
       </div>`:''}
     </span>
     ${d.date?`<span style="font-size:12px;color:var(--gold);font-weight:600">${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}</span>`:''}
   </div>`;
-  if(d.recurring){ html+=`<button class="btn btn-soft btn-sm" style="margin-bottom:14px;color:var(--gold)" data-act="dossResetCycle()" title="${t('Repartir à zéro pour la prochaine occurrence','להתחיל מחדש לפעם הבאה','Start fresh for the next occurrence')}">🔁 ${t('Nouveau cycle — réinitialiser les tâches','מחזור חדש — אפס את המשימות','New cycle — reset the tasks')}</button>`; }
   const items=d.items||[];
   if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">'+t('Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.','הוסף כותרת, ואז משימות מתחתיה. כל שורה משתייכת לכותרת שמעליה.','Add a title, then tasks below it. Each line belongs to the title above it.')+'</div>'; }
   let idx=0;
