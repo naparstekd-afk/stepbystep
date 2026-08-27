@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a27">
+<meta name="app-build" content="b-2026-08-27-a28">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3036,9 +3036,10 @@ function taskSheet(){
     </div>
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ ${TT('Déplacer','העבר','Move')}</button>`}
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:19px" data-act="mvOpen()" title="${TT('Déplacer','העבר','Move')}">↗</button>`}
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:19px" data-act="mvOpenDup()" title="${TT('Dupliquer','שכפל','Duplicate')}">⧉</button>`}
       <div class="dd" style="flex:1">
-        <button class="dd-btn btn-block" style="justify-content:center;width:100%" data-act="ebToggleExport()">⬇ ${TT('Exporter','ייצוא','Export')} ▾</button>
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%;font-size:19px" data-act="ebToggleExport()" title="${TT('Exporter','ייצוא','Export')}">⬇</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
           <button class="dd-item" data-act="taskExport('csv')">📊 Excel</button>
           <button class="dd-item" data-act="taskExport('doc')">📝 Word</button>
@@ -3224,9 +3225,12 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
 function ebAddDep(id){ syncInputs(); if(!editBuf.dependsOn)editBuf.dependsOn=[]; if(id&&!editBuf.dependsOn.includes(id))editBuf.dependsOn.push(id); renderOverlay(); }
 function ebRmDep(id){ syncInputs(); editBuf.dependsOn=(editBuf.dependsOn||[]).filter(x=>x!==id); renderOverlay(); }
 function ebAddSub(){ syncInputs(); if(!editBuf.subtasks)editBuf.subtasks=[]; const n=mkTask(''); editBuf.subtasks.push(n); editBuf._openSub=n.id; renderOverlay(); setTimeout(()=>{ try{ const el=document.querySelector('#subedit-list .subedit:not(.collapsed) input'); if(el){ el.focus({preventScroll:true}); } }catch(e){} },40); }
-function ebRmSub(id){ syncInputs(); editBuf.subtasks=editBuf.subtasks.filter(s=>s.id!==id); if(editBuf._openSub===id)editBuf._openSub=null; renderOverlay(); }
-function ebToggleSub(id){ syncInputs(); editBuf._openSub = (editBuf._openSub===id ? null : id); renderOverlay(); }
-function toggleSubInEditor(id){ syncInputs(); const s=(editBuf.subtasks||[]).find(x=>x.id===id); if(s) _setDone(s, s.status!=='done'); renderOverlay(); }
+// Re-rend UNIQUEMENT la liste des sous-tâches, sans reconstruire toute la fiche
+// → le scroll et le focus des champs sont préservés (plus de « saut » d'écran).
+function ebRenderSubs(){ const el=document.getElementById('subedit-list'); if(el && editBuf){ el.innerHTML=(editBuf.subtasks||[]).map((s,i)=>subEditHTML(s,i)).join(''); } }
+function ebRmSub(id){ syncInputs(); editBuf.subtasks=editBuf.subtasks.filter(s=>s.id!==id); if(editBuf._openSub===id)editBuf._openSub=null; ebRenderSubs(); }
+function ebToggleSub(id){ syncInputs(); editBuf._openSub = (editBuf._openSub===id ? null : id); ebRenderSubs(); }
+function toggleSubInEditor(id){ syncInputs(); const s=(editBuf.subtasks||[]).find(x=>x.id===id); if(s) _setDone(s, s.status!=='done'); ebRenderSubs(); }
 function ebSubField(id,k,v){ const s=editBuf.subtasks.find(x=>x.id===id); if(!s)return; s[k]= k==='duration'?(parseInt(v)||0):v; }
 function ebOpenSub(id){ // ouvrir une sous-tâche dans l'éditeur complet (sauve le parent d'abord)
   syncInputs(); saveTask(true);
@@ -3494,7 +3498,9 @@ function datePickSheet(){
     ${bottom}
   </div>`;
 }
-function mvOpen(){ syncInputs(); moveNav={}; renderOverlay(); }
+let _mvMode='move';   // 'move' = déplacer · 'dup' = dupliquer (même navigateur)
+function mvOpen(){ syncInputs(); _mvMode='move'; moveNav={}; renderOverlay(); }
+function mvOpenDup(){ syncInputs(); _mvMode='dup'; moveNav={}; renderOverlay(); }
 function mvClose(){ moveNav=null; renderOverlay(); }
 function mvOpenMonths(){ syncInputs(); moveNav={open:'mois'}; renderOverlay(); }
 function mvOpenDossiers(){ syncInputs(); moveNav={open:'dossier'}; renderOverlay(); }
@@ -3513,9 +3519,10 @@ function mvCreateFete(){ if(!moveNav.mId)return; if(!D.months[moveNav.mId])D.mon
 function mvCreateProgram(){ const n=prompt('Nom du nouveau programme :','Nouveau programme'); if(n===null)return; const p=mkProgram(n.trim()||'Nouveau programme'); p.events=[mkEvent('Divers')]; D.programs.push(p); mvMove('program|'+p.id+'||'+p.events[0].id); }
 function moveExplorerHTML(){
   const H=['<div class="mvbox">'];
-  H.push('<div class="mvbar"><div class="mvtitle">📂 Où déplacer cette tâche ?</div><span class="mvcancel" data-act="mvClose()">Annuler ✕</span></div>');
-  // Bouton d'action VERTE = « on la met ICI ». Ligne grise avec ›  = « on ouvre pour aller plus loin ».
-  const dropBtn=(label,v)=>'<button class="btn btn-primary btn-block" style="margin:5px 0;text-align:left;justify-content:flex-start" data-act="mvMove(\''+v+'\')">✓ '+esc(label)+'</button>';
+  const _dup=(_mvMode==='dup');
+  H.push('<div class="mvbar"><div class="mvtitle">'+(_dup?'⧉ '+t('Où dupliquer cette tâche ?','לאן לשכפל משימה זו?','Where to duplicate this task?'):'📂 '+t('Où déplacer cette tâche ?','לאן להעביר משימה זו?','Where to move this task?'))+'</div><span class="mvcancel" data-act="mvClose()">'+t('Annuler','ביטול','Cancel')+' ✕</span></div>');
+  // Bouton d'action = « on la met ICI ». Ligne grise avec ›  = « on ouvre pour aller plus loin ».
+  const dropBtn=(label,v)=>'<button class="btn btn-primary btn-block" style="margin:5px 0;text-align:left;justify-content:flex-start" data-act="'+(_dup?'mvDup':'mvMove')+'(\''+v+'\')">✓ '+esc(label)+'</button>';
   const drillRow=(icon,label,sub,act)=>'<div class="mvnav" data-act="'+act+'"><span style="font-size:22px;flex:none">'+icon+'</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(label)+'</div>'+(sub?'<div style="font-size:11.5px;color:var(--ink-soft)">'+esc(sub)+'</div>':'')+'</div><span class="chev" style="font-size:20px;color:var(--primary)">›</span></div>';
   const backBar=(label,act)=>'<div class="mvstep"><span class="mvback" data-act="'+act+'">‹ Retour</span><span style="color:var(--ink);font-weight:600">'+esc(label)+'</span></div>';
   const hint=(txt)=>'<div style="font-size:12px;color:var(--ink-soft);font-weight:600;margin:12px 0 5px">'+esc(txt)+'</div>';
@@ -3558,7 +3565,7 @@ function moveExplorerHTML(){
     H.push(drillRow('📅','Dans un mois','Calendrier — un mois, une fête, un événement',"mvOpenMonths()"));
     H.push(drillRow('🗂️','Dans un dossier','Un dossier, un sous-dossier, ou sous un titre',"mvOpenDossiers()"));
     H.push(dropBtn('La laisser indépendante (boîte de réception)','inbox'));
-    const tb=editBuf;
+    const tb=_dup?null:editBuf;
     if(tb){ const prom=tb._isSub; let sibs=[]; const ev=eventOfLoc(tb._loc); if(ev) sibs=flattenTasks(ev.tasks).filter(x=>x.id!==tb.id&&!isDescendant(tb,x.id));
       if(prom||sibs.length){ const actRow=(label,act)=>'<div class="mvnav" data-act="'+act+'"><div style="flex:1">'+esc(label)+'</div></div>';
         H.push(hint('La rattacher à une autre tâche :'));
@@ -4641,8 +4648,7 @@ function renderBDD(c){
   let html=`<div class="sec"><div><div class="sec-title">${t('Dossiers','תיקיות','Folders')}</div></div></div>`;
   const sdoss=dossiersStandalone();
   if(sdoss.length){ html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:4px;margin-bottom:6px">${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
-  else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Crée ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). צור את התיקייה הראשונה שלך.','A folder is a free plan (titles + tasks). Create your first one.')}</div>`; }
-  html+=`<button class="btn btn-primary btn-block" style="margin-top:10px" data-act="newDossier(null)">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
+  else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Touche le + en bas à droite pour créer ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). גע ב-+ למטה מימין ליצירת התיקייה הראשונה.','A folder is a free plan (titles + tasks). Tap the + at bottom right to create your first one.')}</div>`; }
   c.innerHTML=html;
 }
 function setJTab(t){ jTab=t; render(); }
@@ -5378,7 +5384,7 @@ function commitDragOrder(kind){
  dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
- addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
+ addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
 function migrateMaterials(){
