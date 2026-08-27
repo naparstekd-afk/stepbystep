@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z11">
+<meta name="app-build" content="b-2026-08-27-a1">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1745,7 +1745,7 @@ function subHTML(s,parent){
   if(s.budget&&s.budget.amount)extra.push(fmtE(s.budget.amount));
   let h=`<div class="sub">
     <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'}" data-act="event.stopPropagation();toggleTask('${s.id}')">${s.status==='done'?'✓':((s.subtasks&&s.subtasks.length&&countAllDone(s.subtasks)>0)?`<span style="color:${st.c};font-size:11px;font-weight:800;line-height:1">–</span>`:'')}</div>
-    <div class="sub-text ${s.status==='done'?'done':''}" data-act="openTask('${s.id}')">${esc(s.text)}${extra.length?` <span style="color:var(--ink-soft);font-size:11.5px">· ${extra.join(' · ')}</span>`:''}</div>
+    <div class="sub-text ${s.status==='done'?'done':''}" data-act="openTask('${s.id}')">${esc(s.text)}${s.date?_datePill(s.date):''}${extra.length?` <span style="color:var(--ink-soft);font-size:11.5px">· ${extra.join(' · ')}</span>`:''}</div>
   </div>`;
   if(s.subtasks&&s.subtasks.length){ h+=`<div class="subs-deep">${s.subtasks.map(ss=>subHTML(ss,s)).join('')}</div>`; }
   return h;
@@ -2858,7 +2858,7 @@ function subEditHTML(s,i){
     return `<div class="subedit collapsed" data-act="ebToggleSub('${s.id}')" style="padding:10px 12px">
       <div style="display:flex;align-items:center;gap:9px">
         <div class="sub-check" style="border-color:${st.c};background:${s.status==='done'?st.c:'#fff'};flex:0 0 auto" data-act="event.stopPropagation();toggleSubInEditor('${s.id}')">${s.status==='done'?'✓':''}</div>
-        <div style="flex:1;min-width:0"><div class="${s.status==='done'?'done':''}" style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.text?esc(s.text):'<span style=\'color:var(--ink-soft);font-weight:400\'>'+t('Sous-tâche sans titre','תת-משימה ללא כותרת','Untitled subtask')+'</span>'}</div>${meta.length?`<div style="font-size:11.5px;color:var(--ink-soft)">${meta.join(' · ')}</div>`:''}</div>
+        <div style="flex:1;min-width:0"><div class="${s.status==='done'?'done':''}" style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.text?esc(s.text):'<span style=\'color:var(--ink-soft);font-weight:400\'>'+t('Sous-tâche sans titre','תת-משימה ללא כותרת','Untitled subtask')+'</span>'}${s.date?_datePill(s.date):''}</div>${meta.length?`<div style="font-size:11.5px;color:var(--ink-soft)">${meta.join(' · ')}</div>`:''}</div>
         <span style="color:var(--ink-soft);flex:0 0 auto">▾</span>
         <button class="mini-btn danger" style="flex:0 0 auto" data-act="event.stopPropagation();ebRmSub('${s.id}')">🗑</button>
       </div>
@@ -2897,6 +2897,15 @@ function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:
     return _gem(day)+' '+moHeb+' '+_gem(parseInt(year)%1000);
   }
   const moName=mo?mo.name:new Intl.DateTimeFormat('en-u-ca-hebrew',{month:'long'}).format(d); return day+' '+moName+' '+year; }catch(e){ return ''; } }
+// Libellé de date COMPACT (jour + mois, sans année) pour les pastilles de sous-tâches — hébreu en guématria si l'app est en hébreu
+function _dLabel(iso){ if(!iso) return '';
+  if(lang==='he'){ try{ const d=new Date(iso+'T12:00:00'); const mid=hebMonthIdOf(iso); const mo=MONTHS.find(x=>x.id===mid);
+    const parts=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric'}).formatToParts(d); let day=''; parts.forEach(p=>{if(p.type==='day')day=p.value;});
+    const moHeb=mo?(mo.heb||mo.name):new Intl.DateTimeFormat('he-u-ca-hebrew',{month:'long'}).format(d);
+    return _gem(day)+' '+moHeb; }catch(e){ return fmtDate(iso); } }
+  return fmtDate(iso); }
+// Pastille de date réutilisable (sous-tâches)
+function _datePill(iso){ if(!iso) return ''; return `<span style="display:inline-block;background:var(--gold-soft);color:var(--gold);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;margin-inline-start:6px;white-space:nowrap;vertical-align:middle">📅 ${esc(_dLabel(iso))}</span>`; }
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
