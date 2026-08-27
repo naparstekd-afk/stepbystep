@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-26-z9">
+<meta name="app-build" content="b-2026-08-26-z10">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1293,7 +1293,7 @@ function breadcrumbHTML(){
   let p=[];
   if(nav.view==='calendar'){
     p.push(['📅 '+t('Calendrier','לוח','Calendar'),'go({monthId:null,feteId:null,eventId:null})']);
-    if(nav.monthId){const m=MONTHS.find(x=>x.id===nav.monthId);p.push([`${m.emoji} ${m.name}`,`go({feteId:null,eventId:null})`]);}
+    if(nav.monthId){const m=MONTHS.find(x=>x.id===nav.monthId);p.push([`${m.emoji} ${mName(m)}`,`go({feteId:null,eventId:null})`]);}
     if(nav.feteId){const f=curFete();if(f)p.push([f.name,`go({eventId:null})`]);}
     if(nav.eventId){const e=curEvent();if(e)p.push([e.name,null]);}
   } else if(nav.view==='programs'){
@@ -1320,6 +1320,7 @@ function nTaches(n){ return n+' '+TT('tâche(s)','משימות','task(s)'); }
 function nFetes(n){ return n+' '+TT('fête(s)','חגים','holiday(s)'); }
 function nEvents(n){ return n+' '+TT('événement(s)','אירועים','event(s)'); }
 function nSousDoss(n){ return n+' '+TT('sous-dossier(s)','תת-תיקיות','sub-folder(s)'); }
+function mName(m){ if(!m)return ''; return lang==='he'?(m.heb||m.name):m.name; }   // nom du mois : hébreu si l'app est en hébreu
 function setLang(l){ lang=l; if(D)D._lang=l; document.documentElement.lang=l; document.documentElement.dir=(l==='he'?'rtl':'ltr'); save(); render(); }
 function menuVisible(v){ return !(D.menuHidden&&D.menuHidden[v]); }
 function bottomNavHTML(){
@@ -1347,8 +1348,8 @@ function renderHome(c){
     const filled=md&&md.fetes.length;
     html+=`<div class="mcard ${filled?'filled':''}" data-act="go({monthId:'${m.id}',feteId:null,eventId:null})">
       <div class="mcard-emoji">${m.emoji}</div>
-      <div class="mcard-name">${m.name}</div>
-      <div class="mcard-heb">${m.heb}</div>
+      <div class="mcard-name">${lang==='he'?m.heb:m.name}</div>
+      ${lang==='he'?'':`<div class="mcard-heb">${m.heb}</div>`}
       <div class="mcard-count ${tot?'':'empty'}">${tot? dn+'/'+tot:'—'}</div>
       ${tot?`<div class="mcard-cost">${fmtE(bud)}${remMin?' · '+fmtM(remMin):''}</div>`:''}
     </div>`;
@@ -2479,7 +2480,7 @@ function quickAddSheet(){
       <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventInMonthNamed()">📌 ${NEWEVENT}</button>
       <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInMonth()">✅ ${NEWTASK}</button>
       <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 ${IMPORT}</button>
-      <div class="hint" style="margin-top:10px">${t('Dans','בתוך','In')} ${mm?mm.emoji+' '+mm.name:t('ce mois','חודש זה','this month')}</div>
+      <div class="hint" style="margin-top:10px">${t('Dans','בתוך','In')} ${mm?mm.emoji+' '+mName(mm):t('ce mois','חודש זה','this month')}</div>
     </div>`;
   }
   // — Contexte général (Ma Journée, accueil…) —
@@ -2882,7 +2883,20 @@ function eventOfLoc(loc){
   if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); return p?p.events.find(e=>e.id===loc.eId):null; }
   const m=D.months[loc.mId]; if(!m)return null; const f=m.fetes.find(x=>x.id===loc.fId); return f?f.events.find(e=>e.id===loc.eId):null;
 }
-function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:00'); const parts=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',year:'numeric'}).formatToParts(d); let day='',year=''; parts.forEach(p=>{if(p.type==='day')day=p.value;if(p.type==='year')year=p.value;}); const mid=hebMonthIdOf(iso); const mo=MONTHS.find(x=>x.id===mid); const moName=mo?mo.name:new Intl.DateTimeFormat('en-u-ca-hebrew',{month:'long'}).format(d); return day+' '+moName+' '+year; }catch(e){ return ''; } }
+// Conversion d'un nombre en lettres hébraïques (guématria) avec géresh/guershayim. Ex. 14→י״ד, 786→תשפ״ו
+function _gem(n){ n=parseInt(n)||0; if(n<=0)return ''+n;
+  const ones=['','א','ב','ג','ד','ה','ו','ז','ח','ט'], tens=['','י','כ','ל','מ','נ','ס','ע','פ','צ'];
+  let s='', hun=Math.floor(n/100); while(hun>=4){ s+='ת'; hun-=4; } s+=['','ק','ר','ש'][hun]||''; let r=n%100;
+  if(r===15) s+='טו'; else if(r===16) s+='טז'; else { s+=tens[Math.floor(r/10)]; s+=ones[r%10]; }
+  if(s.length>1) s=s.slice(0,-1)+'״'+s.slice(-1); else if(s.length===1) s=s+'׳';
+  return s; }
+function hebrewDate(iso){ if(!iso) return ''; try{ const d=new Date(iso+'T12:00:00'); const mid=hebMonthIdOf(iso); const mo=MONTHS.find(x=>x.id===mid);
+  const parts=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',year:'numeric'}).formatToParts(d); let day='',year=''; parts.forEach(p=>{if(p.type==='day')day=p.value;if(p.type==='year')year=p.value;});
+  if(lang==='he'){ // date entièrement en hébreu (guématria) : י״ד אלול תשפ״ו
+    const moHeb=mo?(mo.heb||mo.name):new Intl.DateTimeFormat('he-u-ca-hebrew',{month:'long'}).format(d);
+    return _gem(day)+' '+moHeb+' '+_gem(parseInt(year)%1000);
+  }
+  const moName=mo?mo.name:new Intl.DateTimeFormat('en-u-ca-hebrew',{month:'long'}).format(d); return day+' '+moName+' '+year; }catch(e){ return ''; } }
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
@@ -3235,14 +3249,14 @@ function moveExplorerHTML(){
 
   if(moveNav && moveNav.mId && moveNav.fId){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId); const f=m&&m.fetes.find(x=>x.id===moveNav.fId);
-    H.push(backBar((mm?mm.name:'')+' › '+(f?f.name:''),"mvMonth('"+moveNav.mId+"')"));
+    H.push(backBar((mm?mName(mm):'')+' › '+(f?f.name:''),"mvMonth('"+moveNav.mId+"')"));
     H.push(hint('Dans quel événement ?'));
     if(f) f.events.forEach(e=>H.push(dropBtn('Mettre dans « '+e.name+' »','fete|'+moveNav.mId+'|'+f.id+'|'+e.id)));
     H.push('<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateEvent()">➕ Créer un nouvel événement ici</button>');
   } else if(moveNav && moveNav.mId){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
-    H.push(backBar((mm?mm.emoji+' '+mm.name:'Mois'),"mvOpenMonths()"));
-    H.push(dropBtn('Mettre directement dans '+(mm?mm.name:'ce mois'),'monthtasks|'+moveNav.mId));
+    H.push(backBar((mm?mm.emoji+' '+mName(mm):t('Mois','חודש','Month')),"mvOpenMonths()"));
+    H.push(dropBtn(t('Mettre directement dans','שים ישירות ב','Put directly in')+' '+(mm?mName(mm):t('ce mois','חודש זה','this month')),'monthtasks|'+moveNav.mId));
     const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
     if(real.length){ H.push(hint(t('Ou ouvrir une fête pour aller plus loin :','או פתח חג כדי להמשיך:','Or open a holiday to go further:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
     H.push('<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateFete()">➕ Créer une nouvelle fête ici</button>');
@@ -3259,7 +3273,7 @@ function moveExplorerHTML(){
     }
   } else if(moveNav && moveNav.open==='mois'){
     H.push(backBar('Choisis le mois',"mvOpen()"));
-    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mo.name,(n?nFetes(n):t('toucher pour ouvrir','גע לפתיחה','tap to open')),"mvMonth('"+mo.id+"')")); });
+    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mName(mo),(n?nFetes(n):t('toucher pour ouvrir','גע לפתיחה','tap to open')),"mvMonth('"+mo.id+"')")); });
   } else if(moveNav && moveNav.open==='dossier'){
     H.push(backBar('Choisis le dossier',"mvOpen()"));
     const roots=_sortDoss((D.dossiers||[]).filter(d=>!d.parentId));
@@ -3679,7 +3693,7 @@ function jRange(){
   const LC=_jLocale();
   if(jPeriod==='week'){ const d=new Date(base); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); const from=todayKey(d); const e=new Date(d); e.setDate(e.getDate()+6); const to=todayKey(e); return {from,to,label:t('Sem. du ','שבוע ','Wk of ')+new Date(from+'T12:00:00').toLocaleDateString(LC,{day:'numeric',month:'short'})}; }
   if(jPeriod==='civil'){ const f=new Date(base.getFullYear(),base.getMonth(),1); const tt=new Date(base.getFullYear(),base.getMonth()+1,0); return {from:todayKey(f),to:todayKey(tt),label:base.toLocaleDateString(LC,{month:'long',year:'numeric'})}; }
-  if(jPeriod==='heb'){ const mid=hebMonthIdOf(anchor); let from=anchor,to=anchor; for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mo.name:t('Mois héb.','חודש עברי','Heb. month'))}; }
+  if(jPeriod==='heb'){ const mid=hebMonthIdOf(anchor); let from=anchor,to=anchor; for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)from=k; else break; } for(let i=1;i<=45;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const k=todayKey(d); if(hebMonthIdOf(k)===mid)to=k; else break; } const mo=MONTHS.find(x=>x.id===mid); return {from,to,label:(mo?mo.emoji+' '+mName(mo):t('Mois héb.','חודש עברי','Heb. month'))}; }
   return {from:anchor,to:anchor,label: anchor===tk?t("Aujourd'hui",'היום','Today'):new Date(anchor+'T12:00:00').toLocaleDateString(LC,{weekday:'short',day:'numeric',month:'short'})};
 }
 function setJPeriod(p){ jPeriod=p; jDay=todayKey(); openDD=null; render(); }
@@ -3732,12 +3746,12 @@ function renderJournal(c){
   const atToday=(jDay||todayKey())===todayKey();
   const _fAllOn=jFilter.tasks&&jFilter.events&&jFilter.reminders; const _dispActive=(!_fAllOn)||!!jSort;
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <button class="cbtn" data-act="jNav(-1)" title="Précédent">◀</button>
+    <button class="cbtn" data-act="jNav(-1)" title="${t('Précédent','הקודם','Previous')}">${lang==='he'?'▶':'◀'}</button>
     <div class="dd" style="flex:1">
       <button class="dd-btn on" style="width:100%;justify-content:center" data-act="toggleDD('jperiod')">${rg.label} ▾</button>
       ${openDD==='jperiod'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%)">${periods.map(([v,l])=>`<button class="dd-item ${jPeriod===v?'sel':''}" data-act="setJPeriod('${v}')">${l}</button>`).join('')}</div>`:''}
     </div>
-    <button class="cbtn" data-act="jNav(1)" title="Suivant">▶</button>
+    <button class="cbtn" data-act="jNav(1)" title="${t('Suivant','הבא','Next')}">${lang==='he'?'◀':'▶'}</button>
     <div class="dd" style="position:relative">
       <button class="cbtn${_dispActive?' on':''}" data-act="toggleDD('jdisplay')" title="Afficher / trier" style="${_dispActive?'background:var(--primary-soft);color:var(--primary);border-color:var(--primary)':''}">👁${_dispActive?' •':''} ▾</button>
       ${openDD==='jdisplay'?jDisplayMenu():''}
