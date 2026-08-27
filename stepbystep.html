@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a23">
+<meta name="app-build" content="b-2026-08-27-a24">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1293,10 +1293,33 @@ function headerHTML(){
   return `<div class="hdr">
     <div class="hdr-logo" data-act="openOrgPanel()"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">${esc((_org&&_org.name)||'')}</span></span></div>
     <div class="hdr-spacer"></div>
+    <button class="hdr-menu-btn" data-act="openSearch()" title="${t('Rechercher','חיפוש','Search')}" style="margin-inline-end:6px">🔍</button>
     <button class="hdr-year" data-act="openYearMenu()">${D.year}</button>
     <button class="hdr-menu-btn" data-act="toggleDrawer(true)">☰</button>
   </div>` + breadcrumbHTML();
 }
+// — Recherche globale (tâches, dossiers, fêtes, événements, titres, rappels) —
+let _searchQ='';
+function openSearch(){ _searchQ=''; sheet={type:'search'}; renderOverlay(); setTimeout(()=>{ const e=document.getElementById('search-inp'); if(e){ e.focus(); } },60); }
+function searchUpdate(v){ _searchQ=v; const box=document.getElementById('search-results'); if(box) box.innerHTML=_searchResultsHTML(); }
+function searchGo(act){ closeSheet(); try{ (new Function('with(window){'+act+'}'))(); }catch(e){} }
+function _searchAll(q){ q=(q||'').trim().toLowerCase(); if(!q)return []; const out=[]; const seen=new Set();
+  const P=(ic,label,sub,act)=>out.push({ic,label,sub,act});
+  const addTask=(t,where)=>{ if(!t||seen.has(t.id)){ (t&&t.subtasks||[]).forEach(s=>addTask(s,where)); return; } if((t.text||'').toLowerCase().includes(q)){ seen.add(t.id); P('✅',t.text||'',where,`openTask('${t.id}')`); } (t.subtasks||[]).forEach(s=>addTask(s,where)); };
+  (D.dossiers||[]).forEach(d=>{ if((d.name||'').toLowerCase().includes(q)) P('🗂️',d.name||'', '', `openDossier('${d.id}')`); });
+  Object.entries(D.months||{}).forEach(([mId,m])=>{ (m.tasks||[]).forEach(t=>addTask(t,mId)); (m.fetes||[]).forEach(f=>{ if(!f._monthGeneral && (f.name||'').toLowerCase().includes(q)) P('🎉',f.name,'', `go({view:'calendar',monthId:'${mId}',feteId:'${f.id}',eventId:null})`); (f.tasks||[]).forEach(t=>addTask(t,f.name)); (f.events||[]).forEach(e=>{ if((e.name||'').toLowerCase().includes(q)) P('📌',e.name,f.name,`go({view:'calendar',monthId:'${mId}',feteId:'${f.id}',eventId:'${e.id}'})`); (e.tasks||[]).forEach(t=>addTask(t,e.name)); }); }); });
+  (D.inbox||[]).forEach(t=>addTask(t,''));
+  (D.dossiers||[]).forEach(d=>{ (d.items||[]).forEach(it=>{ if(!it.kind) addTask(it,d.name); else if(it.kind==='title' && (it.text||'').toLowerCase().includes(q)) P('▸',it.text,d.name,`openDossier('${d.id}')`); }); });
+  (D.rdv||[]).forEach(t=>{ if((t.text||'').toLowerCase().includes(q)) P('📅',t.text||'','', `openTask('${t.id}')`); });
+  return out.slice(0,80); }
+function _searchResultsHTML(){ const res=_searchAll(_searchQ); if(!_searchQ.trim()) return `<div class="hint" style="margin-top:10px">${t('Tape un mot : tâche, dossier, fête, événement…','הקלד מילה: משימה, תיקייה, חג, אירוע…','Type a word: task, folder, holiday, event…')}</div>`;
+  if(!res.length) return `<div class="hint" style="margin-top:10px">${t('Aucun résultat.','אין תוצאות.','No result.')}</div>`;
+  return res.map(r=>`<div class="card" style="margin-bottom:7px;cursor:pointer" data-act="searchGo(&quot;${r.act.replace(/"/g,'&quot;')}&quot;)"><div class="card-body" style="padding:10px 12px"><span class="card-icon">${r.ic}</span><div class="card-main"><div class="card-name" style="font-size:14px">${esc(r.label)}</div>${r.sub?`<div class="card-meta">${esc(r.sub)}</div>`:''}</div><span class="chev">›</span></div></div>`).join(''); }
+function searchSheet(){ return `<div class="sheet-head"><div class="sheet-title">🔍 ${t('Rechercher','חיפוש','Search')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="field"><input class="input" id="search-inp" value="${esc(_searchQ)}" placeholder="${t('Rechercher partout…','חיפוש בכל מקום…','Search everywhere…')}" oninput="searchUpdate(this.value)" autocomplete="off"></div>
+    <div id="search-results">${_searchResultsHTML()}</div>
+  </div>`; }
 function breadcrumbHTML(){
   let p=[];
   if(nav.view==='calendar'){
@@ -2690,6 +2713,8 @@ function sheetHTML(){
   else if(sheet.type==='themeQuick') inner=themeQuickSheet();
   else if(sheet.type==='dossMove') inner=dossMoveSheet();
   else if(sheet.type==='titleToTask') inner=titleToTaskSheet();
+  else if(sheet.type==='search') inner=searchSheet();
+  else if(sheet.type==='dossTplPick') inner=dossTplPickSheet();
   else if(sheet.type==='backups') inner=backupSheet();
   return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -3902,7 +3927,8 @@ function renderJournal(c){
       if(showRdvEv){ html+=`<div class="section-label" style="margin-top:4px">📅 ${t('Rendez-vous / Invitations','פגישות / הזמנות','Appointments / Invitations')} (${rdvEvents.length})</div>`; rdvEvents.forEach(o=>html+=jRdvRow(o)); }
       if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 ${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`; evs.forEach(x=>html+=jEventRow(x)); }
       if(showTasks){
-        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ ${t('À faire','לביצוע','To do')} (${taskItems.length})</span>`+
+        const _jMins=taskItems.reduce((a,o)=>a+totalDuration(o.t),0);
+        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ ${t('À faire','לביצוע','To do')} (${taskItems.length})${_jMins?' · ⏱ '+fmtM(_jMins):''}</span>`+
           (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:'')+`</div>`;
         if(jSort){ jSortGroups(taskItems,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
         else { taskItems.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
@@ -4142,6 +4168,10 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
     h+=`<button class="dd-item" data-act="closeDD();dossPickVideo(${idp})">🎬 ${t('Vidéo','וידאו','Video')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossPickFile(${idp})">📎 ${t('Fichier','קובץ','File')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossAddLink(${idp})">🔗 ${t('Lien','קישור','Link')}</button>`;
+    if(root){ h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
+      h+=`<button class="dd-item" data-act="dossSaveAsTemplate()">📋 ${t('Enregistrer comme modèle','שמור כתבנית','Save as template')}</button>`;
+      h+=`<button class="dd-item" data-act="dossInsertTemplateMenu()">📥 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</button>`;
+    }
     h+=`</div>`;
   }
   h+=`</span>`; return h; }
@@ -4198,6 +4228,18 @@ function convertMonthToDossiers(mId){ const m=D.months[mId]; if(!m){ toast('Mois
   m.fetes=(m.fetes||[]).filter(f=>f._monthGeneral);   // supprime les fêtes d'origine, garde le conteneur général
   save(); render(); toast(t('Converti en dossiers ✓','הומר לתיקיות ✓','Converted to folders ✓')); setView('bdd');
 }
+// — Modèles de dossier + duplication —
+function _freshTaskCopy(tk,reset){ const c=JSON.parse(JSON.stringify(tk)); c.id=uid(); if(reset)c.status='todo'; if(Array.isArray(c.subtasks)) c.subtasks=c.subtasks.map(s=>_freshTaskCopy(s,reset)); return c; }
+function _freshItems(items,reset){ return (items||[]).map(it=>{ if(it.kind){ const c=JSON.parse(JSON.stringify(it)); c.id=uid(); return c; } return _freshTaskCopy(it,reset); }); }
+function dossSaveAsTemplate(){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null; if(!Array.isArray(D.dossierTemplates))D.dossierTemplates=[]; D.dossierTemplates.push({id:uid(),name:d.name||'Modèle',items:_freshItems(d.items||[],true)}); save(); render(); toast(t('Dossier enregistré comme modèle ✓','התיקייה נשמרה כתבנית ✓','Folder saved as template ✓')); }
+function dossInsertTemplateMenu(){ openDD=null; if(!Array.isArray(D.dossierTemplates)||!D.dossierTemplates.length){ render(); toast(t("Aucun modèle. Enregistre d'abord un dossier comme modèle.",'אין תבניות עדיין. שמור קודם תיקייה כתבנית.','No template yet. Save a folder as template first.')); return; } sheet={type:'dossTplPick',id:nav.dossierId}; renderOverlay(); }
+function dossTplPickSheet(){ const tpls=D.dossierTemplates||[]; return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
+  <div class="hint" style="margin-bottom:8px">${t('Les titres et tâches du modèle sont copiés dans ce dossier (modifiables ensuite).','הכותרות והמשימות של התבנית יועתקו לתיקייה זו (ניתן לערוך).','The template titles and tasks are copied into this folder (editable).')}</div>
+  ${tpls.map(tp=>`<div class="card" style="margin-bottom:7px"><div class="card-body" style="padding:11px 12px"><div class="card-main" data-act="dossApplyTemplate('${tp.id}')" style="cursor:pointer"><div class="card-name">🗂️ ${esc(tp.name||'Modèle')}</div><div class="card-meta">${(tp.items||[]).filter(x=>x.kind==='title').length} ${t('titre(s)','כותרות','titles')} · ${(tp.items||[]).filter(x=>!x.kind).length} ${t('tâche(s)','משימות','tasks')}</div></div><button class="mini-btn danger" data-act="dossDelTemplate('${tp.id}')">🗑</button></div></div>`).join('')}
+</div>`; }
+function dossApplyTemplate(tid){ const d=dossierById(nav.dossierId); if(!d)return; const tp=(D.dossierTemplates||[]).find(x=>x.id===tid); if(!tp)return; d.items=(d.items||[]).concat(_freshItems(tp.items||[],true)); save(); closeSheet(); render(); toast(t('Modèle inséré ✓','התבנית הוכנסה ✓','Template inserted ✓')); }
+function dossDelTemplate(tid){ D.dossierTemplates=(D.dossierTemplates||[]).filter(x=>x.id!==tid); save(); renderOverlay(); }
+function dossDuplicate(id){ const d=dossierById(id||nav.dossierId); if(!d)return; if(!Array.isArray(D.dossiers))D.dossiers=[]; const descs=[...dossDescendantIds(d.id)]; const idmap={}; const clones=[]; descs.forEach(oid=>{ const o=dossierById(oid); if(!o)return; const c=JSON.parse(JSON.stringify(o)); c.id=uid(); idmap[oid]=c.id; c.items=_freshItems(o.items||[],false); clones.push({c,old:o}); }); clones.forEach(({c,old})=>{ if(old.id===d.id){ c.name=(old.name||'')+' '+t('(copie)','(עותק)','(copy)'); c.parentId=old.parentId||null; } else { c.parentId=idmap[old.parentId]||c.parentId; } D.dossiers.push(c); }); save(); const top=clones.find(x=>x.old.id===d.id); if(top){ openDossier(top.c.id); } else render(); toast(t('Dossier dupliqué ✓','התיקייה שוכפלה ✓','Folder duplicated ✓')); }
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
@@ -4282,7 +4324,7 @@ function renderDossier(c){
   if(kids.length){ html+=`<div class="section-label" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center"><span>📁 ${t('Sous-dossiers','תת-תיקיות','Sub-folders')}</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(kids,'child:'+d.id); }
   html+=`<div style="height:1px;background:var(--line-soft);margin:14px 0"></div>`;
   html+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;color:var(--ink-soft)">${t('Ajouter au dossier','הוסף לתיקייה','Add to folder')}</span>`+dossAddMenu({root:true})+`</div>`;
-  html+=`<div style="display:flex;gap:9px;margin-top:16px"><button class="btn btn-ghost btn-sm" style="flex:1" data-act="dossMoveOpen()">↗ ${t('Déplacer ce dossier','העבר תיקייה זו','Move this folder')}</button><button class="btn btn-ghost btn-sm" style="flex:1;color:var(--red)" data-act="delDossier('${d.id}')">🗑 ${t('Supprimer','מחק','Delete')}</button></div>`;
+  html+=`<div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px" data-act="dossMoveOpen()">↗ ${t('Déplacer','העבר','Move')}</button><button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px" data-act="dossDuplicate('${d.id}')">⧉ ${t('Dupliquer','שכפל','Duplicate')}</button><button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;color:var(--red)" data-act="delDossier('${d.id}')">🗑 ${t('Supprimer','מחק','Delete')}</button></div>`;
   c.innerHTML=html;
 }
 function themesHome(){ themeNav=null; render(); }
@@ -5019,7 +5061,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
