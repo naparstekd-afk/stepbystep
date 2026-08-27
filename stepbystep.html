@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a11">
+<meta name="app-build" content="b-2026-08-27-a12">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -471,7 +471,7 @@ function mkTask(text=''){
   return {id:uid(),text,responsible:'',status:'todo',duration:5,dependsOn:[],subtasks:[],notes:'',date:'',
     budget:{amount:0,theme:'Divers'},
     material:{type:'buy',note:'',lines:[]},
-    recurring:false,repeat:'',reminders:[30],debrief:'',priority:'normale'};   // repeat : '' | day | week | month | year (se reprogramme quand cochée) ; debrief : note post-événement ; priority : haute/normale/basse
+    recurring:false,repeat:'',reminders:[30],debrief:'',priority:'normale',media:[]};   // repeat : '' | day | week | month | year (se reprogramme quand cochée) ; media : pièces jointes (note/image/vidéo/fichier/lien) ; debrief : note post-événement ; priority : haute/normale/basse
 }
 // Rendez-vous / invitation : élément daté personnel (mariage, brit…), séparé des tâches à faire.
 function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',time:'',place:'',notes:'',reminders:[3],subtasks:[],duration:0,priority:'normale',responsible:'',dependsOn:[],budget:{amount:0,theme:'Divers'},material:{type:'buy',note:'',lines:[]},recurring:false,debrief:''}; }
@@ -2813,10 +2813,19 @@ function taskSheet(){
       </div>
       ${(t.reminders||[]).length?`<div class="deps" style="margin-top:8px">${(t.reminders||[]).slice().map(r=>`<span class="dep">🔔 ${remLabel(r)}<span class="dep-x" data-act="ebRmReminder('${r}')">✕</span></span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">'+TT('Ajoute un rappel (ex. J-30).','הוסף תזכורת (למשל 30 יום לפני).','Add a reminder (e.g. 30 days before).')+'</div>'}</div>`:''}
 
-    ${more.length?`<div class="dd" style="margin:16px 0 4px">
-      <button class="dd-btn" data-act="ebToggleMore()">＋ ${TT('Ajouter un champ','הוסף שדה','Add a field')} ▾</button>
-      ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}</div>`:''}
-    </div>`:''}
+    ${(t.media&&t.media.length)?`<div class="section-label">📎 ${TT('Contenu','תוכן','Content')}</div>${t.media.map(m=>ebMediaHTML(m)).join('')}`:''}
+
+    <div class="dd" style="margin:16px 0 4px">
+      <button class="dd-btn" data-act="ebToggleMore()">＋ ${TT('Ajouter','הוסף','Add')} ▾</button>
+      ${t._moreOpen?`<div class="dd-menu">${more.map(([k,l])=>`<button class="dd-item" data-act="ebReveal('${k}')">${l}</button>`).join('')}${more.length?`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`:''}
+        <button class="dd-item" data-act="ebAttachNote()">📝 ${TT('Note','הערה','Note')}</button>
+        <button class="dd-item" data-act="ebAttachImage()">🖼️ ${TT('Image','תמונה','Image')}</button>
+        <button class="dd-item" data-act="ebAttachCamera()">📷 ${TT('Caméra','מצלמה','Camera')}</button>
+        <button class="dd-item" data-act="ebAttachVideo()">🎬 ${TT('Vidéo','וידאו','Video')}</button>
+        <button class="dd-item" data-act="ebAttachFile()">📎 ${TT('Fichier','קובץ','File')}</button>
+        <button class="dd-item" data-act="ebAttachLink()">🔗 ${TT('Lien','קישור','Link')}</button>
+      </div>`:''}
+    </div>
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
       ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1" data-act="mvOpen()">↗ ${TT('Déplacer','העבר','Move')}</button>`}
@@ -2861,6 +2870,24 @@ function ebRemoveField(k){ syncInputs();
   renderOverlay();
 }
 function ebReveal(k){ syncInputs(); if(k==='who')editBuf._showWho=true; else if(k==='contact')editBuf._showContact=true; else if(k==='rem')editBuf._showRem=true; else if(k==='budget')editBuf._showBudget=true; else if(k==='mat')editBuf._showMat=true; else if(k==='deps')editBuf._showDeps=true; else if(k==='rec')editBuf._showRec=true; else if(k==='timer'){ editBuf._moreOpen=false; openTimer(); return; } editBuf._moreOpen=false; renderOverlay(); }
+// ---- Pièces jointes d'une tâche : note / image / caméra / vidéo / fichier / lien ----
+function _ebCompressImage(f, cb){ const rd=new FileReader(); rd.onload=()=>{ const img=new Image(); img.onload=()=>{ const max=1280; let w=img.width,h=img.height; if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } } let data; try{ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h); data=cv.toDataURL('image/jpeg',0.7); }catch(e){ data=rd.result; } if(data.length>2.2*1024*1024){ toast('Image trop lourde même compressée'); return; } cb({mtype:'image',data:data,name:f.name}); }; img.onerror=()=>toast('Image illisible'); img.src=rd.result; }; rd.readAsDataURL(f); }
+function _ebAddMedia(m){ if(!editBuf)return; if(!Array.isArray(editBuf.media))editBuf.media=[]; m.id=uid(); m.kind=m.kind||'media'; editBuf.media.push(m); editBuf._moreOpen=false; saveTask(true); renderOverlay(); toast('Ajouté ✓'); }
+function ebAttachNote(){ syncInputs(); if(!Array.isArray(editBuf.media))editBuf.media=[]; editBuf.media.push({id:uid(),kind:'note',text:''}); editBuf._moreOpen=false; saveTask(true); renderOverlay(); }
+function ebAttachImage(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)_ebCompressImage(f,_ebAddMedia); }; inp.click(); }
+function ebAttachCamera(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)_ebCompressImage(f,_ebAddMedia); }; inp.click(); }
+function ebAttachVideo(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2.5*1024*1024){ toast('Vidéo trop lourde (max ~2,5 Mo). Ajoute plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_ebAddMedia({mtype:'video',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function ebAttachFile(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='.pdf,.doc,.docx,.txt,.csv,image/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2*1024*1024){ toast('Fichier trop lourd (max 2 Mo). Utilise plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_ebAddMedia({mtype:'file',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function ebAttachLink(){ syncInputs(); const url=prompt('Colle le lien (https://…) :',''); if(url===null||!url.trim())return; let u=url.trim(); if(!/^https?:\/\//i.test(u)&&!/^mailto:|^tel:/i.test(u)) u='https://'+u; const nm=prompt('Nom du lien (optionnel) :','')||''; _ebAddMedia({mtype:'link',url:u,name:nm.trim()}); }
+function ebRmMedia(id){ syncInputs(); editBuf.media=(editBuf.media||[]).filter(x=>x.id!==id); saveTask(true); renderOverlay(); }
+function ebMediaNoteSet(id,v){ const m=(editBuf.media||[]).find(x=>x.id===id); if(m){ m.text=v; saveTask(true); } }
+function ebMediaHTML(m){ let inner='';
+  if(m.kind==='note'){ inner=`<textarea class="textarea" onchange="ebMediaNoteSet('${m.id}',this.value)" placeholder="${TT('Note, texte libre…','הערה…','Note…')}" style="min-height:52px;width:100%">${esc(m.text||'')}</textarea>`; }
+  else if(m.mtype==='image'){ inner=`<img src="${m.data}" style="max-width:100%;border-radius:8px;display:block">`; }
+  else if(m.mtype==='video'){ inner=`<video src="${m.data}" controls playsinline style="max-width:100%;border-radius:8px"></video>`; }
+  else if(m.mtype==='link'){ inner=`<a href="${esc(m.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;font-weight:600">🔗 ${esc(m.name||m.url)}</a>`; }
+  else { inner=`<a href="${m.data}" download="${esc(m.name||'fichier')}" style="color:var(--primary);font-weight:600">📎 ${esc(m.name||'Fichier')}</a>`; }
+  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0">${inner}</div><span data-act="ebRmMedia('${m.id}')" title="${TT('Retirer','הסר','Remove')}" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span></div></div>`; }
 // --- Contact / prestataire d'une tâche ---
 function _extractPhone(s){ const m=String(s||'').match(/\+?\d[\d\s().\-]{5,}\d/); return m?m[0].trim():''; }
 function ebContactSync(){ const n=$('f-cname'), p=$('f-cphone'); if(n||p){ if(!editBuf.contact)editBuf.contact={}; if(n)editBuf.contact.name=n.value; if(p)editBuf.contact.phone=p.value; } }
@@ -4907,7 +4934,7 @@ function commitDragOrder(kind){
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
  dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
- ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
+ ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
