@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a10">
+<meta name="app-build" content="b-2026-08-27-a11">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -4144,13 +4144,7 @@ function renderDossier(c){
         <button class="dd-item" data-act="closeDD();dossSetIcon()">✏️ ${t("Changer l'emoji",'שנה אמוji','Change emoji')}</button>
       </div>`:''}
     </span>
-    <span class="dd" style="position:relative;display:inline-block">
-      <button class="cbtn" data-act="toggleDD('dossdate')" title="${t('Date','תאריך','Date')}" style="${d.date?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">📅</button>
-      ${openDD==='dossdate'?`<div class="dd-menu" style="min-width:auto;padding:10px">
-        <input type="date" class="input" style="width:auto;padding:6px 9px;font-size:14px" value="${d.date||''}" onchange="dossSetDate(this.value)">
-        ${d.date?`<button class="dd-item" data-act="dossSetDate('');closeDD()">✕ ${t('Retirer la date','הסר תאריך','Remove date')}</button>`:''}
-      </div>`:''}
-    </span>
+    <label class="cbtn" title="${t('Date','תאריך','Date')}" style="position:relative;overflow:hidden;cursor:pointer;${d.date?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">📅<input type="date" value="${d.date||''}" onchange="dossSetDate(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0"></label>
     <span class="dd" style="position:relative;display:inline-block">
       <button class="cbtn" data-act="toggleDD('dossrec')" title="${t('Récurrence','חזרתיות','Recurrence')}" style="${d.recurring?'border-color:var(--gold);background:var(--gold-soft)':''}">${d.recurring?'🔄':'1️⃣'}</button>
       ${openDD==='dossrec'?`<div class="dd-menu">
