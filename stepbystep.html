@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a19">
+<meta name="app-build" content="b-2026-08-27-a20">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2400,26 +2400,41 @@ function annBuildText(shabbatIso){
     if(e.date) txt+=` — ${civilDate(e.date)} · 🕎 ${hebrewDate(e.date)}`;
     txt+='\n';
     if(e.public) txt+=`  Public : ${e.public}\n`;
-    if(an.text) txt+=`  ${an.text}\n`;
-    if(an.long){ const tot=e.tasks?e.tasks.length:0; txt+=`  (Programme détaillé disponible.)\n`; }
+    if(e.desc && e.desc.trim()) txt+=`  ${e.desc.trim().replace(/\n/g,'\n  ')}\n`;   // description de l'événement
+    if(an.text && an.text.trim()) txt+=`  ${an.text.trim().replace(/\n/g,'\n  ')}\n`;
     txt+='\n';
   });
-  txt+=`— Beth Habad · stepbystep`;
-  return txt;
+  return txt.replace(/\n+$/,'\n');
 }
 function openAnnonces(){ annAnchor=nextShabbat(); setView('annonces'); }
-function annSetDate(v){ annAnchor=v||nextShabbat(); render(); }
+function annSetDate(v){ annAnchor=v||nextShabbat(); openDD=null; render(); }
+function _annShort(iso){ try{ return new Date(iso+'T12:00:00').toLocaleDateString(_jLocale(),{day:'numeric',month:'short'}); }catch(e){ return iso; } }
+function _annParacha(iso){ return (D.shabbat&&D.shabbat[iso]&&D.shabbat[iso].paracha)||''; }
+function _annShabbatList(){ const out=[]; const d=new Date(nextShabbat()+'T12:00:00'); for(let i=0;i<16;i++){ const iso=todayKey(d); out.push({iso,par:_annParacha(iso)}); d.setDate(d.getDate()+7); } return out; }
 function renderAnnonces(c){
   const sh=annAnchor||nextShabbat();
   const txt=annBuildText(sh);
-  const n=annEventsFor(sh).length;
-  let html=`<div class="sec"><div><div class="sec-eyebrow">Automatique</div><div class="sec-title">📢 Annonces de Chabbat</div><div class="sec-sub">Prépare les annonces pour un Chabbat donné</div></div></div>`;
-  html+=`<div class="field"><label class="field-label">Chabbat concerné (samedi)</label><input class="input" type="date" value="${sh}" onchange="annSetDate(this.value)"></div>`;
-  html+=`<div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn btn-soft btn-sm" data-act="annSetDate('${nextShabbat()}')">Ce Chabbat</button><button class="btn btn-soft btn-sm" data-act="annNext(1)">Chabbat suivant ▶</button><button class="btn btn-soft btn-sm" data-act="annNext(-1)">◀ Précédent</button></div>`;
-  html+=`<div class="hint" style="margin-bottom:8px">${n} annonce(s) pour ce Chabbat. Texte modifiable ci-dessous, puis exporte.</div>`;
-  html+=`<div class="field"><textarea class="textarea" id="ann-text" style="min-height:230px;font-family:monospace;font-size:12.5px">${esc(txt)}</textarea></div>`;
-  html+=`<div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" data-act="annCopy()">📋 Copier</button><button class="btn btn-gold btn-sm" data-act="annWhatsApp()">📱 WhatsApp</button><button class="btn btn-soft btn-sm" data-act="annExport('pdf')">📄 PDF</button><button class="btn btn-soft btn-sm" data-act="annExport('doc')">📝 Word</button><button class="btn btn-soft btn-sm" data-act="annExport('csv')">📊 Excel</button><button class="btn btn-soft btn-sm" data-act="annExport('txt')">📃 Texte</button></div>`;
-  html+=`<div class="hint" style="margin-top:10px">⚠️ Export <b>Google Docs</b> = version en ligne (SaaS). Ici : PDF, Word (.doc), Excel (CSV), Texte, plus Copier / WhatsApp.</div>`;
+  const par=_annParacha(sh);
+  let html=`<div class="sec"><div><div class="sec-title">📢 ${t('Annonces de Chabbat','הודעות שבת','Shabbat announcements')}</div></div></div>`;
+  html+=`<div class="field"><label class="field-label">${t('Chabbat concerné (samedi)','שבת (יום שבת)','Shabbat (Saturday)')}</label><input class="input" type="date" value="${sh}" onchange="annSetDate(this.value)"></div>`;
+  // Navigation : ◀ précédent · [paracha ▾] · suivant ▶
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <button class="cbtn" data-act="annNext(-1)" title="${t('Chabbat précédent','שבת קודמת','Previous Shabbat')}">◀</button>
+    <span class="dd" style="flex:1;position:relative">
+      <button class="dd-btn on" style="width:100%;justify-content:center" data-act="toggleDD('annpick')">${par?esc(par):_annShort(sh)} ▾</button>
+      ${openDD==='annpick'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%);max-height:300px;overflow:auto;min-width:230px">${_annShabbatList().map(o=>`<button class="dd-item ${o.iso===sh?'sel':''}" data-act="annSetDate('${o.iso}')">${o.par?esc(o.par)+' · ':''}${_annShort(o.iso)}</button>`).join('')}</div>`:''}
+    </span>
+    <button class="cbtn" data-act="annNext(1)" title="${t('Chabbat suivant','שבת הבאה','Next Shabbat')}">▶</button>
+  </div>`;
+  html+=`<div class="field"><textarea class="textarea" id="ann-text" style="min-height:240px;font-family:monospace;font-size:12.5px">${esc(txt)}</textarea></div>`;
+  html+=`<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-gold btn-sm" data-act="annWhatsApp()">📱 WhatsApp</button>
+    <button class="btn btn-soft btn-sm" data-act="annExport('pdf')">📄 PDF</button>
+    <span class="dd" style="position:relative">
+      <button class="btn btn-soft btn-sm" data-act="toggleDD('annexp')">↓ ${t('Exporter','ייצוא','Export')} ▾</button>
+      ${openDD==='annexp'?`<div class="dd-menu"><button class="dd-item" data-act="closeDD();annCopy()">📋 ${t('Copier','העתק','Copy')}</button><button class="dd-item" data-act="closeDD();annExport('doc')">📝 Word</button><button class="dd-item" data-act="closeDD();annExport('csv')">📊 Excel</button><button class="dd-item" data-act="closeDD();annExport('txt')">📃 ${t('Texte','טקסט','Text')}</button></div>`:''}
+    </span>
+  </div>`;
   c.innerHTML=html;
 }
 function annNext(dir){ const d=new Date((annAnchor||nextShabbat())+'T12:00:00'); d.setDate(d.getDate()+dir*7); annAnchor=todayKey(d); render(); }
