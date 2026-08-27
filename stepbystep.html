@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a14">
+<meta name="app-build" content="b-2026-08-27-a15">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2459,7 +2459,7 @@ function qaReminder(){ if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask('')
 function quickAddSheet(){
   const ev=curEvent(); const cont=curContainer();
   const head=`<div class="sheet-head"><div class="sheet-title">${t('Ajouter','הוספה','Add')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
-  const IMPORT=t('Importer une liste (Docs / Sheets)','ייבוא רשימה (Docs / Sheets)','Import a list (Docs / Sheets)');
+  const IMPORT=t('Nouvelle liste de tâches','רשימת משימות חדשה','New task list');
   const NEWTASK=t('Nouvelle tâche','משימה חדשה','New task');
   const NEWEVENT=t('Nouvel événement','אירוע חדש','New event');
   const NEWFETE=t('Nouvelle fête','חג חדש','New holiday');
@@ -2495,9 +2495,9 @@ function quickAddSheet(){
   const pick = sheet.pick;
   if(!pick){
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ ${NEWTASK} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('sans date','ללא תאריך','no date')}</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rappel','תזכורת','Reminder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('un événement où je vais (mariage, bar-mitsva…)','אירוע שאני משתתף בו (חתונה, בר-מצווה…)','an event I attend (wedding, bar-mitzvah…)')}</span></button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')} <span style="opacity:.7;font-weight:400;font-size:12px">— ${t('titres + tâches','כותרות + משימות','titles + tasks')}</span></button>
+      <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ ${NEWTASK}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rappel','תזכורת','Reminder')}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('fete')">🎉 ${NEWFETE}</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="qaPick('event')">📌 ${NEWEVENT}</button>
       <button class="btn btn-soft btn-block" data-act="openImportList()">📋 ${IMPORT}</button>
@@ -2558,7 +2558,7 @@ function importListSheet(){
   const here=curEvent()||curContainer();
   const hereLabel=curEvent()?('cet événement « '+curEvent().name+' »'):(curContainer()?('« '+curContainer().name+' »'):'');
   const progs=(D.programs||[]).filter(p=>!p._general);
-  return `<div class="sheet-head"><div class="sheet-title">📋 Importer une liste</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Nouvelle liste de tâches','רשימת משימות חדשה','New task list')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div class="hint" style="margin-bottom:8px">Ouvre ton <b>Google Docs</b> ou <b>Google Sheets</b>, sélectionne ta liste, copie (Ctrl/Cmd+C) puis colle ci-dessous — <b>une tâche par ligne</b>.</div>
     <textarea class="textarea" id="imp-list" style="min-height:150px" placeholder="Acheter les bonbons&#10;Réserver la salle&#10;Imprimer les affiches"></textarea>
@@ -3941,11 +3941,11 @@ function themeQuickOpen(tid){ sheet={type:'themeQuick',tid:tid}; renderOverlay()
 function themeQuickSheet(){ const tid=sheet.tid; const th=themeById(tid); if(!th) return '<div class="sheet-head"><div class="sheet-title">—</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>';
   return `<div class="sheet-head"><div class="sheet-title">Ajouter</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddEvent('${tid}')">📌 Nouvelle activité <span style="opacity:.7;font-weight:400;font-size:12px">— sans date</span></button>
-    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddTask('${tid}')">✅ Nouvelle tâche <span style="opacity:.7;font-weight:400;font-size:12px">— dans le thème</span></button>
+    <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddEvent('${tid}')">📌 Nouvelle activité</button>
+    <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();themeAddTask('${tid}')">✅ Nouvelle tâche</button>
     <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier({kind:'theme',id:'${tid}'})">🗂️ Nouveau dossier</button>
     <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();addActivityToTheme('${tid}')">📅 Activité rattachée à un mois…</button>
-    <button class="btn btn-soft btn-block" data-act="openImportList()">📋 Importer une liste (Docs / Sheets)</button>
+    <button class="btn btn-soft btn-block" data-act="openImportList()">📋 ${t('Nouvelle liste de tâches','רשימת משימות חדשה','New task list')}</button>
     <div class="hint" style="margin-top:10px">Dans le thème « ${esc(th.name||'sans nom')} »</div>
   </div>`;
 }
