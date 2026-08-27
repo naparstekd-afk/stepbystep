@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a13">
+<meta name="app-build" content="b-2026-08-27-a14">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1771,9 +1771,7 @@ function jDisplayMenu(){
     <div class="divider" style="margin:6px 0"></div>
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Trier « À faire »','מיין « לביצוע »','Sort “To do”')}</div>
     <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ ${t('Ordre par défaut','סדר ברירת מחדל','Default order')}</button>
-    ${srt('urgency','⏱️',t('Par urgence','לפי דחיפות','By urgency'))}
     ${srt('theme','🗂️',t('Par catégorie','לפי קטגוריה','By category'))}
-    ${srt('where','📍',t('Par emplacement','לפי מיקום','By location'))}
   </div>`;
 }
 function jSortLabel(m){ return m==='theme'?t('Par catégorie','לפי קטגוריה','By category'):m==='where'?t('Par emplacement','לפי מיקום','By location'):m==='urgency'?t('Par urgence','לפי דחיפות','By urgency'):t('Trié','ממוין','Sorted'); }
@@ -2879,7 +2877,7 @@ function ebDurMode(m){ syncInputs(); editBuf._durManual=m; renderOverlay(); }
 function ebDurPick(v){ syncInputs(); editBuf.duration=parseInt(v)||0; editBuf._durManual=false; openDD=null; renderOverlay(); }
 function ebDurManual(){ syncInputs(); editBuf._durManual=true; openDD=null; renderOverlay(); setTimeout(()=>{ const e=$('f-dur'); if(e){ e.focus(); } },40); }
 function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'){ const txt=taskWAtext(editBuf); window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); return; } _expScope='task'; expRun(fmt); }
-function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); return s; }
+function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); (t.media||[]).forEach(m=>{ if(m.kind==='note'&&m.text)s+='\n   📝 '+m.text; else if(m.mtype==='link')s+='\n   🔗 '+(m.name?m.name+' : ':'')+m.url; else if(m.mtype==='image')s+='\n   🖼️ '+(m.name||'Image jointe'); else if(m.mtype==='video')s+='\n   🎬 '+(m.name||'Vidéo jointe'); else if(m.mtype==='file')s+='\n   📎 '+(m.name||'Fichier joint'); }); return s; }
 function subEditHTML(s,i){
   const st=stOf(s.status);
   const open = (editBuf._openSub===s.id);
@@ -4567,6 +4565,7 @@ function dlFile(name,mime,content){ try{ const blob=new Blob([content],{type:mim
 function _slug(s){ return ((s||'export').replace(/[^\w\-À-ÿ ]+/g,'').trim().replace(/\s+/g,'_').slice(0,40))||'export'; }
 function _pushTaskRow(rows,t,lvl){
   rows.push({lvl:lvl,type:'Tâche',nom:t.text||'',statut:stOf(t.status).label,resp:t.responsible||'',date:t.date||'',duree:t.duration?fmtM(t.duration):'',budget:(t.budget&&t.budget.amount)||'',note:(t.notes||'').replace(/\s+/g,' ')});
+  (t.media||[]).forEach(m=>{ let nom='',note=''; if(m.kind==='note'){ nom='📝 Note'; note=(m.text||'').replace(/\s+/g,' '); } else if(m.mtype==='link'){ nom='🔗 '+(m.name||'Lien'); note=m.url||''; } else if(m.mtype==='image'){ nom='🖼️ '+(m.name||'Image'); } else if(m.mtype==='video'){ nom='🎬 '+(m.name||'Vidéo'); } else { nom='📎 '+(m.name||'Fichier'); } rows.push({lvl:lvl+1,type:'Contenu',nom:nom,statut:'',resp:'',date:'',duree:'',budget:'',note:note}); });
   (t.subtasks||[]).forEach(s=>_pushTaskRow(rows,s,lvl+1));
 }
 function _rowsContainer(cont,label){
@@ -4588,8 +4587,28 @@ function _cell(s){ s=(s==null?'':String(s)); return '"'+s.replace(/"/g,'""')+'"'
 function expCsv(scope){ const g=expGather(scope); const head=['Niveau','Type','Nom','Statut','Responsable','Date','Durée','Budget','Note']; const lines=[head.join(';')]; g.rows.forEach(r=>lines.push([r.lvl,r.type,r.nom,r.statut,r.resp,r.date,r.duree,r.budget,r.note].map(_cell).join(';'))); dlFile(_slug(g.title)+'.csv','text/csv;charset=utf-8','﻿'+lines.join('\r\n')); toast('Excel (CSV) téléchargé'); }
 function expTxt(scope){ const g=expGather(scope); const lines=g.rows.map(r=>{ const ind='   '.repeat(r.lvl); let s=ind+'• '+r.nom; const meta=[]; if(r.statut)meta.push(r.statut); if(r.resp)meta.push('👤 '+r.resp); if(r.date)meta.push('📅 '+r.date); if(r.duree)meta.push('⏱ '+r.duree); if(r.budget)meta.push(r.budget+' €'); if(meta.length)s+='  ('+meta.join(' · ')+')'; if(r.note)s+='\n'+ind+'    ↳ '+r.note; return s; }); dlFile(_slug(g.title)+'.txt','text/plain;charset=utf-8',g.title+'\n'+'='.repeat(g.title.length)+'\n\n'+lines.join('\n')); toast('Texte téléchargé'); }
 function _docTable(title,rows){ let h='<h2 style="font-family:Georgia,serif;color:#1E3A6E">'+esc(title)+'</h2><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-family:Arial;font-size:12px"><tr style="background:#1E3A6E;color:#fff"><th>Type</th><th>Nom</th><th>Statut</th><th>Responsable</th><th>Date</th><th>Durée</th><th>Budget</th><th>Note</th></tr>'; rows.forEach(r=>{ h+='<tr><td>'+esc(r.type)+'</td><td style="padding-left:'+(8+r.lvl*18)+'px">'+esc(r.nom)+'</td><td>'+esc(r.statut)+'</td><td>'+esc(r.resp)+'</td><td>'+esc(r.date)+'</td><td>'+esc(r.duree)+'</td><td>'+(r.budget?esc(r.budget)+' €':'')+'</td><td>'+esc(r.note)+'</td></tr>'; }); return h+'</table>'; }
-function expDoc(scope){ const g=expGather(scope); const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body>'+_docTable(g.title,g.rows)+'</body></html>'; dlFile(_slug(g.title)+'.doc','application/msword','﻿'+html); toast('Word téléchargé'); }
-function expPdf(scope){ const g=expGather(scope); const html='<html><head><meta charset="utf-8"><title>'+esc(g.title)+'</title></head><body>'+_docTable(g.title,g.rows)+'</body></html>'; const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(html); d.close(); setTimeout(()=>{ try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000); },400); toast('Impression → Enregistrer en PDF'); }
+// Rassemble les pièces jointes (note/image/vidéo/fichier/lien) de toutes les tâches du périmètre exporté.
+function _collectMedia(scope){ const out=[]; const walkT=(t)=>{ (t.media||[]).forEach(m=>out.push({owner:t.text||'',m})); (t.subtasks||[]).forEach(walkT); };
+  if(scope==='task'&&editBuf){ walkT(editBuf); return out; }
+  if(scope==='event'){ const e=curEvent(); if(e)(e.tasks||[]).forEach(walkT); return out; }
+  if(scope==='fete'||scope==='program'){ const c=curContainer(); if(c){ (c.tasks||[]).forEach(walkT); (c.events||[]).forEach(e=>(e.tasks||[]).forEach(walkT)); } return out; }
+  Object.values(D.months||{}).forEach(m=>{ (m.tasks||[]).forEach(walkT); (m.fetes||[]).forEach(f=>{ (f.tasks||[]).forEach(walkT); (f.events||[]).forEach(e=>(e.tasks||[]).forEach(walkT)); }); });
+  (D.programs||[]).forEach(p=>(p.events||[]).forEach(e=>(e.tasks||[]).forEach(walkT)));
+  (D.inbox||[]).forEach(walkT);
+  (D.dossiers||[]).forEach(d=>(d.items||[]).filter(x=>!x.kind).forEach(walkT));
+  return out; }
+function _mediaAppendixHTML(scope){ const list=_collectMedia(scope); if(!list.length) return '';
+  let h='<h3 style="font-family:Georgia,serif;color:#1E3A6E;margin-top:22px">📎 Contenu joint</h3>';
+  list.forEach(({owner,m})=>{ h+='<div style="margin:10px 0;font-family:Arial;font-size:12px">'; if(owner)h+='<div style="color:#666;font-size:11px;margin-bottom:3px">'+esc(owner)+'</div>';
+    if(m.kind==='note'){ h+='<div>📝 '+esc(m.text||'')+'</div>'; }
+    else if(m.mtype==='image'){ h+='<img src="'+m.data+'" style="max-width:100%;max-height:420px;border-radius:6px">'; }
+    else if(m.mtype==='video'){ h+='<div>🎬 '+esc(m.name||'Vidéo')+'</div>'; }
+    else if(m.mtype==='link'){ h+='<div>🔗 <a href="'+esc(m.url)+'">'+esc(m.name||m.url)+'</a></div>'; }
+    else { h+='<div>📎 '+esc(m.name||'Fichier')+'</div>'; }
+    h+='</div>'; });
+  return h; }
+function expDoc(scope){ const g=expGather(scope); const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body>'+_docTable(g.title,g.rows)+_mediaAppendixHTML(scope)+'</body></html>'; dlFile(_slug(g.title)+'.doc','application/msword','﻿'+html); toast('Word téléchargé'); }
+function expPdf(scope){ const g=expGather(scope); const html='<html><head><meta charset="utf-8"><title>'+esc(g.title)+'</title></head><body>'+_docTable(g.title,g.rows)+_mediaAppendixHTML(scope)+'</body></html>'; const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(html); d.close(); setTimeout(()=>{ try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000); },400); toast('Impression → Enregistrer en PDF'); }
 function expRun(fmt){ if(!fmt)return; if(fmt==='csv')expCsv(_expScope); else if(fmt==='doc')expDoc(_expScope); else if(fmt==='txt')expTxt(_expScope); else if(fmt==='pdf')expPdf(_expScope); }
 function openExport(scope){ if(scope==='task')syncInputs(); _expScope=scope; sheet={type:'export'}; renderOverlay(); }
 function exportSheet(){
