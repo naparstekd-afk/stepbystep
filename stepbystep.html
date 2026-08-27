@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a22">
+<meta name="app-build" content="b-2026-08-27-a23">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1461,6 +1461,7 @@ function renderMonth(c){
   const mdoss=dossiersFor('month',nav.monthId);
   if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
   html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
+  if(realFetes.length){ html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px;color:var(--gold)" data-act="convertMonthToDossiers('${nav.monthId}')" title="${t('Les fêtes deviennent des dossiers datés, événements en sous-dossiers, tout est conservé','החגים הופכים לתיקיות','Holidays become dated folders')}">↦ ${t('Convertir les fêtes en dossiers','המר חגים לתיקיות','Convert holidays to folders')}</button>`; }
   c.innerHTML=html;
 }
 
@@ -2389,6 +2390,7 @@ function annEventsFor(shabbatIso){
   const add=(e,where)=>{ const an=e.announce; if(!an||!an.on||!e.date)return; const E=new Date(e.date+'T12:00:00'); const days=(E-S)/86400000; const weeks=an.weeks||1; if(days>=-1 && days<=weeks*7+1){ out.push({e,where,days}); } };
   Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); m.fetes.forEach(f=>f.events.forEach(e=>add(e,f.name))); });
   (D.programs||[]).filter(p=>!p._general).forEach(p=>p.events.forEach(e=>add(e,p.name)));
+  (D.dossiers||[]).forEach(d=>{ const par=d.parentId?((D.dossiers||[]).find(x=>x.id===d.parentId)||{}).name:''; add(d, par||''); });   // dossiers datés avec annonce activée
   out.sort((a,b)=>a.days-b.days);
   return out;
 }
@@ -4167,6 +4169,35 @@ function dossResetCycle(){ const d=dossierById(nav.dossierId); if(!d)return; ope
   (D.dossiers||[]).forEach(x=>{ if(ids.has(x.id)) (x.items||[]).forEach(it=>{ if(!it.kind) _resetTaskInPlace(it); }); });
   save(); render(); toast(t('Nouveau cycle : tâches réinitialisées ✓','מחזור חדש: המשימות אופסו ✓','New cycle: tasks reset ✓'));
 }
+// Annonce de Chabbat sur un dossier daté (comme un événement)
+function dossAnnToggle(){ const d=dossierById(nav.dossierId); if(!d)return; if(!d.announce)d.announce={weeks:1,text:'',on:false}; d.announce.on=!d.announce.on; save(); render(); }
+function dossAnnSet(k,v){ const d=dossierById(nav.dossierId); if(!d)return; if(!d.announce)d.announce={weeks:1,text:'',on:true}; d.announce[k]=v; save(); render(); }
+// Conversion des fêtes d'un mois en dossiers (tâches, événements, paramètres conservés) — supprime les fêtes d'origine.
+function convertMonthToDossiers(mId){ const m=D.months[mId]; if(!m){ toast('Mois introuvable'); return; }
+  const realFetes=(m.fetes||[]).filter(f=>!f._monthGeneral);
+  const mm=MONTHS.find(x=>x.id===mId);
+  if(!realFetes.length){ toast(t('Aucune fête à convertir','אין חגים להמרה','No holiday to convert')); return; }
+  if(!confirm(t('Convertir les '+realFetes.length+' fête(s) de '+(mm?mm.name:mId)+' en dossiers (tâches, événements et paramètres conservés) et supprimer les fêtes d\'origine ? Une sauvegarde est prise avant.','להמיר '+realFetes.length+' חגים לתיקיות ולמחוק את המקוריים? מתבצע גיבוי לפני.','Convert '+realFetes.length+' holiday(s) to folders and delete the originals? A backup is taken first.'))) return;
+  try{ snapshotBackup('avant conversion '+(mm?mm.name:mId)+' → dossiers',true); }catch(e){}
+  if(!Array.isArray(D.dossiers))D.dossiers=[];
+  const clone=x=>JSON.parse(JSON.stringify(x));
+  realFetes.forEach(f=>{
+    const top=mkDossier(f.name||'Fête'); top.color=f.color||null; top.date=f.date||''; top.recurring=!!f.recurring; top.anchor={kind:'month',id:mId};
+    if(f.announce)top.announce=clone(f.announce);
+    (f.tasks||[]).forEach(tk=>top.items.push(clone(tk)));
+    D.dossiers.push(top);
+    (f.events||[]).forEach(e=>{ const sub=mkDossier(e.name||'Événement'); sub.parentId=top.id; sub.date=e.date||''; sub.recurring=!!e.recurring; sub.color=f.color||null;
+      if(e.announce)sub.announce=clone(e.announce);
+      if(e.public)sub.public=e.public;
+      const notes=[]; if(e.desc&&String(e.desc).trim())notes.push(String(e.desc).trim()); if(e.report&&String(e.report).trim())notes.push(t('Compte rendu','דיווח','Report')+' : '+String(e.report).trim());
+      if(notes.length)sub.items.push({id:uid(),kind:'note',text:notes.join('\n\n')});
+      (e.tasks||[]).forEach(tk=>sub.items.push(clone(tk)));
+      D.dossiers.push(sub);
+    });
+  });
+  m.fetes=(m.fetes||[]).filter(f=>f._monthGeneral);   // supprime les fêtes d'origine, garde le conteneur général
+  save(); render(); toast(t('Converti en dossiers ✓','הומר לתיקיות ✓','Converted to folders ✓')); setView('bdd');
+}
 function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayout',v); }catch(e){} render(); }
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
@@ -4200,6 +4231,19 @@ function renderDossier(c){
         <button class="dd-item ${!d.recurring?'sel':''}" data-act="dossSetRecurring(false);closeDD()">1️⃣ ${t('Unique','חד-פעמי','One-time')}</button>
         <button class="dd-item ${d.recurring?'sel':''}" data-act="dossSetRecurring(true);closeDD()">🔄 ${t('Chaque année','כל שנה','Every year')}</button>
         ${d.recurring?`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div><button class="dd-item" style="color:var(--gold)" data-act="dossResetCycle()">🔁 ${t('Nouveau cycle (réinitialiser les tâches)','מחזור חדש (אפס משימות)','New cycle (reset tasks)')}</button>`:''}
+      </div>`:''}
+    </span>
+    <span class="dd" style="position:relative;display:inline-block">
+      <button class="cbtn" data-act="toggleDD('dossann')" title="${t('Annonce de Chabbat','הודעת שבת','Shabbat announcement')}" style="${(d.announce&&d.announce.on)?'background:var(--gold-soft);color:var(--gold);border-color:var(--gold)':''}">📢</button>
+      ${openDD==='dossann'?`<div class="dd-menu" style="min-width:238px;max-width:calc(100vw - 20px)">
+        <button class="dd-item" data-act="dossAnnToggle()">${(d.announce&&d.announce.on)?'☑':'☐'} ${t('Annoncer au Chabbat','להכריז בשבת','Announce at Shabbat')}</button>
+        ${!d.date?`<div class="hint" style="margin:4px 8px">${t("Ajoute d'abord une date (📅) — l'annonce paraît les Chabbat qui précèdent.",'הוסף קודם תאריך (📅).','Add a date first (📅).')}</div>`:''}
+        ${(d.announce&&d.announce.on)?`
+          <div style="padding:6px 11px 2px;font-size:12px;font-weight:700;color:var(--ink-soft)">${t('Combien de Chabbat avant ?','כמה שבתות לפני?','How many Shabbatot before?')}</div>
+          <div style="display:flex;gap:6px;padding:2px 11px 8px;flex-wrap:wrap">${[1,2,3,4].map(w=>`<button data-act="dossAnnSet('weeks',${w})" style="padding:5px 12px;border-radius:14px;border:1.5px solid ${(((d.announce.weeks)||1)===w)?'var(--gold)':'var(--line)'};background:${(((d.announce.weeks)||1)===w)?'var(--gold-soft)':'var(--surface)'};color:${(((d.announce.weeks)||1)===w)?'var(--gold)':'var(--ink-soft)'};font-size:13px;font-weight:600;cursor:pointer">${w}</button>`).join('')}</div>
+          <div style="padding:2px 11px 3px;font-size:12px;font-weight:700;color:var(--ink-soft)">${t('Texte de l\'annonce (optionnel)','טקסט ההודעה (אופציונלי)','Announcement text (optional)')}</div>
+          <div style="padding:0 11px 9px"><textarea class="textarea" style="min-height:56px;width:100%" onchange="dossAnnSet('text',this.value)">${esc((d.announce&&d.announce.text)||'')}</textarea></div>
+        `:''}
       </div>`:''}
     </span>
     ${d.date?`<span style="font-size:12px;color:var(--gold);font-weight:600">${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}</span>`:''}
@@ -4975,7 +5019,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
