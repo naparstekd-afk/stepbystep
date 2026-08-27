@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a17">
+<meta name="app-build" content="b-2026-08-27-a18">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1577,6 +1577,19 @@ function renderEvent(c){
       ${openDD==='evpublic'?`<div class="dd-menu">${(D.publics||[]).map((p,i)=>`<button class="dd-item ${ev.public===p?'sel':''}" data-act="setEventPublicI(${i})">${esc(p)}</button>`).join('')}${(D.publics||[]).length?'':`<div style="padding:8px 12px;font-size:12px;color:var(--ink-soft)">Aucun public défini</div>`}<button class="dd-item" data-act="setEventPublic('__new')">＋ Nouveau public…</button>${ev.public?`<button class="dd-item" style="color:var(--red)" data-act="setEventPublic('')">✕ Retirer</button>`:''}<button class="dd-item" data-act="openPublics()">⚙️ Gérer les publics</button></div>`:''}
     </span>
     ${ev.public?`<span style="font-size:12.5px;color:var(--primary);font-weight:600">${esc(ev.public)}</span>`:''}
+    <span class="dd" style="position:relative">
+      <button class="cbtn" data-act="toggleDD('evann')" title="${t('Annonce de Chabbat','הודעת שבת','Shabbat announcement')}" style="${(ev.announce&&ev.announce.on)?'background:var(--gold-soft);color:var(--gold);border-color:var(--gold)':''}">📢</button>
+      ${openDD==='evann'?`<div class="dd-menu" style="min-width:238px;max-width:calc(100vw - 20px)">
+        <button class="dd-item" data-act="evAnnToggle()">${(ev.announce&&ev.announce.on)?'☑':'☐'} ${t('Annoncer au Chabbat','להכריז בשבת','Announce at Shabbat')}</button>
+        ${!ev.date?`<div class="hint" style="margin:4px 8px">${t('Ajoute d\'abord une date à l\'événement (🗓) — l\'annonce paraît les Chabbat qui précèdent cette date.','הוסף קודם תאריך לאירוע (🗓).','Add a date to the event first (🗓).')}</div>`:''}
+        ${(ev.announce&&ev.announce.on)?`
+          <div style="padding:6px 11px 2px;font-size:12px;font-weight:700;color:var(--ink-soft)">${t('Combien de Chabbat avant ?','כמה שבתות לפני?','How many Shabbatot before?')}</div>
+          <div style="display:flex;gap:6px;padding:2px 11px 8px;flex-wrap:wrap">${[1,2,3,4].map(w=>`<button data-act="evAnnSet('weeks',${w})" style="padding:5px 12px;border-radius:14px;border:1.5px solid ${((ev.announce.weeks||1)===w)?'var(--gold)':'var(--line)'};background:${((ev.announce.weeks||1)===w)?'var(--gold-soft)':'var(--surface)'};color:${((ev.announce.weeks||1)===w)?'var(--gold)':'var(--ink-soft)'};font-size:13px;font-weight:600;cursor:pointer">${w}</button>`).join('')}</div>
+          <div style="padding:2px 11px 3px;font-size:12px;font-weight:700;color:var(--ink-soft)">${t('Texte de l\'annonce (optionnel)','טקסט ההודעה (אופציונלי)','Announcement text (optional)')}</div>
+          <div style="padding:0 11px 9px"><textarea class="textarea" style="min-height:56px;width:100%" placeholder="${t('Ex. Cours de Torah dimanche 20h, tout le monde est invité…','...','...')}" onchange="evAnnSet('text',this.value)">${esc(ev.announce.text||'')}</textarea></div>
+        `:''}
+      </div>`:''}
+    </span>
   </div>`;
 
   // Description propre à l'événement — repliée tant qu'elle est vide (gain de place).
