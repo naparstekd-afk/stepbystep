@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a26">
+<meta name="app-build" content="b-2026-08-27-a27">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1459,9 +1459,7 @@ function renderMonth(c){
     html+=`<div class="sec-sub">${nFetes(realFetes.length)}${tb?' · '+fmtE(tb):''}</div>`;
   }
   html+=`</div></div>`;
-  if(!realFetes.length){
-    html+=emptyHTML(m.emoji,t('Aucune fête ce mois','אין חגים בחודש זה','No holiday this month'),t('Ajoute une fête (bouton + en bas), ou un événement libre ci-dessous.','הוסף חג (כפתור + למטה), או אירוע חופשי למטה.','Add a holiday (+ button below), or a free event below.'),'','');
-  } else {
+  if(realFetes.length){
     sortByDate(realFetes).forEach(f=>{
       const all=f.events.reduce((a,e)=>a.concat(e.tasks),[]).concat(f.tasks||[]);
       const tot=countAll(all),dn=countAllDone(all),pct=tot?Math.round(dn/tot*100):0;
@@ -1508,7 +1506,6 @@ function renderMonth(c){
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ ${t('Tâches du mois','משימות החודש','Month tasks')}</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
   const mdoss=dossiersFor('month',nav.monthId);
   if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
-  html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" data-act="newDossier({kind:'month',id:'${nav.monthId}'})">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
   if(realFetes.length){ html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px;color:var(--gold)" data-act="convertMonthToDossiers('${nav.monthId}')" title="${t('Les fêtes deviennent des dossiers datés, événements en sous-dossiers, tout est conservé','החגים הופכים לתיקיות','Holidays become dated folders')}">↦ ${t('Convertir les fêtes en dossiers','המר חגים לתיקיות','Convert holidays to folders')}</button>`; }
   c.innerHTML=html;
 }
@@ -1971,16 +1968,10 @@ function toggleDrawer(open){ drawerOpen=open; renderOverlay(); }
 // ---------- DRAWER (menu complet) ----------
 function drawerHTML(){
   const items=[
-    [t('ESPACES','מרחבים','SPACES'),[
-      ['journal','📔',t('Ma Journée','היום שלי','My Day'),null],
+    ['',[
       ['report','📋',t('Compte rendu','דיווח','Report'),null],
-      ['calendar','📅',t('Calendrier des fêtes','לוח החגים','Holiday Calendar'),null],
-      ['bdd','🗂️',t('Dossiers','תיקיות','Folders'),null],
-    ]],
-    [t('OUTILS','כלים','TOOLS'),[
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
-      ['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard'),null],
-      ['suppliers','📇',t('Fournisseurs & contacts','ספקים ואנשי קשר','Suppliers & Contacts'),null],
+      ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
       ['agenda','📆',t('Agenda (jour/semaine/mois)','יומן','Agenda'),null],
       ['publics','🎯',t('Mon public','הקהל שלי','My Audience'),null],
@@ -2004,7 +1995,7 @@ function drawerHTML(){
   items.forEach(([sec,list])=>{
     const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='templates'||menuVisible(v));
     if(!vis.length) return;
-    body+=`<div class="drawer-sec">${sec}</div>`;
+    if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
       const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
@@ -2378,7 +2369,7 @@ function ideaSheet(){
 }
 function renderIdeas(c){
   const list=D.ideas||[];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Capture rapide','לכידה מהירה','Quick capture')}</div><div class="sec-title">💡 ${t('Idées','רעיונות','Ideas')}</div><div class="sec-sub">${t('Note une idée en un instant — touche le + en bas','רשום רעיון ברגע אחד — גע ב-+ למטה','Jot an idea in an instant — tap + below')}</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-title">💡 ${t('Idées','רעיונות','Ideas')}</div></div></div>`;
   if(!list.length){ html+=`<div class="empty"><div class="empty-icon">💡</div><div class="empty-title">${t('Aucune idée','אין רעיונות','No ideas')}</div><div class="empty-text">${t('Touche le bouton + en bas pour en ajouter une.','גע בכפתור + למטה כדי להוסיף אחד.','Tap the + button below to add one.')}</div></div>`; }
   list.forEach(it=>{ const nimg=(it.attachments||[]).length;
     html+=`<div class="card" data-act="editIdea('${it.id}')"><div class="card-body"><div class="card-main"><div class="card-name">${it.title?esc(it.title):(it.text?esc(it.text.slice(0,40)):t('(sans titre)','(ללא כותרת)','(untitled)'))}</div><div class="card-meta">${it.title&&it.text?esc(it.text.slice(0,50)):''}${nimg?` <span class="tag tag-sub">📎 ${nimg}</span>`:''} <span style="color:var(--ink-soft);font-size:11px">${fmtDate(it.created)}</span></div></div><button class="mini-btn danger" data-act="event.stopPropagation();delIdea('${it.id}')">🗑</button></div></div>`;
@@ -2582,7 +2573,29 @@ function openAnnonces(){ annAnchor=nextShabbat(); setView('annonces'); }
 function annSetDate(v){ annAnchor=v||nextShabbat(); openDD=null; render(); }
 function _annShort(iso){ try{ return new Date(iso+'T12:00:00').toLocaleDateString(_jLocale(),{day:'numeric',month:'short'}); }catch(e){ return iso; } }
 function _annParacha(iso){ return (D.shabbat&&D.shabbat[iso]&&D.shabbat[iso].paracha)||''; }
-function _annShabbatList(){ const out=[]; const d=new Date(nextShabbat()+'T12:00:00'); for(let i=0;i<16;i++){ const iso=todayKey(d); out.push({iso,par:_annParacha(iso)}); d.setDate(d.getDate()+7); } return out; }
+// Nom de la fête juive tombant ce jour (calendrier hébraïque) — sinon ''.
+function _hebFete(iso){ try{ const d=new Date(iso+'T12:00:00'); const parts=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long'}).formatToParts(d); let day=0,mon=''; parts.forEach(p=>{ if(p.type==='day')day=parseInt(p.value); if(p.type==='month')mon=p.value; });
+  const is=(n)=>mon.indexOf(n)===0;
+  if(is('Tishri')){ if(day===1||day===2) return t('Roch Hachana','ראש השנה','Rosh Hashana'); if(day===10) return t('Yom Kippour','יום כיפור','Yom Kippur'); if(day>=15&&day<=21) return t('Souccot','סוכות','Sukkot'); if(day===22) return t('Chemini Atséret','שמיני עצרת','Shemini Atzeret'); if(day===23) return t("Sim'hat Torah",'שמחת תורה','Simchat Torah'); }
+  else if(is('Kislev')){ if(day>=25) return t('Hanoucca','חנוכה','Hanukkah'); }
+  else if(is('Tevet')){ if(day<=2) return t('Hanoucca','חנוכה','Hanukkah'); }
+  else if(is('Shevat')){ if(day===15) return t('Tou Bichvat','ט״ו בשבט','Tu BiShvat'); }
+  else if(is('Adar')){ if(day===14) return t('Pourim','פורים','Purim'); if(day===15) return t('Chouchan Pourim','שושן פורים','Shushan Purim'); }
+  else if(is('Nisan')){ if(day>=15&&day<=21) return t("Pessa'h",'פסח','Pesach'); }
+  else if(is('Iyar')){ if(day===18) return t('Lag Baomer','ל״ג בעומר','Lag BaOmer'); }
+  else if(is('Sivan')){ if(day===6||day===7) return t('Chavouot','שבועות','Shavuot'); }
+  else if(is('Av')){ if(day===9) return t('Ticha Béav','תשעה באב','Tisha BeAv'); if(day===15) return t('Tou Béav','ט״ו באב','Tu BeAv'); }
+  return '';
+ }catch(e){ return ''; } }
+// Étiquette du sélecteur : fête juive du jour, sinon paracha saisie, sinon date courte.
+function _annLabel(iso){ return _hebFete(iso) || _annParacha(iso) || _annShort(iso); }
+function _annShabbatList(){ const out=[], seen={};
+  let s=new Date(nextShabbat()+'T12:00:00');
+  for(let i=0;i<16;i++){ const iso=todayKey(s); out.push({iso,par:_annParacha(iso),fete:_hebFete(iso)}); seen[iso]=1; s.setDate(s.getDate()+7); }
+  // Jours de fête juive dans la même fenêtre (pas seulement les samedis).
+  let c=new Date(nextShabbat()+'T12:00:00'); c.setDate(c.getDate()-7);
+  for(let i=0;i<16*7+14;i++){ const iso=todayKey(c); const f=_hebFete(iso); if(f && !seen[iso]){ out.push({iso,par:'',fete:f}); seen[iso]=1; } c.setDate(c.getDate()+1); }
+  out.sort((a,b)=>a.iso<b.iso?-1:1); return out; }
 function renderAnnonces(c){
   const sh=annAnchor||nextShabbat();
   const txt=annBuildText(sh);
@@ -2593,8 +2606,8 @@ function renderAnnonces(c){
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <button class="cbtn" data-act="annNext(-1)" title="${t('Chabbat précédent','שבת קודמת','Previous Shabbat')}">◀</button>
     <span class="dd" style="flex:1;position:relative">
-      <button class="dd-btn on" style="width:100%;justify-content:center" data-act="toggleDD('annpick')">${par?esc(par):_annShort(sh)} ▾</button>
-      ${openDD==='annpick'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%);max-height:300px;overflow:auto;min-width:230px">${_annShabbatList().map(o=>`<button class="dd-item ${o.iso===sh?'sel':''}" data-act="annSetDate('${o.iso}')">${o.par?esc(o.par)+' · ':''}${_annShort(o.iso)}</button>`).join('')}</div>`:''}
+      <button class="dd-btn on" style="width:100%;justify-content:center" data-act="toggleDD('annpick')">${esc(_annLabel(sh))} ▾</button>
+      ${openDD==='annpick'?`<div class="dd-menu" style="left:50%;transform:translateX(-50%);max-height:300px;overflow:auto;min-width:230px">${_annShabbatList().map(o=>`<button class="dd-item ${o.iso===sh?'sel':''}" data-act="annSetDate('${o.iso}')">${o.fete?esc(o.fete)+' · ':(o.par?esc(o.par)+' · ':'')}${_annShort(o.iso)}</button>`).join('')}</div>`:''}
     </span>
     <button class="cbtn" data-act="annNext(1)" title="${t('Chabbat suivant','שבת הבאה','Next Shabbat')}">▶</button>
   </div>`;
@@ -2659,7 +2672,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -2696,7 +2709,8 @@ function quickAddSheet(){
   if(nav.view==='calendar' && nav.monthId){
     const mm=MONTHS.find(x=>x.id===nav.monthId);
     return head+`<div class="sheet-body">
-      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();qaFeteNamed()">🎉 ${NEWFETE}</button>
+      <button class="btn btn-primary btn-block" style="margin-bottom:8px" data-act="closeSheet();newDossier({kind:'month',id:'${nav.monthId}'})">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();qaFeteNamed()">🎉 ${NEWFETE}</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:8px" data-act="closeSheet();qaEventInMonthNamed()">📌 ${NEWEVENT}</button>
       <button class="btn btn-soft btn-block" data-act="closeSheet();qaTaskInMonth()">✅ ${NEWTASK}</button>
       <button class="btn btn-soft btn-block" style="margin-top:8px" data-act="openImportList()">📋 ${IMPORT}</button>
@@ -2861,6 +2875,9 @@ function sheetHTML(){
   else if(sheet.type==='titleToTask') inner=titleToTaskSheet();
   else if(sheet.type==='search') inner=searchSheet();
   else if(sheet.type==='dossTplPick') inner=dossTplPickSheet();
+  else if(sheet.type==='provFiche') inner=provFicheSheet();
+  else if(sheet.type==='provAdd') inner=provAddSheet();
+  else if(sheet.type==='provPick') inner=provPickSheet();
   else if(sheet.type==='backups') inner=backupSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
@@ -3014,6 +3031,7 @@ function taskSheet(){
         <button class="dd-item" data-act="ebAttachVideo()">🎬 ${TT('Vidéo','וידאו','Video')}</button>
         <button class="dd-item" data-act="ebAttachFile()">📎 ${TT('Fichier','קובץ','File')}</button>
         <button class="dd-item" data-act="ebAttachLink()">🔗 ${TT('Lien','קישור','Link')}</button>
+        <button class="dd-item" data-act="ebAttachProv()">📇 ${TT('Prestataire','ספק','Supplier')}</button>
       </div>`:''}
     </div>
 
@@ -3069,9 +3087,11 @@ function ebAttachCamera(){ syncInputs(); const inp=document.createElement('input
 function ebAttachVideo(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2.5*1024*1024){ toast('Vidéo trop lourde (max ~2,5 Mo). Ajoute plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_ebAddMedia({mtype:'video',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
 function ebAttachFile(){ syncInputs(); const inp=document.createElement('input'); inp.type='file'; inp.accept='.pdf,.doc,.docx,.txt,.csv,image/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2*1024*1024){ toast('Fichier trop lourd (max 2 Mo). Utilise plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_ebAddMedia({mtype:'file',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
 function ebAttachLink(){ syncInputs(); const url=prompt('Colle le lien (https://…) :',''); if(url===null||!url.trim())return; let u=url.trim(); if(!/^https?:\/\//i.test(u)&&!/^mailto:|^tel:/i.test(u)) u='https://'+u; const nm=prompt('Nom du lien (optionnel) :','')||''; _ebAddMedia({mtype:'link',url:u,name:nm.trim()}); }
+function ebAttachProv(){ syncInputs(); if(editBuf)editBuf._moreOpen=false; saveTask(true); openProvPick({ctx:'task'}); }
 function ebRmMedia(id){ syncInputs(); editBuf.media=(editBuf.media||[]).filter(x=>x.id!==id); saveTask(true); renderOverlay(); }
 function ebMediaNoteSet(id,v){ const m=(editBuf.media||[]).find(x=>x.id===id); if(m){ m.text=v; saveTask(true); } }
 function ebMediaHTML(m){ let inner='';
+  if(m.kind==='prov'){ return provRefHTML(m.provId, "ebRmMedia('"+m.id+"')"); }
   if(m.kind==='note'){ inner=`<textarea class="textarea" onchange="ebMediaNoteSet('${m.id}',this.value)" placeholder="${TT('Note, texte libre…','הערה…','Note…')}" style="min-height:52px;width:100%">${esc(m.text||'')}</textarea>`; }
   else if(m.mtype==='image'){ inner=`<img src="${m.data}" style="max-width:100%;border-radius:8px;display:block">`; }
   else if(m.mtype==='video'){ inner=`<video src="${m.data}" controls playsinline style="max-width:100%;border-radius:8px"></video>`; }
@@ -3092,7 +3112,7 @@ function ebDurMode(m){ syncInputs(); editBuf._durManual=m; renderOverlay(); }
 function ebDurPick(v){ syncInputs(); editBuf.duration=parseInt(v)||0; editBuf._durManual=false; openDD=null; renderOverlay(); }
 function ebDurManual(){ syncInputs(); editBuf._durManual=true; openDD=null; renderOverlay(); setTimeout(()=>{ const e=$('f-dur'); if(e){ e.focus(); } },40); }
 function taskExport(fmt){ syncInputs(); if(editBuf)saveTask(true); if(fmt==='wa'){ const txt=taskWAtext(editBuf); window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); return; } _expScope='task'; expRun(fmt); }
-function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); (t.media||[]).forEach(m=>{ if(m.kind==='note'&&m.text)s+='\n   📝 '+m.text; else if(m.mtype==='link')s+='\n   🔗 '+(m.name?m.name+' : ':'')+m.url; else if(m.mtype==='image')s+='\n   🖼️ '+(m.name||'Image jointe'); else if(m.mtype==='video')s+='\n   🎬 '+(m.name||'Vidéo jointe'); else if(m.mtype==='file')s+='\n   📎 '+(m.name||'Fichier joint'); }); return s; }
+function taskWAtext(t){ let s='✅ '+(t.text||'Tâche'); const meta=[]; if(t.responsible)meta.push('👤 '+t.responsible); if(t.date)meta.push('📅 '+fmtDate(t.date)); if(t.duration)meta.push('⏱ '+fmtDurH(t.duration)); if(t.budget&&t.budget.amount)meta.push('💶 '+fmtE(t.budget.amount)); if(meta.length)s+='\n'+meta.join(' · '); if(t.status)s+='\n📌 '+stOf(t.status).label; if(t.notes)s+='\n📝 '+t.notes; (t.subtasks||[]).forEach(x=>{ s+='\n   ▫ '+x.text+(x.status==='done'?' ✓':''); }); (t.material&&t.material.lines||[]).forEach(l=>{ if(l.product)s+='\n   🛒 '+(l.qty?l.qty+' × ':'')+l.product+(l.store?' ('+l.store+')':''); }); (t.media||[]).forEach(m=>{ if(m.kind==='prov'){ const p=provById(m.provId); if(p)s+='\n   📇 '+(p.name||'')+(p.phone?' — '+p.phone:''); } else if(m.kind==='note'&&m.text)s+='\n   📝 '+m.text; else if(m.mtype==='link')s+='\n   🔗 '+(m.name?m.name+' : ':'')+m.url; else if(m.mtype==='image')s+='\n   🖼️ '+(m.name||'Image jointe'); else if(m.mtype==='video')s+='\n   🎬 '+(m.name||'Vidéo jointe'); else if(m.mtype==='file')s+='\n   📎 '+(m.name||'Fichier joint'); }); return s; }
 function subEditHTML(s,i){
   const st=stOf(s.status);
   const open = (editBuf._openSub===s.id);
@@ -4030,7 +4050,7 @@ function renderJournal(c){
     </div>
     <button class="cbtn" data-act="jNav(1)" title="${t('Suivant','הבא','Next')}">${lang==='he'?'◀':'▶'}</button>
     <div class="dd" style="position:relative">
-      <button class="cbtn${_dispActive?' on':''}" data-act="toggleDD('jdisplay')" title="Afficher / trier" style="${_dispActive?'background:var(--primary-soft);color:var(--primary);border-color:var(--primary)':''}">👁${_dispActive?' •':''} ▾</button>
+      <button class="cbtn${_dispActive?' on':''}" data-act="toggleDD('jdisplay')" title="Afficher / trier" style="${_dispActive?'background:var(--primary-soft);color:var(--primary);border-color:var(--primary)':''}">👁${_dispActive?' •':''}</button>
       ${openDD==='jdisplay'?jDisplayMenu():''}
     </div>
   </div>
@@ -4229,16 +4249,26 @@ function dossiersStandalone(){ return _sortDoss((D.dossiers||[]).filter(d=>!d.pa
 function dossierChildren(id){ return _sortDoss((D.dossiers||[]).filter(d=>d.parentId===id)); }
 function dossDescendantIds(id){ const out=new Set([id]); let added=true; while(added){ added=false; (D.dossiers||[]).forEach(d=>{ if(d.parentId && out.has(d.parentId) && !out.has(d.id)){ out.add(d.id); added=true; } }); } return out; }
 function dossAddSub(){ const d=dossierById(nav.dossierId); if(!d)return; const k=mkDossier(''); k.parentId=d.id; D.dossiers.push(k); save(); openDossier(k.id); }
-function dossMoveOpen(){ sheet={type:'dossMove',id:nav.dossierId}; renderOverlay(); }
-function dossMoveTo(target){ const d=dossierById(sheet.id); if(!d)return; if(target==='__root'){ d.parentId=null; } else { const desc=dossDescendantIds(d.id); if(desc.has(target)){ toast('Impossible : dossier cible à l\'intérieur de celui-ci'); return; } d.parentId=target; } save(); closeSheet(); render(); toast('Dossier déplacé ✓'); }
+let _dossMoveNav=null;
+function dossMoveOpen(){ _dossMoveNav=null; sheet={type:'dossMove',id:nav.dossierId}; renderOverlay(); }
+function dossMoveNavTo(id){ _dossMoveNav=id||null; renderOverlay(); }
+function dossMoveTo(target){ const d=dossierById(sheet.id); if(!d)return; if(target==='__root'){ d.parentId=null; } else { const desc=dossDescendantIds(d.id); if(desc.has(target)){ toast(t('Impossible : dossier cible à l\'intérieur de celui-ci','לא ניתן: היעד נמצא בתוך זה','Cannot: target is inside this one')); return; } d.parentId=target; } save(); closeSheet(); render(); toast(t('Dossier déplacé ✓','התיקייה הועברה ✓','Folder moved ✓')); }
+function dossDupTo(target){ const d=dossierById(sheet.id); if(!d)return; const parent=(target==='__root')?null:target; if(parent){ const desc=dossDescendantIds(d.id); if(desc.has(parent)){ toast(t('Impossible : dossier cible à l\'intérieur de celui-ci','לא ניתן','Cannot')); return; } } if(!Array.isArray(D.dossiers))D.dossiers=[]; const descs=[...dossDescendantIds(d.id)]; const idmap={}; const clones=[]; descs.forEach(oid=>{ const o=dossierById(oid); if(!o)return; const c=JSON.parse(JSON.stringify(o)); c.id=uid(); idmap[oid]=c.id; c.items=_freshItems(o.items||[],false); clones.push({c,old:o}); }); clones.forEach(({c,old})=>{ if(old.id===d.id){ c.name=(old.name||'')+' '+t('(copie)','(עותק)','(copy)'); c.parentId=parent; } else { c.parentId=idmap[old.parentId]||c.parentId; } D.dossiers.push(c); }); save(); closeSheet(); const top=clones.find(x=>x.old.id===d.id); if(top)openDossier(top.c.id); else render(); toast(t('Dossier dupliqué ✓','התיקייה שוכפלה ✓','Folder duplicated ✓')); }
 function dossMoveSheet(){ const d=dossierById(sheet.id); if(!d) return '<div class="sheet-head"><div class="sheet-title">—</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>';
   const desc=dossDescendantIds(d.id);
-  const others=(D.dossiers||[]).filter(x=>!desc.has(x.id));
-  let h=`<div class="sheet-head"><div class="sheet-title">↗ Déplacer « ${esc(d.name||'dossier')} »</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">`;
-  h+=`<div class="hint" style="margin-bottom:8px">Où ranger ce dossier ?</div>`;
-  h+=`<div class="mvdest"><div class="mvdest-name">🏠 Dossier général (racine)</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="dossMoveTo('__root')">Ici</button></div></div>`;
-  if(others.length){ h+=`<div class="section-label" style="margin-top:8px">Dans un autre dossier</div>`; others.forEach(x=>{ h+=`<div class="mvdest"><div class="mvdest-name">${(x.icon&&x.icon!=='🗂️')?x.icon+' ':''}${esc(x.name||'Dossier sans nom')}</div><div class="mvdest-acts"><button class="btn btn-primary btn-sm" data-act="dossMoveTo('${x.id}')">Ici</button></div></div>`; }); }
-  else h+=`<div class="hint">Aucun autre dossier disponible.</div>`;
+  const cur=_dossMoveNav?dossierById(_dossMoveNav):null;
+  if(_dossMoveNav && !cur){ _dossMoveNav=null; }
+  const path=[]; { let c=cur, g=0; while(c&&g++<50){ path.unshift(c); c=c.parentId?dossierById(c.parentId):null; } }
+  const kids=(D.dossiers||[]).filter(x=>x.parentId===(_dossMoveNav||null) && !desc.has(x.id));
+  let h=`<div class="sheet-head"><div class="sheet-title">↗ ${t('Déplacer','העבר','Move')} « ${esc(d.name||'dossier')} »</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:13px"><span data-act="dossMoveNavTo(null)" style="cursor:pointer;font-weight:${_dossMoveNav?'600':'800'};color:${_dossMoveNav?'var(--primary)':'var(--ink)'}">🏠 ${t('Racine','שורש','Root')}</span>`+path.map((f,i)=>{ const last=i===path.length-1; return `<span style="color:var(--ink-soft)">›</span><span data-act="dossMoveNavTo('${f.id}')" style="cursor:pointer;font-weight:${last?'800':'600'};color:${last?'var(--ink)':'var(--primary)'}">${esc(f.name||'')}</span>`; }).join('')+`</div>${dossLayoutToggleHTML()}</div>`;
+  const destName = cur? (cur.name||t('ce dossier','תיקייה זו','this folder')) : t('Dossier général (racine)','תיקייה כללית (שורש)','General folder (root)');
+  const destTarget = cur? cur.id : '__root';
+  h+=`<div class="card" style="padding:12px 14px;margin-bottom:12px"><div style="font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:2px">${t('Ranger dans','שים בתוך','Place in')}</div><div style="font-weight:800;font-size:15px;margin-bottom:9px">${cur?'📁 ':'🏠 '}${esc(destName)}</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-block" style="flex:1" data-act="dossMoveTo('${destTarget}')">↦ ${t('Déplacer ici','העבר לכאן','Move here')}</button><button class="btn btn-soft btn-block" style="flex:1" data-act="dossDupTo('${destTarget}')">⧉ ${t('Dupliquer ici','שכפל לכאן','Duplicate here')}</button></div></div>`;
+  if(kids.length){ h+=`<div class="section-label">${t('Ouvrir un sous-dossier','פתח תת-תיקייה','Open a sub-folder')}</div>`;
+    if(dossLayout==='grid'){ h+=`<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+kids.map(k=>`<div class="tile" data-act="dossMoveNavTo('${k.id}')"><div class="tile-ic">${k.icon||'🗂️'}</div><div class="tile-name">${esc(k.name||'Sans nom')}</div></div>`).join('')+`</div>`; }
+    else { kids.forEach(k=>{ const sub=(D.dossiers||[]).filter(x=>x.parentId===k.id).length; h+=`<div class="card" data-act="dossMoveNavTo('${k.id}')"><div class="card-body"><div class="card-icon">${k.icon||'🗂️'}</div><div class="card-main"><div class="card-name">${esc(k.name||'Sans nom')}</div>${sub?`<div class="card-meta">${sub} ${t('sous-dossier(s)','תת-תיקיות','sub-folder(s)')}</div>`:''}</div><span class="chev">›</span></div></div>`; }); }
+  } else { h+=`<div class="hint">${cur?t('Aucun sous-dossier ici.','אין תת-תיקיות כאן.','No sub-folder here.'):t('Aucun dossier général.','אין תיקיות כלליות.','No general folder.')}</div>`; }
   h+=`</div>`; return h; }
 function newDossier(anchor){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; D.dossiers.push(d); save(); openDossier(d.id); }
 function openDossier(id){ nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
@@ -4327,6 +4357,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
     h+=`<button class="dd-item" data-act="closeDD();dossPickVideo(${idp})">🎬 ${t('Vidéo','וידאו','Video')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossPickFile(${idp})">📎 ${t('Fichier','קובץ','File')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossAddLink(${idp})">🔗 ${t('Lien','קישור','Link')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();dossPickProv(${idp})">📇 ${t('Prestataire','ספק','Supplier')}</button>`;
     if(root){ h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
       h+=`<button class="dd-item" data-act="dossSaveAsTemplate()">📋 ${t('Enregistrer comme modèle','שמור כתבנית','Save as template')}</button>`;
       h+=`<button class="dd-item" data-act="dossInsertTemplateMenu()">📥 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</button>`;
@@ -4341,7 +4372,7 @@ function mediaHTML(it,ind){ let inner='';
   else { inner=`<a href="${it.data}" download="${esc(it.name||'fichier')}" style="color:var(--primary);font-weight:600">📎 ${esc(it.name||'Fichier')}</a>`; }
   return `<div class="card" style="margin-left:${ind}px;padding:10px 12px;margin-bottom:9px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0">${inner}</div><span class="dep-x" style="font-size:14px;cursor:pointer" data-act="dossDelItem('${it.id}')">🗑</span></div></div>`; }
 function noteHTML(it,ind){ return `<div style="margin-left:${ind}px;margin-bottom:9px"><textarea class="textarea doss-note" data-id="${it.id}" placeholder="Note, texte libre…" onchange="dossNoteSet('${it.id}',this.value)" style="min-height:56px;width:100%">${esc(it.text||'')}</textarea><div style="text-align:right;margin-top:-4px"><span class="dep-x" style="font-size:12px;cursor:pointer" data-act="dossDelItem('${it.id}')">🗑 retirer la note</span></div></div>`; }
-function dossItemHTML(it,ind){ if(it.kind==='note') return noteHTML(it,ind); if(it.kind==='media') return mediaHTML(it,ind); return `<div style="margin-left:${ind}px">`+taskHTML(it,null,0,1,false)+`</div>`; }
+function dossItemHTML(it,ind){ if(it.kind==='note') return noteHTML(it,ind); if(it.kind==='media') return mediaHTML(it,ind); if(it.kind==='prov') return `<div style="margin-left:${ind}px">`+provRefHTML(it.provId, "dossDelItem('"+it.id+"')")+`</div>`; return `<div style="margin-left:${ind}px">`+taskHTML(it,null,0,1,false)+`</div>`; }
 function dossAddRow(titleId){ const idp = titleId?`'${titleId}'`:'null'; return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:${titleId?16:0}px;margin-bottom:8px">`+
   `<span style="font-size:11px;color:var(--ink-soft)">Contenu :</span>`+
   `<button class="btn btn-ghost btn-sm" style="padding:4px 10px" data-act="dossAddNote(${idp})">📝 Note</button>`+
@@ -4676,29 +4707,32 @@ function computeRange(mode){
 }
 function fmtDate(k){ try{return new Date(k).toLocaleDateString(_jLocale(),{day:'numeric',month:'short'});}catch(e){return k;} }
 
-function openDashExport(){ sheet={type:'dashExport'}; renderOverlay(); }
+function openDashExport(){ _crExpOpen=false; sheet={type:'dashExport'}; renderOverlay(); }
 function dashExportSheet(){
   const r=computeRange(dashRange);
   let txt=`📊 ${t('BILAN','סיכום','SUMMARY')} — ${r.label}\n${'─'.repeat(28)}\n`;
   txt+=`✅ ${t('Tâches faites','משימות שהושלמו','Tasks done')} : ${r.taskDone||0} / ${r.taskTotal||0}\n`;
   COUNTERS.forEach(c=>{ txt+=`${c.em} ${c.label} : ${r.totals[c.k]||0}\n`; });
   if(r.notes.length){ txt+=`\n${t('Notes','הערות','Notes')} :\n`; r.notes.forEach(n=>txt+=`• ${n.date} — ${n.note}\n`); }
-  txt+=`\n— Beth Habad · stepbystep`;
   return `<div class="sheet-head"><div class="sheet-title">📤 ${t('Export du bilan','ייצוא הסיכום','Summary export')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div class="field"><label class="field-label">${t('Aperçu (modifiable)','תצוגה מקדימה (ניתן לעריכה)','Preview (editable)')}</label><textarea class="textarea" id="exp-txt" style="min-height:200px;font-family:monospace;font-size:13px">${esc(txt)}</textarea></div>
-    <div class="row2">
-      <button class="btn btn-primary" data-act="copyExport()">📋 ${t('Copier','העתק','Copy')}</button>
-      <button class="btn btn-gold" data-act="shareWhatsApp()">📱 WhatsApp</button>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <button class="btn btn-gold btn-block" style="flex:1" data-act="shareWhatsApp()">📱 WhatsApp</button>
+      <button class="btn btn-soft btn-block" style="flex:1" data-act="crExport('pdf')">📄 PDF</button>
+      <div class="dd" style="flex:1;position:relative">
+        <button class="btn btn-soft btn-block" style="width:100%" data-act="crToggleExp()">⬇ ${t('Exporter','ייצוא','Export')} ▾</button>
+        ${_crExpOpen?`<div class="dd-menu right" style="width:max-content;min-width:100%">
+          <button class="dd-item" data-act="copyExport()">📋 ${t('Copier','העתק','Copy')}</button>
+          <button class="dd-item" data-act="crExport('doc')">📝 Word</button>
+          <button class="dd-item" data-act="crExport('txt')">📃 ${t('Texte','טקסט','Text')}</button>
+        </div>`:''}
+      </div>
     </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
-      <button class="btn btn-soft btn-sm" data-act="crExport('pdf')">📄 PDF</button>
-      <button class="btn btn-soft btn-sm" data-act="crExport('doc')">📝 Word</button>
-      <button class="btn btn-soft btn-sm" data-act="crExport('txt')">📃 ${t('Texte','טקסט','Text')}</button>
-    </div>
-    <div class="hint" style="margin-top:8px">⚠️ ${t('Rédaction automatique par <b>IA</b> = version en ligne (SaaS). Ici : compte rendu structuré (compteurs, tâches faites, notes) exportable.','ניסוח אוטומטי על ידי <b>בינה מלאכותית</b> = גרסה מקוונת (SaaS). כאן: דו״ח מובנה (מונים, משימות שהושלמו, הערות) הניתן לייצוא.','Automatic drafting by <b>AI</b> = online version (SaaS). Here: a structured report (counters, tasks done, notes) that can be exported.')}</div>
   </div>`;
 }
+let _crExpOpen=false;
+function crToggleExp(){ _crExpOpen=!_crExpOpen; renderOverlay(); }
 function crExport(fmt){ const el=$('exp-txt'); const txt=el?el.value:''; const name='Compte_rendu_'+todayKey();
   if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast(t('Texte téléchargé','הטקסט הורד','Text downloaded')); return; }
   const htmlDoc='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(txt)+'</body></html>';
@@ -4774,22 +4808,123 @@ function renderShopping(c){
 // ============================================================
 //  VUE : FOURNISSEURS / CONTACTS
 // ============================================================
+// ============================================================
+//  CARNET PRESTATAIRES — monde de dossiers (comme Dossiers) : dossiers + sous-dossiers,
+//  feuilles = prestataires {nom, tel, email, montant, détails, médias}. Rattachables aux tâches.
+// ============================================================
+let provNav=null;      // dossier courant du carnet (null = racine)
+let _provId=null;      // fiche prestataire ouverte
+let _provMore=false;   // menu « Ajouter » de la fiche ouvert ?
+function _provInit(){
+  if(!Array.isArray(D.providers)){
+    D.providers=[];
+    (D.suppliers||[]).forEach(s=>{ const ph=_extractPhone(s.info||''); const extra=(s.prestations||[]).map(p=>'• '+(p.desc||'')+(p.amount?' — '+fmtE(p.amount):'')+(p.date?' ('+p.date+')':'')).join('\n'); D.providers.push({id:s.id||uid(),type:'prov',name:s.name||'',phone:ph||'',email:'',amount:0,details:((s.info||'')+(extra?'\n'+extra:'')).trim(),media:[],parentId:null}); });
+    save();
+  }
+  return D.providers;
+}
+function provChildren(pid){ return (D.providers||[]).filter(x=>x.parentId===(pid||null)); }
+function provById(id){ return (D.providers||[]).find(x=>x.id===id); }
+function _sortProv(a){ return a.slice().sort((x,y)=>(x.name||'').localeCompare(y.name||'')); }
+function provFolderPath(id){ const p=[]; let c=id?provById(id):null; let g=0; while(c&&g++<50){ p.unshift(c); c=c.parentId?provById(c.parentId):null; } return p; }
+function provDescendants(id){ const set=new Set(); const walk=(pid)=>provChildren(pid).forEach(x=>{ set.add(x.id); if(x.type==='folder')walk(x.id); }); walk(id); return set; }
+function provOpenFolder(id){ provNav=id||null; render(); }
+function curProv(){ return provById(_provId); }
 function renderSuppliers(c){
-  // extraire contacts des notes (téléphones) — V1.1 : liste éditable simple
-  if(!D.suppliers) D.suppliers=[
-    {id:uid(),name:'Yossef Partouche (Hazan)',info:'1100 € · pourboire 100 € cash / 300 € reçu'},
-    {id:uid(),name:'Kaparot',info:'0749117307 / 0750356540'},
-    {id:uid(),name:'Pinchas Asoulim (sukkah)',info:'0767269750 — entrée au centre'},
-    {id:uid(),name:'Pro Emballage',info:'contact@proembaljet.com — min. 70 €'},
-  ];
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Carnet','פנקס','Directory')}</div><div class="sec-title">${t('Prestataires & contacts','ספקים ואנשי קשר','Suppliers & contacts')}</div><div class="sec-sub">${t('Numéro + historique des prestations','מספר + היסטוריית שירותים','Number + service history')}</div></div>
-    <button class="btn btn-soft btn-sm" data-act="addSupplier()">+ ${t('Prestataire','ספק','Supplier')}</button></div>`;
-  D.suppliers.forEach(s=>{ const np=(s.prestations||[]).length;
-    html+=`<div class="card" data-act="openSupplier('${s.id}')"><div class="card-body"><div class="card-icon">📇</div>
-      <div class="card-main"><div class="card-name">${esc(s.name)}</div><div class="card-meta">${esc(s.info||'')}${np?` <span class="tag tag-sub">${np} ${t('prestation(s)','שירותים','service(s)')}</span>`:''}</div></div><span class="chev">›</span></div></div>`;
-  });
+  _provInit();
+  const kids=provChildren(provNav);
+  const folders=_sortProv(kids.filter(x=>x.type==='folder'));
+  const provs=_sortProv(kids.filter(x=>x.type==='prov'));
+  const path=provFolderPath(provNav);
+  let html=`<div class="sec"><div><div class="sec-title">${t('Prestataires','ספקים','Suppliers')}</div></div></div>`;
+  html+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px">`;
+  html+=`<span data-act="provOpenFolder(null)" style="cursor:pointer;font-weight:${provNav?'600':'800'};color:${provNav?'var(--primary)':'var(--ink)'}">📇 ${t('Tous','הכל','All')}</span>`;
+  path.forEach((f,i)=>{ const last=i===path.length-1; html+=`<span style="color:var(--ink-soft)">›</span><span data-act="provOpenFolder('${f.id}')" style="cursor:pointer;font-weight:${last?'800':'600'};color:${last?'var(--ink)':'var(--primary)'}">${esc(f.name)}</span>`; });
+  html+=`</div>`;
+  if(provNav){ html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-ghost btn-sm" data-act="provRenameFolder('${provNav}')">✏️ ${t('Renommer','שנה שם','Rename')}</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-act="provDelFolder('${provNav}')">🗑 ${t('Supprimer le dossier','מחק תיקייה','Delete folder')}</button></div>`; }
+  if(!folders.length && !provs.length){ html+=`<div class="empty"><div class="empty-icon">📇</div><div class="empty-title">${t('Vide','ריק','Empty')}</div><div class="empty-text">${t('Touche + en bas : un prestataire ou un dossier (ex. DJ, Traiteur…).','גע ב-+ למטה: ספק או תיקייה (למשל DJ, קייטרינג…).','Tap + below: a supplier or a folder (e.g. DJ, Caterer…).')}</div></div>`; }
+  folders.forEach(f=>{ const n=provChildren(f.id).length; html+=`<div class="card" data-act="provOpenFolder('${f.id}')"><div class="card-body"><div class="card-icon">📁</div><div class="card-main"><div class="card-name">${esc(f.name)}</div><div class="card-meta">${n} ${t('élément(s)','פריטים','item(s)')}</div></div><span class="chev">›</span></div></div>`; });
+  provs.forEach(s=>{ const meta=[s.phone?'📞 '+s.phone:'', s.amount?fmtE(s.amount):'', (s.media&&s.media.length)?'📎 '+s.media.length:''].filter(Boolean).join(' · '); html+=`<div class="card" data-act="provOpen('${s.id}')"><div class="card-body"><div class="card-icon">📇</div><div class="card-main"><div class="card-name">${esc(s.name||t('Sans nom','ללא שם','No name'))}</div><div class="card-meta">${esc(meta||(s.details||'').replace(/\n/g,' ').slice(0,54))}</div></div><span class="chev">›</span></div></div>`; });
   c.innerHTML=html;
 }
+function provAddSheet(){ return `<div class="sheet-head"><div class="sheet-title">＋ ${t('Ajouter','הוספה','Add')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">
+    <button class="btn btn-primary btn-block" style="margin-bottom:10px" data-act="provNewProv()">📇 ${t('Nouveau prestataire','ספק חדש','New supplier')}</button>
+    <button class="btn btn-soft btn-block" data-act="provNewFolder()">📁 ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>
+  </div>`; }
+function provNewFolder(){ _provInit(); const n=prompt(t('Nom du dossier :','שם התיקייה:','Folder name:')); if(n===null)return; D.providers.push({id:uid(),type:'folder',name:(n||'').trim()||t('Dossier','תיקייה','Folder'),parentId:provNav||null}); save(); closeSheet(); render(); }
+function provNewProv(){ _provInit(); const p={id:uid(),type:'prov',name:'',phone:'',email:'',amount:0,details:'',media:[],parentId:provNav||null}; D.providers.push(p); save(); _provId=p.id; _provMore=false; sheet={type:'provFiche'}; renderOverlay(); setTimeout(()=>{ const e=document.getElementById('prov-name'); if(e)e.focus(); },60); }
+function provOpen(id){ _provId=id; _provMore=false; sheet={type:'provFiche'}; renderOverlay(); }
+function provRenameFolder(id){ const f=provById(id); if(!f)return; const n=prompt(t('Nom du dossier :','שם התיקייה:','Folder name:'),f.name); if(n===null)return; f.name=(n.trim()||f.name); save(); render(); }
+function provDelFolder(id){ const f=provById(id); if(!f)return; if(!confirm(t('Supprimer ce dossier et tout son contenu ?','למחוק תיקייה זו וכל תוכנה?','Delete this folder and all its content?')))return; const desc=provDescendants(id); D.providers=D.providers.filter(x=>x.id!==id && !desc.has(x.id)); provNav=f.parentId||null; save(); render(); }
+function provSet(field,v){ const s=curProv(); if(!s)return; if(field==='amount')s.amount=parseFloat(v)||0; else s[field]=v; save(); }
+function provDelete(){ const s=curProv(); if(!s)return; if(!confirm(t('Supprimer ce prestataire ?','למחוק ספק זה?','Delete this supplier?')))return; D.providers=(D.providers||[]).filter(x=>x.id!==s.id); save(); closeSheet(); render(); }
+function _dial(phone){ const d=String(phone||'').replace(/[^\d+]/g,''); if(d){ try{ location.href='tel:'+d; }catch(e){} } else toast(t('Aucun numéro','אין מספר','No number')); }
+function _waLink(phone){ const d=String(phone||'').replace(/[^\d]/g,''); if(d){ try{ window.open('https://wa.me/'+d,'_blank'); }catch(e){} } else toast(t('Aucun numéro','אין מספר','No number')); }
+// — Médias de la fiche prestataire (multiples, comme partout) —
+function provToggleMore(){ _provMore=!_provMore; renderOverlay(); }
+function _provAddMedia(m){ const s=curProv(); if(!s)return; if(!Array.isArray(s.media))s.media=[]; m.id=uid(); m.kind=m.kind||'media'; s.media.push(m); _provMore=false; save(); renderOverlay(); toast(t('Ajouté ✓','נוסף ✓','Added ✓')); }
+function provAddNote(){ const s=curProv(); if(!s)return; if(!Array.isArray(s.media))s.media=[]; s.media.push({id:uid(),kind:'note',text:''}); _provMore=false; save(); renderOverlay(); }
+function provAttachImage(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)_ebCompressImage(f,_provAddMedia); }; inp.click(); }
+function provAttachCamera(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)_ebCompressImage(f,_provAddMedia); }; inp.click(); }
+function provAttachVideo(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2.5*1024*1024){ toast('Vidéo trop lourde (max ~2,5 Mo). Ajoute plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_provAddMedia({mtype:'video',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function provAttachFile(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.pdf,.doc,.docx,.txt,.csv,image/*'; inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; if(f.size>2*1024*1024){ toast('Fichier trop lourd (max 2 Mo). Utilise plutôt un lien.'); return; } const rd=new FileReader(); rd.onload=()=>_provAddMedia({mtype:'file',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function provAttachLink(){ const url=prompt('Colle le lien (https://…) :',''); if(url===null||!url.trim())return; let u=url.trim(); if(!/^https?:\/\//i.test(u)&&!/^mailto:|^tel:/i.test(u)) u='https://'+u; const nm=prompt('Nom du lien (optionnel) :','')||''; _provAddMedia({mtype:'link',url:u,name:nm.trim()}); }
+function provMediaNoteSet(id,v){ const s=curProv(); if(!s)return; const m=(s.media||[]).find(x=>x.id===id); if(m){ m.text=v; save(); } }
+function provRmMedia(id){ const s=curProv(); if(!s)return; s.media=(s.media||[]).filter(x=>x.id!==id); save(); renderOverlay(); }
+function provMediaHTML(m){ let inner='';
+  if(m.kind==='note'){ inner=`<textarea class="textarea" onchange="provMediaNoteSet('${m.id}',this.value)" placeholder="${t('Note…','הערה…','Note…')}" style="min-height:52px;width:100%">${esc(m.text||'')}</textarea>`; }
+  else if(m.mtype==='image'){ inner=`<img src="${m.data}" style="max-width:100%;border-radius:8px;display:block">`; }
+  else if(m.mtype==='video'){ inner=`<video src="${m.data}" controls playsinline style="max-width:100%;border-radius:8px"></video>`; }
+  else if(m.mtype==='link'){ inner=`<a href="${esc(m.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;font-weight:600">🔗 ${esc(m.name||m.url)}</a>`; }
+  else { inner=`<a href="${m.data}" download="${esc(m.name||'fichier')}" style="color:var(--primary);font-weight:600">📎 ${esc(m.name||'Fichier')}</a>`; }
+  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0">${inner}</div><span data-act="provRmMedia('${m.id}')" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span></div></div>`; }
+function provFicheSheet(){ const s=curProv(); if(!s) return `<div class="sheet-head"><div class="sheet-title">${t('Prestataire','ספק','Supplier')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">${t('Introuvable.','לא נמצא.','Not found.')}</div></div>`;
+  const media=s.media||[];
+  return `<div class="sheet-head"><div class="sheet-title">📇 ${t('Fiche prestataire','כרטיס ספק','Supplier card')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="field"><label class="field-label">${t('Nom','שם','Name')}</label><input class="input" id="prov-name" value="${esc(s.name||'')}" placeholder="${t('Nom du prestataire','שם הספק','Supplier name')}" onchange="provSet('name',this.value)"></div>
+    <div class="field"><label class="field-label">${t('Téléphone','טלפון','Phone')}</label><input class="input" value="${esc(s.phone||'')}" placeholder="0X XX XX XX XX" onchange="provSet('phone',this.value)"></div>
+    ${(s.phone&&s.phone.trim())?`<div style="display:flex;gap:8px;margin:-2px 0 12px"><button class="btn btn-soft btn-sm btn-block" style="flex:1" data-act="_dial('${esc(s.phone)}')">📞 ${t('Appeler','התקשר','Call')}</button><button class="btn btn-soft btn-sm btn-block" style="flex:1" data-act="_waLink('${esc(s.phone)}')">💬 WhatsApp</button></div>`:''}
+    <div class="field"><label class="field-label">${t('Email','אימייל','Email')}</label><input class="input" type="email" value="${esc(s.email||'')}" placeholder="nom@mail.com" onchange="provSet('email',this.value)"></div>
+    <div class="field"><label class="field-label">${t('Montant','סכום','Amount')} (€)</label><input class="input" type="number" value="${s.amount||''}" placeholder="0" onchange="provSet('amount',this.value)"></div>
+    <div class="field"><label class="field-label">${t('Détails','פרטים','Details')}</label><textarea class="textarea" style="min-height:90px" placeholder="${t('Notes, conditions, adresse…','הערות, תנאים, כתובת…','Notes, terms, address…')}" onchange="provSet('details',this.value)">${esc(s.details||'')}</textarea></div>
+    ${media.length?`<div class="section-label">📎 ${t('Contenu','תוכן','Content')}</div>${media.map(m=>provMediaHTML(m)).join('')}`:''}
+    <div class="dd" style="margin:12px 0 4px">
+      <button class="dd-btn" data-act="provToggleMore()">＋ ${t('Ajouter','הוספה','Add')} ▾</button>
+      ${_provMore?`<div class="dd-menu">
+        <button class="dd-item" data-act="provAddNote()">📝 ${t('Note','הערה','Note')}</button>
+        <button class="dd-item" data-act="provAttachImage()">🖼️ ${t('Image','תמונה','Image')}</button>
+        <button class="dd-item" data-act="provAttachCamera()">📷 ${t('Caméra','מצלמה','Camera')}</button>
+        <button class="dd-item" data-act="provAttachVideo()">🎬 ${t('Vidéo','וידאו','Video')}</button>
+        <button class="dd-item" data-act="provAttachFile()">📎 ${t('Fichier','קובץ','File')}</button>
+        <button class="dd-item" data-act="provAttachLink()">🔗 ${t('Lien','קישור','Link')}</button>
+      </div>`:''}
+    </div>
+    <button class="btn btn-ghost btn-block" style="margin-top:14px;color:var(--red)" data-act="provDelete()">🗑 ${t('Supprimer ce prestataire','מחק ספק זה','Delete this supplier')}</button>
+  </div>`;
+}
+// — Sélecteur de prestataire (rattachement à une tâche / un dossier) —
+let _provPickCtx=null, _provPickNav=null;
+function openProvPick(ctx){ _provInit(); _provPickCtx=ctx; _provPickNav=null; sheet={type:'provPick'}; renderOverlay(); }
+function provPickNav(id){ _provPickNav=id||null; renderOverlay(); }
+function provPickChoose(id){ const ctx=_provPickCtx||{};
+  if(ctx.ctx==='task'){ if(!editBuf)return; if(!Array.isArray(editBuf.media))editBuf.media=[]; editBuf.media.push({id:uid(),kind:'prov',provId:id}); saveTask(true); sheet={type:'task'}; renderOverlay(); toast(t('Prestataire ajouté ✓','הספק נוסף ✓','Supplier added ✓')); }
+  else if(ctx.ctx==='dossier'){ const it={id:uid(),kind:'prov',provId:id}; _dossInsert(it,ctx.titleId); closeSheet(); render(); toast(t('Prestataire ajouté ✓','הספק נוסף ✓','Supplier added ✓')); }
+}
+function provPickSheet(){ _provInit(); const kids=provChildren(_provPickNav); const folders=_sortProv(kids.filter(x=>x.type==='folder')); const provs=_sortProv(kids.filter(x=>x.type==='prov')); const path=provFolderPath(_provPickNav);
+  let h=`<div class="sheet-head"><div class="sheet-title">👤 ${t('Choisir un prestataire','בחר ספק','Choose a supplier')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">`;
+  h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px"><span data-act="provPickNav(null)" style="cursor:pointer;font-weight:${_provPickNav?'600':'800'};color:${_provPickNav?'var(--primary)':'var(--ink)'}">📇 ${t('Tous','הכל','All')}</span>`;
+  path.forEach((f,i)=>{ const last=i===path.length-1; h+=`<span style="color:var(--ink-soft)">›</span><span data-act="provPickNav('${f.id}')" style="cursor:pointer;font-weight:${last?'800':'600'};color:${last?'var(--ink)':'var(--primary)'}">${esc(f.name)}</span>`; });
+  h+=`</div>`;
+  if(!folders.length && !provs.length) h+=`<div class="hint">${t('Vide. Ajoute des prestataires dans le carnet (menu → Prestataires).','ריק. הוסף ספקים בפנקס.','Empty. Add suppliers in the directory.')}</div>`;
+  folders.forEach(f=>{ const n=provChildren(f.id).length; h+=`<div class="card" data-act="provPickNav('${f.id}')"><div class="card-body"><div class="card-icon">📁</div><div class="card-main"><div class="card-name">${esc(f.name)}</div><div class="card-meta">${n} ${t('élément(s)','פריטים','item(s)')}</div></div><span class="chev">›</span></div></div>`; });
+  provs.forEach(s=>{ h+=`<div class="card" data-act="provPickChoose('${s.id}')"><div class="card-body"><div class="card-icon">📇</div><div class="card-main"><div class="card-name">${esc(s.name||t('Sans nom','ללא שם','No name'))}</div><div class="card-meta">${s.phone?'📞 '+esc(s.phone):''}</div></div><span class="chev" style="color:var(--primary)">＋</span></div></div>`; });
+  h+=`</div>`; return h;
+}
+// Rendu d'un prestataire rattaché (référence vivante vers le carnet).
+function provRefHTML(provId, rmAct){ const p=provById(provId); const nm=p?(p.name||t('Sans nom','ללא שם','No name')):t('Prestataire supprimé','ספק נמחק','Deleted supplier'); const ph=p?(p.phone||''):'';
+  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-weight:700">📇 ${esc(nm)}</div>${(ph&&ph.trim())?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn btn-soft btn-sm" data-act="_dial('${esc(ph)}')">📞 ${esc(ph)}</button><button class="btn btn-soft btn-sm" data-act="_waLink('${esc(ph)}')">💬</button></div>`:''}</div>${rmAct?`<span data-act="${rmAct}" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span>`:''}</div></div>`; }
+function dossPickProv(titleId){ openProvPick({ctx:'dossier',titleId:(titleId&&titleId!=='null')?titleId:null}); }
 let _supId=null;
 function addSupplier(){ const n=prompt(t('Nom du prestataire :','שם הספק:','Supplier name:')); if(!n||!n.trim())return; const s={id:uid(),name:n.trim(),info:'',prestations:[]}; D.suppliers.push(s); save(); _supId=s.id; sheet={type:'supplier'}; renderOverlay(); }
 function editSupplier(id){ openSupplier(id); }
@@ -4827,7 +4962,7 @@ function supplierSheet(){
 // ============================================================
 function setMenuHidden(v,hidden){ if(!D.menuHidden)D.menuHidden={}; if(hidden)D.menuHidden[v]=true; else delete D.menuHidden[v]; save(); render(); }
 function renderSettings(c){
-  const MODS=[['report','📋',t('Compte rendu','דיווח','Report')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')],['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping list')],['dashboard','📊',t('Tableau de bord','לוח בקרה','Dashboard')],['suppliers','📇',t('Prestataires','ספקים','Suppliers')],['agenda','📆',t('Agenda','יומן שבועי','Agenda')],['publics','🎯',t('Mon public','הקהל שלי','My audience')],['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat notices')],['shabbat','🕯️',t('Shabbat','שבת','Shabbat')],['ideas','💡',t('Idées','רעיונות','Ideas')],['alltasks','✅',t('Toutes les tâches','כל המשימות','All tasks')]];
+  const MODS=[['report','📋',t('Compte rendu','דיווח','Report')],['calendar','📅',t('Calendrier','לוח','Calendar')],['bdd','🗂️',t('Dossiers','תיקיות','Folders')],['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping list')],['suppliers','📇',t('Prestataires','ספקים','Suppliers')],['agenda','📆',t('Agenda','יומן שבועי','Agenda')],['publics','🎯',t('Mon public','הקהל שלי','My audience')],['annonces','📢',t('Annonces de Chabbat','הודעות שבת','Shabbat notices')],['shabbat','🕯️',t('Shabbat','שבת','Shabbat')],['ideas','💡',t('Idées','רעיונות','Ideas')],['alltasks','✅',t('Toutes les tâches','כל המשימות','All tasks')]];
   c.innerHTML=`<div class="sec"><div><div class="sec-eyebrow">${t('Système','מערכת','System')}</div><div class="sec-title">${t('Réglages','הגדרות','Settings')}</div></div></div>
     <div class="section-label">${t('Personnalisation du menu','התאמת התפריט','Menu customization')}</div>
     <div class="hint" style="margin-bottom:10px">${t('Masquer une page la retire du menu <b>sans supprimer ses données</b>. Réaffiche-la ici quand tu veux.','הסתרת עמוד מוציאה אותו מהתפריט <b>בלי למחוק את הנתונים</b>. אפשר להחזירו כאן בכל עת.','Hiding a page removes it from the menu <b>without deleting its data</b>. Show it again here whenever you want.')}</div>
@@ -4863,7 +4998,7 @@ function dlFile(name,mime,content){ try{ const blob=new Blob([content],{type:mim
 function _slug(s){ return ((s||'export').replace(/[^\w\-À-ÿ ]+/g,'').trim().replace(/\s+/g,'_').slice(0,40))||'export'; }
 function _pushTaskRow(rows,t,lvl){
   rows.push({lvl:lvl,type:'Tâche',nom:t.text||'',statut:stOf(t.status).label,resp:t.responsible||'',date:t.date||'',duree:t.duration?fmtM(t.duration):'',budget:(t.budget&&t.budget.amount)||'',note:(t.notes||'').replace(/\s+/g,' ')});
-  (t.media||[]).forEach(m=>{ let nom='',note=''; if(m.kind==='note'){ nom='📝 Note'; note=(m.text||'').replace(/\s+/g,' '); } else if(m.mtype==='link'){ nom='🔗 '+(m.name||'Lien'); note=m.url||''; } else if(m.mtype==='image'){ nom='🖼️ '+(m.name||'Image'); } else if(m.mtype==='video'){ nom='🎬 '+(m.name||'Vidéo'); } else { nom='📎 '+(m.name||'Fichier'); } rows.push({lvl:lvl+1,type:'Contenu',nom:nom,statut:'',resp:'',date:'',duree:'',budget:'',note:note}); });
+  (t.media||[]).forEach(m=>{ let nom='',note=''; if(m.kind==='prov'){ const p=provById(m.provId); nom='📇 '+(p?(p.name||'Prestataire'):'Prestataire'); note=p?[p.phone,p.email].filter(Boolean).join(' · '):''; } else if(m.kind==='note'){ nom='📝 Note'; note=(m.text||'').replace(/\s+/g,' '); } else if(m.mtype==='link'){ nom='🔗 '+(m.name||'Lien'); note=m.url||''; } else if(m.mtype==='image'){ nom='🖼️ '+(m.name||'Image'); } else if(m.mtype==='video'){ nom='🎬 '+(m.name||'Vidéo'); } else { nom='📎 '+(m.name||'Fichier'); } rows.push({lvl:lvl+1,type:'Contenu',nom:nom,statut:'',resp:'',date:'',duree:'',budget:'',note:note}); });
   (t.subtasks||[]).forEach(s=>_pushTaskRow(rows,s,lvl+1));
 }
 function _rowsContainer(cont,label){
@@ -4886,7 +5021,7 @@ function expCsv(scope){ const g=expGather(scope); const head=['Niveau','Type','N
 function expTxt(scope){ const g=expGather(scope); const lines=g.rows.map(r=>{ const ind='   '.repeat(r.lvl); let s=ind+'• '+r.nom; const meta=[]; if(r.statut)meta.push(r.statut); if(r.resp)meta.push('👤 '+r.resp); if(r.date)meta.push('📅 '+r.date); if(r.duree)meta.push('⏱ '+r.duree); if(r.budget)meta.push(r.budget+' €'); if(meta.length)s+='  ('+meta.join(' · ')+')'; if(r.note)s+='\n'+ind+'    ↳ '+r.note; return s; }); dlFile(_slug(g.title)+'.txt','text/plain;charset=utf-8',g.title+'\n'+'='.repeat(g.title.length)+'\n\n'+lines.join('\n')); toast('Texte téléchargé'); }
 function _docTable(title,rows){ let h='<h2 style="font-family:Georgia,serif;color:#1E3A6E">'+esc(title)+'</h2><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-family:Arial;font-size:12px"><tr style="background:#1E3A6E;color:#fff"><th>Type</th><th>Nom</th><th>Statut</th><th>Responsable</th><th>Date</th><th>Durée</th><th>Budget</th><th>Note</th></tr>'; rows.forEach(r=>{ h+='<tr><td>'+esc(r.type)+'</td><td style="padding-left:'+(8+r.lvl*18)+'px">'+esc(r.nom)+'</td><td>'+esc(r.statut)+'</td><td>'+esc(r.resp)+'</td><td>'+esc(r.date)+'</td><td>'+esc(r.duree)+'</td><td>'+(r.budget?esc(r.budget)+' €':'')+'</td><td>'+esc(r.note)+'</td></tr>'; }); return h+'</table>'; }
 // Rassemble les pièces jointes (note/image/vidéo/fichier/lien) de toutes les tâches du périmètre exporté.
-function _collectMedia(scope){ const out=[]; const walkT=(t)=>{ (t.media||[]).forEach(m=>out.push({owner:t.text||'',m})); (t.subtasks||[]).forEach(walkT); };
+function _collectMedia(scope){ const out=[]; const walkT=(t)=>{ (t.media||[]).forEach(m=>{ if(m.kind!=='prov') out.push({owner:t.text||'',m}); }); (t.subtasks||[]).forEach(walkT); };
   if(scope==='task'&&editBuf){ walkT(editBuf); return out; }
   if(scope==='event'){ const e=curEvent(); if(e)(e.tasks||[]).forEach(walkT); return out; }
   if(scope==='fete'||scope==='program'){ const c=curContainer(); if(c){ (c.tasks||[]).forEach(walkT); (c.events||[]).forEach(e=>(e.tasks||[]).forEach(walkT)); } return out; }
@@ -5228,7 +5363,7 @@ function commitDragOrder(kind){
  ebSet,ebSetMat,ebToggleReminder,ebAddReminder,ebRmReminder,ebAddDep,ebRmDep,ebAddSub,ebRmSub,ebSubField,ebOpenSub,ebToggleSub,toggleSubInEditor,ebPromote,ebDemote,ebAddMatLine,ebRmMatLine,
  openAddTask,addFetePrompt,addEventPrompt,addProgramPrompt,doAdd,
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
- setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,
+ setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
  openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
@@ -5240,10 +5375,10 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
- addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
+ addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
 function migrateMaterials(){
@@ -5306,6 +5441,7 @@ function ensureCollections(){
   if(!Array.isArray(D.rdv)) D.rdv=[];
   if(!Array.isArray(D.dossiers)) D.dossiers=[];
   D.dossiers.forEach(d=>{ if(!d.icon)d.icon='🗂️'; if(!('color' in d))d.color=null; });
+  try{ _provInit(); }catch(e){}   // carnet prestataires : migration D.suppliers → D.providers
   migrateThemesToDossiers();   // fusion : les thèmes deviennent des dossiers (une seule notion)
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
   normalizeAllTasks();   // cohérence parent/sous-tâches (le parent = fait ssi toutes ses feuilles le sont)
