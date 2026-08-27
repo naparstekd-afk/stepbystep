@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a3">
+<meta name="app-build" content="b-2026-08-27-a4">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -478,7 +478,7 @@ function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',
 function mkEvent(name=''){ return {id:uid(),name,date:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
 function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',recurring:false,events:[]}; }
 // Dossier : plan libre (titres + tâches), plaçable partout. items = suite ordonnée de {kind:'title'} et de tâches.
-function mkDossier(name=''){ return {id:uid(),type:'dossier',name,items:[],anchor:null,parentId:null,color:null,icon:'🗂️'}; }
+function mkDossier(name=''){ return {id:uid(),type:'dossier',name,items:[],anchor:null,parentId:null,color:null,icon:'🗂️',date:'',recurring:false}; }
 function mkTitle(text='',level=1){ return {id:uid(),kind:'title',text,level}; }
 function mkProgram(name='',color='#2C5B8E'){ return {id:uid(),name,color,date:'',events:[],sessions:[],animateurs:[],absences:{}}; }
 
@@ -3955,6 +3955,8 @@ function dossierById(id){ return (D.dossiers||[]).find(x=>x.id===id); }
 function dossierEvents(dId){ const out=[]; Object.entries(D.months||{}).forEach(([mId,m])=>(m.fetes||[]).forEach(f=>(f.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,mId,fId:f.id}); }))); (D.programs||[]).forEach(p=>(p.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,pId:p.id,isProgram:true}); })); return out; }
 function dossSetColor(cl){ const d=dossierById(nav.dossierId); if(d){ d.color=(d.color===cl?null:cl); save(); render(); } }
 function dossSetIcon(){ const d=dossierById(nav.dossierId); if(!d)return; const v=prompt('Icône du dossier (emoji) :',d.icon||'🗂️'); if(v===null)return; d.icon=(v.trim()||'🗂️'); save(); render(); }
+function dossSetDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.date=val||''; save(); render(); }
+function dossToggleRecurring(){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!d.recurring; save(); render(); }
 // Tri des dossiers : A→Z par défaut ; si l'utilisateur a réordonné manuellement (champ .ord), on respecte cet ordre.
 function _sortDoss(list){ const hasOrd=list.some(d=>typeof d.ord==='number'); if(hasOrd){ return list.slice().sort((a,b)=>((a.ord==null?1e9:a.ord)-(b.ord==null?1e9:b.ord))||(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); } return list.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); }
 function commitDossOrder(ids){ if(!Array.isArray(ids)||!ids.length)return; ids.forEach((id,i)=>{ const d=dossierById(id); if(d) d.ord=i; }); save(); render(); toast('Ordre enregistré ✓'); }
@@ -4060,11 +4062,11 @@ function setDossLayout(v){ dossLayout=v; try{ localStorage.setItem('sbs_dosslayo
 function dossLayoutToggleHTML(){ const c=(v,ic,tt)=>`<span data-act="setDossLayout('${v}')" title="${tt}" style="cursor:pointer;font-size:14px;padding:2px 8px;border-radius:7px;border:1px solid ${dossLayout===v?'var(--primary)':'var(--line)'};${dossLayout===v?'background:var(--primary-soft);color:var(--primary)':'color:var(--ink-soft)'}">${ic}</span>`;
   return `<span style="display:flex;gap:5px">${c('list','☰',t('Liste (ligne par ligne)','רשימה (שורה אחר שורה)','List (row by row)'))}${c('grid','▦',t('Grille — 3 par ligne','רשת — 3 בשורה','Grid — 3 per row'))}</span>`; }
 function dossierTileHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
-  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}</div><div class="tile-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
+  return `<div class="tile doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-top:3px solid ${d.color}"`:''}>${(d.icon&&d.icon!=='🗂️')?`<div class="tile-ic">${d.icon}</div>`:''}<div class="tile-name" style="overflow:hidden;text-overflow:ellipsis">${esc(d.name||TT('Sans nom','ללא שם','Untitled'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}</div>${d.date?`<div class="tile-meta" style="color:var(--gold);font-weight:600">📅 ${esc(_dLabel(d.date))}</div>`:''}<div class="tile-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length:''}</div></div>`; }
 function dossierListHTML(list,group){ const g=group||'root'; if(dossLayout==='grid'){ return `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">`+list.map(d=>dossierTileHTML(d,g)).join('')+`</div>`; } return list.map(d=>dossierCardHTML(d,g)).join(''); }
 function dossierCardHTML(d,group){ const tasks=(d.items||[]).filter(x=>!x.kind); const done=tasks.filter(x=>x.status==='done').length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const g=group||'root';
   const dot=d.color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d.color};margin-right:5px;vertical-align:middle"></span>`:'';
-  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}</div><div class="card-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length+' '+TT('fait','בוצע','done'):''}</div></div><span class="chev">›</span></div></div>`; }
+  return `<div class="card doss-item" data-dossid="${d.id}" data-dossgroup="${g}" data-act="openDossier('${d.id}')"${d.color?` style="border-left:4px solid ${d.color}"`:''}><div class="card-body">${(d.icon&&d.icon!=='🗂️')?`<span class="card-icon">${d.icon}</span>`:''}<div class="card-main"><div class="card-name">${dot}${esc(d.name||TT('Dossier sans nom','תיקייה ללא שם','Untitled folder'))}${d.recurring?' <span style="color:var(--gold)" title="'+TT('Récurrent annuel','חוזר שנתי','Yearly')+'">↻</span>':''}${d.date?_datePill(d.date):''}</div><div class="card-meta">${nTitres(titles)} · ${nTaches(tasks.length)}${tasks.length?' · '+done+'/'+tasks.length+' '+TT('fait','בוצע','done'):''}</div></div><span class="chev">›</span></div></div>`; }
 function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
@@ -4075,6 +4077,13 @@ function renderDossier(c){
     <span style="width:1px;height:20px;background:var(--line)"></span>
     ${THEME_COLS.map(cl=>`<span data-act="dossSetColor('${cl}')" title="Couleur (colore le calendrier)" style="width:22px;height:22px;border-radius:50%;background:${cl};cursor:pointer;display:inline-block;border:2px solid ${d.color===cl?'var(--ink)':'transparent'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}
     ${d.color?`<span data-act="dossSetColor('${d.color}')" style="font-size:12px;color:var(--ink-soft);cursor:pointer">✕</span>`:''}
+  </div>`;
+  // Date + récurrence annuelle : un dossier peut se comporter comme une fête / un événement.
+  html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft)">📅 <input type="date" class="input" style="width:auto;padding:6px 9px;font-size:14px" value="${d.date||''}" onchange="dossSetDate(this.value)"></label>
+    ${d.date?`<button class="cbtn" data-act="dossSetDate('')" title="${t('Retirer la date','הסר תאריך','Remove date')}" style="padding:4px 9px;font-size:12px;color:var(--ink-soft)">✕ ${t('date','תאריך','date')}</button>`:''}
+    <button class="cbtn" data-act="dossToggleRecurring()" title="${t('Revient chaque année','חוזר כל שנה','Comes back every year')}" style="padding:4px 11px;font-size:13px;${d.recurring?'color:var(--gold);border-color:var(--gold);background:var(--gold-soft)':'color:var(--ink-soft)'}">↻ ${t('Récurrent annuel','חוזר שנתי','Yearly recurring')}${d.recurring?' ✓':''}</button>
+    ${d.date?`<span style="font-size:12px;color:var(--gold);font-weight:600">${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}</span>`:''}
   </div>`;
   const items=d.items||[];
   if(!items.length){ html+='<div class="hint" style="margin-bottom:10px">'+t('Ajoute un titre, puis des tâches en dessous. Chaque ligne se range sous le titre au-dessus d\'elle.','הוסף כותרת, ואז משימות מתחתיה. כל שורה משתייכת לכותרת שמעליה.','Add a title, then tasks below it. Each line belongs to the title above it.')+'</div>'; }
@@ -4826,7 +4835,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
