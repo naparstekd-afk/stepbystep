@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a1">
+<meta name="app-build" content="b-2026-08-27-a2">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3993,7 +3993,7 @@ function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; c
 function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
-function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Supprimer ce titre ? (le contenu en dessous reste)'))return; d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
+function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null; if(!confirm(t('Supprimer ce titre ? (le contenu en dessous reste)','למחוק את הכותרת? (התוכן שמתחת נשאר)','Delete this title? (the content below stays)'))){ render(); return; } d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
 function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
 function dossAddTaskUnder(titleId){ const d=dossierById(nav.dossierId); if(!d)return; let ti=d.items.findIndex(x=>x.id===titleId); if(ti<0){ return dossAddTask(); } dossExpand(titleId); const j=_dossNextTitle(d.items,ti+1,999); const t=mkTask(''); d.items.splice(j,0,t); save(); openQuickTask(t.id); }
 // — Contenu non-tâche : note libre + médias (image / fichier / lien) —
@@ -4024,7 +4024,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
       h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ ${t('Descendre le titre','הורד כותרת','Move title down')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ ${t('Transformer en tâche','הפוך למשימה','Turn into a task')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 ${t('Transformer en rappel','הפוך לתזכורת','Turn into a reminder')}</button>`;
-      h+=`<button class="dd-item" style="color:var(--red)" data-act="closeDD();dossDelTitle(${idp})">🗑 ${t('Supprimer le titre','מחק כותרת','Delete title')}</button>`;
+      h+=`<button class="dd-item" style="color:var(--red)" data-act="dossDelTitle(${idp})">🗑 ${t('Supprimer le titre','מחק כותרת','Delete title')}</button>`;
       h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     }
     if(root) h+=`<button class="dd-item" data-act="closeDD();dossAddTitle()">▸ ${t('Titre','כותרת','Title')}</button>`;
