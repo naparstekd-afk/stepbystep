@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a25">
+<meta name="app-build" content="b-2026-08-27-a26">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -252,6 +252,11 @@ input,select,textarea{font-family:inherit;font-size:15px}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .sheet{background:var(--bg);border-radius:22px 22px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;animation:slideup .28s cubic-bezier(.16,1,.3,1);box-shadow:var(--sh-lg)}
 @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* Feuille ancrée EN HAUT (recherche) : reste au-dessus du clavier. */
+.overlay-top{align-items:flex-start}
+.sheet-top{border-radius:0 0 22px 22px;animation:slidedown .28s cubic-bezier(.16,1,.3,1);max-height:88vh;padding-top:env(safe-area-inset-top)}
+.sheet-top .sheet-grip{display:none}
+@keyframes slidedown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
 /* Pas de ré-animation quand la fiche est déjà ouverte (évite que la page « saute » à chaque bouton). */
 .sheet.no-anim,.drawer.no-anim{animation:none!important}
 .subedit.collapsed{cursor:pointer}
@@ -532,11 +537,22 @@ let _lsOK = (()=>{ try{ const k='__t'; localStorage.setItem(k,'1'); localStorage
 function _stateKey(){ return (typeof _org!=='undefined' && _org) ? 'sbs_state_'+_org.id : 'marbitz-v11'; }
 function save(){
   const key=_stateKey();
-  try{ if(_lsOK) localStorage.setItem(key, JSON.stringify(D)); else _memStore[key]=JSON.stringify(D); }
-  catch(e){ _memStore[key]=JSON.stringify(D); }
+  let js; try{ js=JSON.stringify(D); }catch(e){ js=null; }
+  try{ if(_lsOK) localStorage.setItem(key, js!=null?js:JSON.stringify(D)); else _memStore[key]=(js!=null?js:JSON.stringify(D)); }
+  catch(e){ _memStore[key]=(js!=null?js:'{}'); }
+  try{ if(js!=null) _histPush(js); }catch(e){}   // pile annuler / rétablir (Réglages)
   try{ snapshotBackup('auto'); }catch(e){}   // sauvegarde locale tournante (throttlée)
   if(!_cloudSuppress){ scheduleCloudPush(); scheduleGcalPush(); }
 }
+// ---------- HISTORIQUE : Annuler ↩ / Rétablir ↪ (instantané, pas à pas) ----------
+let _hist=[], _histPos=-1, _histSuppress=false;
+function _histPush(js){ if(_histSuppress) return; if(_histPos>=0 && _hist[_histPos]===js) return; _hist=_hist.slice(0,_histPos+1); _hist.push(js); if(_hist.length>60){ _hist.shift(); } _histPos=_hist.length-1; }
+function _histSeed(){ try{ _hist=[JSON.stringify(D)]; _histPos=0; }catch(e){ _hist=[]; _histPos=-1; } }
+function canUndo(){ return _histPos>0; }
+function canRedo(){ return _histPos>=0 && _histPos<_hist.length-1; }
+function _histApply(js){ try{ _histSuppress=true; D=JSON.parse(js); try{ ensureCollections(); }catch(_){} save(); }finally{ _histSuppress=false; } render(); }
+function doUndo(){ if(!canUndo()){ toast(t('Rien à annuler','אין מה לבטל','Nothing to undo')); return; } _histPos--; _histApply(_hist[_histPos]); toast('↩ '+t('Annulé','בוטל','Undone')); }
+function doRedo(){ if(!canRedo()){ toast(t('Rien à rétablir','אין מה לשחזר','Nothing to redo')); return; } _histPos++; _histApply(_hist[_histPos]); toast('↪ '+t('Rétabli','שוחזר','Redone')); }
 function load(){
   const key=_stateKey();
   try{
@@ -643,6 +659,7 @@ async function cloudPull(){
       try{ snapshotBackup('avant synchro entrante',true); }catch(e){}   // protège l'état local avant de le remplacer
       _lastSyncStamp=row.updated_at;
       _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false;
+      try{ _histSeed(); }catch(e){}
       if(!sheet && !drawerOpen){ try{ render(); }catch(e){} }
       setSyncState('ok'); return true;
     }
@@ -749,7 +766,7 @@ async function cloudStart(){
       // Garde-fou migration : à la 1re entrée, si le local est plus riche que le cloud, on POUSSE (jamais écraser du vrai par du vide).
       if(cloudReal && !(_freshEntry && _dataScore(D) > _dataScore(row.data))){
         try{ snapshotBackup('avant 1re synchro',true); }catch(e){}
-        _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false; try{render();}catch(e){} setSyncState('ok');
+        _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false; try{ _histSeed(); }catch(e){} try{render();}catch(e){} setSyncState('ok');
       } else {
         await cloudPush();   // association neuve OU migration → on y verse les données locales
       }
@@ -2845,7 +2862,8 @@ function sheetHTML(){
   else if(sheet.type==='search') inner=searchSheet();
   else if(sheet.type==='dossTplPick') inner=dossTplPickSheet();
   else if(sheet.type==='backups') inner=backupSheet();
-  return `<div class="overlay" data-act="sheetBackdrop()"><div class="sheet" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
+  const _top = sheet && sheet.type==='search';
+  return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
 // Tap sur le fond : si l'explorateur de rattachement est ouvert (ou le calendrier),
 // on le referme et on RESTE sur la tâche au lieu de tout fermer.
@@ -3812,18 +3830,30 @@ function applySort(mode){
 //  TEMPLATES D'ÉVÉNEMENT
 // ============================================================
 function openTemplates(){ sheet={type:'templates'}; renderOverlay(); }
+function _dossTplMeta(tp){ const its=tp.items||[]; const titles=its.filter(x=>x.kind==='title').length; const tasks=its.filter(x=>!x.kind).length; return [titles?titles+' '+t('titre(s)','כותרות','title(s)'):'', tasks?tasks+' '+t('tâche(s)','משימות','task(s)'):''].filter(Boolean).join(' · ')||t('vide','ריק','empty'); }
+function dossRenameTemplate(tid){ const tp=(D.dossierTemplates||[]).find(x=>x.id===tid); if(!tp)return; const n=prompt(t('Nom du modèle :','שם התבנית:','Template name:'),tp.name||''); if(n===null)return; tp.name=(n.trim()||tp.name); save(); renderOverlay(); }
 function templatesSheet(){
   const inEvent = !!curEvent();
-  return `<div class="sheet-head"><div class="sheet-title">📋 Modèles</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  const dossTpls = D.dossierTemplates||[];
+  return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Modèles','תבניות','Templates')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <p style="color:var(--ink-soft);margin-bottom:14px">${inEvent?'Appuie sur un modèle pour ajouter toutes ses tâches à cet événement. Tu peux aussi créer ou modifier tes modèles.':'Crée et prépare tes modèles ici. Pour les appliquer, ouvre un événement puis « Utiliser un modèle ».'}</p>
-    <button class="btn btn-ghost btn-block" style="margin-bottom:12px" data-act="openTemplateEditor('')">＋ Créer un modèle</button>
+    <div class="section-label">🗂️ ${t('Modèles de dossier','תבניות תיקייה','Folder templates')}</div>
+    <div class="hint" style="margin-bottom:10px">${t('Enregistrés à part : un modèle reste ici même si le dossier d’origine est supprimé. Pour l’insérer : ouvre un dossier → « ＋ Ajouter » → « Insérer un modèle ».','נשמרים בנפרד: תבנית נשארת כאן גם אם התיקייה המקורית נמחקת. כדי להכניס: פתח תיקייה ← « ＋ הוספה » ← « הכנס תבנית ».','Saved separately: a template stays here even if its source folder is deleted. To insert it: open a folder → “＋ Add” → “Insert a template”.')}</div>
+    ${dossTpls.length?dossTpls.map(tp=>`<div class="card"><div class="card-body">
+      <div class="card-icon">🗂️</div>
+      <div class="card-main"><div class="card-name">${esc(tp.name||t('Modèle','תבנית','Template'))}</div><div class="card-meta">${_dossTplMeta(tp)}</div></div>
+      <div class="task-acts"><button class="mini-btn" data-act="dossRenameTemplate('${tp.id}')">✏️</button><button class="mini-btn danger" data-act="dossDelTemplate('${tp.id}')">🗑</button></div>
+    </div></div>`).join(''):`<div class="hint">${t("Aucun modèle de dossier. Dans un dossier : « ＋ Ajouter » → « Enregistrer comme modèle ».",'אין תבניות תיקייה. בתוך תיקייה: « ＋ הוספה » ← « שמור כתבנית ».','No folder template yet. Inside a folder: “＋ Add” → “Save as template”.')}</div>`}
+    <div class="divider"></div>
+    <div class="section-label">📌 ${t('Modèles d’événement','תבניות אירוע','Event templates')}</div>
+    <p style="color:var(--ink-soft);margin-bottom:10px;font-size:13px">${inEvent?t('Appuie sur un modèle pour ajouter toutes ses tâches à cet événement.','גע בתבנית כדי להוסיף את כל המשימות שלה לאירוע זה.','Tap a template to add all its tasks to this event.'):t('Crée tes modèles ici. Pour les appliquer, ouvre un événement puis « Utiliser un modèle ».','צור תבניות כאן. כדי להחילן, פתח אירוע ואז « השתמש בתבנית ».','Create your templates here. To apply them, open an event then “Use a template”.')}</p>
+    <button class="btn btn-ghost btn-block" style="margin-bottom:12px" data-act="openTemplateEditor('')">＋ ${t('Créer un modèle','צור תבנית','Create a template')}</button>
     ${D.eventTemplates.length?D.eventTemplates.map(tpl=>`<div class="card"><div class="card-body">
       <div class="card-icon" ${inEvent?`data-act="applyTemplate('${tpl.id}')" style="cursor:pointer"`:''}>📋</div>
       <div class="card-main" ${inEvent?`data-act="applyTemplate('${tpl.id}')" style="cursor:pointer"`:''}><div class="card-name">${esc(tpl.name)}</div>
-      <div class="card-meta">${tpl.items.length} élément(s)${inEvent?' — appuyer pour appliquer':''}</div></div>
+      <div class="card-meta">${tpl.items.length} ${t('élément(s)','פריטים','item(s)')}${inEvent?' — '+t('appuyer pour appliquer','גע כדי להחיל','tap to apply'):''}</div></div>
       <div class="task-acts"><button class="mini-btn" data-act="openTemplateEditor('${tpl.id}')">✏️</button><button class="mini-btn danger" data-act="deleteTemplate('${tpl.id}')">🗑</button></div>
-    </div></div>`).join(''):'<div class="hint">Aucun modèle pour l\'instant. Crée ton premier modèle ci-dessus.</div>'}
+    </div></div>`).join(''):`<div class="hint">${t("Aucun modèle d'événement pour l'instant.",'אין תבניות אירוע עדיין.','No event template yet.')}</div>`}
   </div>`;
 }
 function applyTemplate(tid){
@@ -4804,6 +4834,12 @@ function renderSettings(c){
     <div class="card" style="cursor:default;padding:2px 14px;margin-bottom:18px">
     ${MODS.map(([v,ic,l])=>`<label class="counter" style="cursor:pointer"><div class="counter-info"><span class="counter-em" style="font-size:18px">${ic}</span><span class="counter-name">${l}</span></div><input type="checkbox" ${menuVisible(v)?'checked':''} onchange="setMenuHidden('${v}',!this.checked)" style="width:20px;height:20px;accent-color:var(--primary)"></label>`).join('')}
     </div>
+    <div class="section-label">${t('Annuler / Rétablir','ביטול / שחזור','Undo / Redo')}</div>
+    <div class="hint" style="margin-bottom:10px">${t('Une erreur ? « Annuler » remet l’état précédent, pas à pas (chaque clic = une action de plus). « Rétablir » avance à nouveau.','טעות? « ביטול » מחזיר את המצב הקודם, צעד אחר צעד (כל לחיצה = פעולה נוספת). « שחזור » מתקדם שוב.','Made a mistake? “Undo” restores the previous state step by step (each click = one more action). “Redo” moves forward again.')}</div>
+    <div style="display:flex;gap:9px;margin-bottom:18px">
+      <button class="btn btn-soft btn-block" style="flex:1;justify-content:center${canUndo()?'':';opacity:.45'}" data-act="doUndo()">↩ ${t('Annuler','בטל','Undo')}</button>
+      <button class="btn btn-soft btn-block" style="flex:1;justify-content:center${canRedo()?'':';opacity:.45'}" data-act="doRedo()">↪ ${t('Rétablir','שחזר','Redo')}</button>
+    </div>
     <div class="section-label">${t('Langue','שפה','Language')}</div>
     <div class="toggle-group" style="margin-bottom:14px">
       <button class="toggle-opt ${lang==='fr'?'active':''}" data-act="setLang('fr')">FR · Français</button>
@@ -4966,10 +5002,11 @@ function _gcalItems(){
   const toIso=todayKey(new Date(Date.now()+400*864e5));
   datedAll().forEach(function(x){
     if(x.kind==='reminder') return;
-    if(x.kind==='task' && x.t && x.t.status==='done') return;
     const iso=x.iso; if(!iso) return;
+    // Une tâche cochée RESTE dans l'agenda Google, marquée comme faite (✔ … · Fait ✓).
+    const _done = x.kind==='task' && x.t && x.t.status==='done';
     let uid,title,desc='',time='';
-    if(x.kind==='task'){ uid='t'+(x.t.id||''); title='✅ '+(x.t.text||'Tâche'); desc=x.where||''; time=x.t.time||'';
+    if(x.kind==='task'){ uid='t'+(x.t.id||''); title=(_done?'✔ ':'✅ ')+(x.t.text||'Tâche')+(_done?' — '+t('fait','בוצע','done'):''); desc=(_done?t('Fait ✓','בוצע ✓','Done ✓')+' · ':'')+(x.where||''); time=x.t.time||'';
       if(x.t.repeat && x.t.repeat.freq){
         expandOccurrences(iso, x.t.repeat, fromIso, toIso, 366).forEach(function(od){
           const u=uid+'@'+od; if(seen[u])return; seen[u]=1;
@@ -4982,6 +5019,19 @@ function _gcalItems(){
     else { uid='f'+(x.fId||x.pId||''); title='🎉 '+(x.label||'Fête'); }
     if(seen[uid]) return; seen[uid]=1;
     out.push({uid:uid,title:title,date:iso,desc:desc,time:time});
+  });
+  // Tâches indépendantes (boîte de réception) datées — elles ne passent pas par datedAll().
+  flattenTasks(D.inbox||[]).forEach(function(tk){
+    const iso=tk.date||''; if(!iso) return;
+    const uid='t'+(tk.id||''); if(seen[uid]) return; seen[uid]=1;
+    const _done=tk.status==='done';
+    const title=(_done?'✔ ':'✅ ')+(tk.text||'Tâche')+(_done?' — '+t('fait','בוצע','done'):'');
+    const desc=(_done?t('Fait ✓','בוצע ✓','Done ✓')+' · ':'')+t('Indépendante','עצמאית','Independent');
+    if(tk.repeat && tk.repeat.freq){
+      expandOccurrences(iso, tk.repeat, fromIso, toIso, 366).forEach(function(od){ const u=uid+'@'+od; if(seen[u])return; seen[u]=1; out.push({uid:u,title:title,date:od,desc:desc,time:tk.time||''}); });
+      return;
+    }
+    out.push({uid:uid,title:title,date:iso,desc:desc,time:tk.time||''});
   });
   return out;
 }
@@ -5024,7 +5074,7 @@ const GCAL_SCRIPT = [
 "function _out(o){ return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }"
 ].join('\n');
 function gcalScriptCode(){ return GCAL_SCRIPT.replace('__SECRET__', _gcal().secret); }
-function scheduleGcalPush(){ const g=D.gcal; if(!g||!g.url||!g.auto) return; if(_gcalTimer)clearTimeout(_gcalTimer); _gcalTimer=setTimeout(function(){ gcalSync(false); }, 12000); }
+function scheduleGcalPush(){ const g=D.gcal; if(!g||!g.url||!g.auto) return; if(_gcalTimer)clearTimeout(_gcalTimer); _gcalTimer=setTimeout(function(){ gcalSync(false); }, 2500); }
 async function gcalSync(manual){
   const g=_gcal(); if(!g.url){ if(manual) toast('Renseigne d\'abord le lien du script.'); return; }
   const items=_gcalItems();
@@ -5190,7 +5240,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
@@ -5288,6 +5338,7 @@ function enterApp(){
   _cloudSuppress=true; save(); _cloudSuppress=false;   // écrit le cache local (sans pousser : _cloudReady est encore faux)
   _gateBusy=false;
   render();
+  try{ _histSeed(); }catch(e){}   // point de départ de l'historique Annuler/Rétablir
   try{ cloudStart(); }catch(e){}
 }
 
