@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a20">
+<meta name="app-build" content="b-2026-08-27-a21">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2393,13 +2393,13 @@ function annEventsFor(shabbatIso){
 }
 function annBuildText(shabbatIso){
   const items=annEventsFor(shabbatIso);
-  let txt=`📢 ANNONCES — Chabbat ${civilDate(shabbatIso)}\n${'─'.repeat(30)}\n\n`;
-  if(!items.length){ txt+='(Aucun événement à annoncer ce Chabbat. Active l\'annonce sur un événement daté.)\n'; return txt; }
+  let txt=`📢 ${t('ANNONCES','הודעות','ANNOUNCEMENTS')} — ${t('Chabbat','שבת','Shabbat')} ${civilDate(shabbatIso)}\n${'─'.repeat(30)}\n\n`;
+  if(!items.length){ txt+=t('(Aucun événement à annoncer ce Chabbat. Active l\'annonce sur un événement daté.)','(אין אירועים להכריז בשבת זו. הפעל את ההודעה על אירוע עם תאריך.)','(No event to announce this Shabbat. Activate the announcement on a dated event.)')+'\n'; return txt; }
   items.forEach(x=>{ const e=x.e; const an=e.announce||{};
     txt+=`• ${e.name}`;
     if(e.date) txt+=` — ${civilDate(e.date)} · 🕎 ${hebrewDate(e.date)}`;
     txt+='\n';
-    if(e.public) txt+=`  Public : ${e.public}\n`;
+    if(e.public) txt+=`  ${t('Public','קהל','Audience')} : ${e.public}\n`;
     if(e.desc && e.desc.trim()) txt+=`  ${e.desc.trim().replace(/\n/g,'\n  ')}\n`;   // description de l'événement
     if(an.text && an.text.trim()) txt+=`  ${an.text.trim().replace(/\n/g,'\n  ')}\n`;
     txt+='\n';
@@ -2975,7 +2975,7 @@ function _dLabel(iso){ if(!iso) return '';
   return fmtDate(iso); }
 // Pastille de date réutilisable (sous-tâches)
 function _datePill(iso){ if(!iso) return ''; return `<span style="display:inline-block;background:var(--gold-soft);color:var(--gold);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;margin-inline-start:6px;white-space:nowrap;vertical-align:middle">📅 ${esc(_dLabel(iso))}</span>`; }
-function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
+function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString(_jLocale(),{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
 function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='themeEvent'){ const th=themeById(loc.thId); const ev=eventOfLoc(loc); return (th?((th.icon||'🎯')+' '+th.name):'Thème')+(ev?' › '+ev.name:''); } if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
@@ -3939,27 +3939,27 @@ function renderReport(c){
   const key=journalKey; const j=ensureJournal(key);
   const isToday = key===todayKey();
   const dObj=new Date(key+'T12:00:00');
-  const civ = dObj.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const civ = dObj.toLocaleDateString(_jLocale(),{weekday:'long',day:'numeric',month:'long'});
   html+=`<div class="phead" style="padding:16px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <button class="cbtn" data-act="journalNav(-1)" title="Jour précédent">◀</button>
+      <button class="cbtn" data-act="journalNav(-1)" title="${t('Jour précédent','יום קודם','Previous day')}">◀</button>
       <div style="flex:1;text-align:center"><div style="font-weight:600;color:var(--ink);text-transform:capitalize">${civ}${j.validated?' <span style="color:var(--green)">✓</span>':''}</div><div style="font-size:11.5px;color:var(--ink-soft)">🕎 ${hebrewDate(key)}</div></div>
-      <button class="cbtn" data-act="journalNav(1)" title="Jour suivant">▶</button>
+      <button class="cbtn" data-act="journalNav(1)" title="${t('Jour suivant','יום הבא','Next day')}">▶</button>
     </div>
-    ${!isToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="journalToday()">↩ Revenir à aujourd'hui</button>`:''}
+    ${!isToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:10px" data-act="journalToday()">↩ ${t("Revenir à aujourd'hui",'חזרה להיום','Back to today')}</button>`:''}
     <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px">
-      <div class="section-label" style="margin:0">Compteurs</div>
-      <button class="btn btn-ghost btn-sm" data-act="addCounter()">＋ Compteur</button>
+      <div class="section-label" style="margin:0">${t('Compteurs','מונים','Counters')}</div>
+      <button class="btn btn-ghost btn-sm" data-act="addCounter()">＋ ${t('Compteur','מונה','Counter')}</button>
     </div>
-    ${COUNTERS.map(cn=>{const arch=(j.archived&&j.archived[cn.k])||0;return `<div class="counter"><div class="counter-info"><span class="counter-em" data-act="editCounter('${cn.k}')" style="cursor:pointer" title="Modifier l'icône / le nom">${cn.em}</span><span class="counter-name" data-act="editCounter('${cn.k}')" style="cursor:pointer">${cn.label}${arch?` <span style="font-size:11px;color:var(--green);font-weight:600">✓ ${arch}</span>`:''}</span></div>
-      <div class="counter-ctrl"><button class="cbtn danger" data-act="delCounter('${cn.k}')" title="Supprimer" style="color:var(--red)">🗑</button><button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',-1)">−</button>
+    ${COUNTERS.map(cn=>{const arch=(j.archived&&j.archived[cn.k])||0;return `<div class="counter"><div class="counter-info"><span class="counter-em" data-act="editCounter('${cn.k}')" style="cursor:pointer" title="${t("Modifier l'icône / le nom",'ערוך אייקון / שם','Edit icon / name')}">${cn.em}</span><span class="counter-name" data-act="editCounter('${cn.k}')" style="cursor:pointer">${cn.label}${arch?` <span style="font-size:11px;color:var(--green);font-weight:600">✓ ${arch}</span>`:''}</span></div>
+      <div class="counter-ctrl"><button class="cbtn danger" data-act="delCounter('${cn.k}')" title="${t('Supprimer','מחק','Delete')}" style="color:var(--red)">🗑</button><button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',-1)">−</button>
       <span class="cval">${j.counters[cn.k]||0}</span>
       <button class="cbtn" data-act="bumpCounter('${key}','${cn.k}',1)">+</button></div></div>`;}).join('')}
-    <div class="field" style="margin:14px 0 0"><label class="field-label">Notes du jour</label>
-      <textarea class="textarea" id="j-note" onchange="saveNote('${key}',this.value)" placeholder="Ce qui a marqué la journée…">${esc(j.note||'')}</textarea></div>
-    <button class="btn ${j.validated?'btn-soft':'btn-primary'} btn-block" style="margin-top:12px" data-act="validateReport('${key}')">${j.validated?'✓ Validé — appuyer pour modifier':'✓ Valider ce compte rendu'}</button>
+    <div class="field" style="margin:14px 0 0"><label class="field-label">${t('Notes du jour','הערות היום','Day notes')}</label>
+      <textarea class="textarea" id="j-note" onchange="saveNote('${key}',this.value)" placeholder="${t('Ce qui a marqué la journée…','מה שאפיין את היום…','What marked the day…')}">${esc(j.note||'')}</textarea></div>
+    <button class="btn ${j.validated?'btn-soft':'btn-primary'} btn-block" style="margin-top:12px" data-act="validateReport('${key}')">${j.validated?'✓ '+t('Validé — appuyer pour modifier','אושר — הקש לעריכה','Validated — tap to edit'):'✓ '+t('Valider ce compte rendu','אשר את הדיווח','Validate this report')}</button>
   </div>`;
-  html+=`<div class="section-label" style="margin:20px 0 8px">📊 Bilan</div>`;
+  html+=`<div class="section-label" style="margin:20px 0 8px">📊 ${t('Bilan','סיכום','Summary')}</div>`;
   html+=dashboardInline();
   c.innerHTML=html;
 }
