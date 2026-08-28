@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a59">
+<meta name="app-build" content="b-2026-08-28-a60">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1702,6 +1702,7 @@ function render(){
   else if(nav.view==='themeEvent') renderEvent(main);
   else if(nav.view==='dossier') renderDossier(main);
   else if(nav.view==='dvar') renderDvar(main);
+  else if(nav.view==='checks') renderChecks(main);
   else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
     if(!nav.monthId) renderHome(main);
@@ -2451,6 +2452,7 @@ function drawerHTML(){
       ['report','📋',t("Dou'h",'דו״ח','Report'),null],
       ['hevents','🕎',t("Loua'h",'לוח',"Loua'h"),null],
       ['dvar','📖',t('Dvar Torah','דבר תורה','Dvar Torah'),null],
+      ['checks','🏠',t('Vérifications','בדיקות','Checks'),null],
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
@@ -2475,11 +2477,11 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||v==='dvar'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||v==='dvar'||v==='checks'||menuVisible(v));
     if(!vis.length) return;
     if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
-      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='_import' ? `openImport()` : v==='dvar' ? `louvahDvar()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
+      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='_import' ? `openImport()` : v==='dvar' ? `louvahDvar()` : v==='checks' ? `checksOpen()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       const col=MENU_COL[v]||_palColor(v+label);
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic-badge" style="background:${col}">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
     });
@@ -3181,7 +3183,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='dvar'){ dvarAddEntry(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='dvar'){ dvarAddEntry(); return; } if(nav.view==='checks'){ checksAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -5528,6 +5530,46 @@ function dvarEntrySheet(){
     <button class="btn btn-ghost btn-block" style="color:var(--red);margin-top:6px" data-act="dvarDelEntry()">🗑 ${t('Supprimer la fiche','מחק כרטיס','Delete entry')}</button>
   </div>`;
 }
+
+// ============================================================
+//  VÉRIFICATIONS — suivi (nom, date, acheté, vérifié, note de résultat)
+// ============================================================
+function checksOpen(){ drawerOpen=false; setView('checks'); }
+function checksById(id){ return (D.checks||[]).find(x=>x.id===id); }
+function checksAdd(){ if(!Array.isArray(D.checks))D.checks=[]; D.checks.unshift({id:uid(),name:'',date:todayKey(),bought:false,verified:false,note:'',created:todayKey()}); save(); render(); setTimeout(()=>{const e=document.querySelector('.chk-name');if(e)e.focus();},60); }
+function checksSet(id,f,v){ const c=checksById(id); if(c){ c[f]=v; save(); } }
+function checksToggle(id,f){ const c=checksById(id); if(c){ c[f]=!c[f]; save(); render(); } }
+function checksDel(id){ const c=checksById(id); if(!c)return; if((c.name||'').trim() && !confirm(t('Supprimer « ','מחק « ','Delete « ')+esc(c.name)+' » ?')) return; D.checks=(D.checks||[]).filter(x=>x.id!==id); save(); render(); }
+function checksShare(){
+  const list=(D.checks||[]); if(!list.length){ toast(t('Rien à partager','אין מה לשתף','Nothing to share')); return; }
+  let txt=t('🏠 Vérifications\n\n','🏠 בדיקות\n\n','🏠 Checks\n\n');
+  list.forEach(c=>{ txt+='• '+((c.name||'').trim()||t('(sans nom)','(ללא שם)','(no name)'))+(c.date?' — '+fmtDate(c.date):'')+'\n'; txt+='   '+(c.bought?'✅':'⬜')+' '+t('Acheté','נקנה','Bought')+'   '+(c.verified?'✅':'⬜')+' '+t('Vérifié','נבדק','Verified')+'\n'; if((c.note||'').trim()) txt+='   📝 '+c.note.trim()+'\n'; txt+='\n'; });
+  try{ if(navigator.share){ navigator.share({text:txt}); return; } }catch(e){}
+  const wa='https://wa.me/?text='+encodeURIComponent(txt); try{ window.open(wa,'_blank'); }catch(e){ try{ navigator.clipboard.writeText(txt); toast(t('Copié ✓','הועתק ✓','Copied ✓')); }catch(e2){} }
+}
+function renderChecks(c){
+  const list=(D.checks||[]);
+  const nBuy=list.filter(x=>!x.bought).length, nVer=list.filter(x=>!x.verified).length;
+  let html=`<div class="sec"><div><div class="sec-title">🏠 ${t('Vérifications','בדיקות','Checks')}</div><div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${t('Qui a acheté / à vérifier — nom, date, résultat.','מי קנה / לבדוק — שם, תאריך, תוצאה.','Who bought / to verify — name, date, result.')}</div></div>${list.length?`<button class="btn btn-soft btn-sm" data-act="checksShare()">📤 ${t('Partager','שתף','Share')}</button>`:''}</div>`;
+  if(list.length){ html+=`<div style="display:flex;gap:8px;margin:2px 0 10px;flex-wrap:wrap"><span class="pill pill-mut">🛒 ${nBuy} ${t('à acheter','לקנייה','to buy')}</span><span class="pill pill-mut">🔍 ${nVer} ${t('à vérifier','לבדיקה','to verify')}</span></div>`; }
+  if(!list.length){ html+=`<div class="hint" style="margin-top:10px">${t('Aucune vérification. Touche le ＋ en bas à droite pour en ajouter une.','אין בדיקות. גע ב-＋ למטה מימין.','No check yet. Tap the + at bottom right to add one.')}</div>`; }
+  list.forEach(x=>{
+    html+=`<div class="card" style="padding:12px 13px;margin-bottom:9px">
+      <div class="row2" style="gap:8px;margin-bottom:8px">
+        <input class="input chk-name" value="${esc(x.name||'')}" placeholder="${t('Nom de la personne','שם','Person name')}" style="font-weight:600" onchange="checksSet('${x.id}','name',this.value)">
+        <input class="input" type="date" value="${x.date||''}" style="max-width:150px" onchange="checksSet('${x.id}','date',this.value)">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="chip-sel ${x.bought?'on':''}" data-act="checksToggle('${x.id}','bought')">${x.bought?'✅':'⬜'} 🛒 ${t('Acheté','נקנה','Bought')}</button>
+        <button class="chip-sel ${x.verified?'on':''}" data-act="checksToggle('${x.id}','verified')">${x.verified?'✅':'⬜'} 🔍 ${t('Vérifié','נבדק','Verified')}</button>
+      </div>
+      <textarea class="textarea" placeholder="📝 ${t('Résultat, remarques…','תוצאה, הערות…','Result, notes…')}" style="min-height:60px;width:100%" onchange="checksSet('${x.id}','note',this.value)">${esc(x.note||'')}</textarea>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);margin-top:6px" data-act="checksDel('${x.id}')">🗑 ${t('Supprimer','מחק','Delete')}</button>
+    </div>`;
+  });
+  html+=`<button class="btn btn-primary btn-block" style="margin-top:8px" data-act="checksAdd()">＋ ${t('Nouvelle vérification','בדיקה חדשה','New check')}</button>`;
+  c.innerHTML=html;
+}
 function setJTab(t){ jTab=t; render(); }
 function journalNav(delta){ const d=new Date(journalKey+'T12:00:00'); d.setDate(d.getDate()+delta); journalKey=todayKey(d); render(); }
 function journalToday(){ journalKey=todayKey(); render(); }
@@ -6482,6 +6524,7 @@ function commitDragOrder(kind){
  openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,geminiSetKey,geminiClear,
  louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
  dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,
+ checksOpen,checksAdd,checksSet,checksToggle,checksDel,checksShare,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
@@ -6557,6 +6600,7 @@ function ensureCollections(){
   D.dossiers.forEach(d=>{ if(!d.icon)d.icon='🗂️'; if(!('color' in d))d.color=null; });
   if(!Array.isArray(D.eventTypes)) D.eventTypes=['Farbrenguen','Soirée féminine','Fête pour enfants','Mariage','Bar / Bat Mitsva','Brit Mila','Cours / Chiour','Repas communautaire','Collecte / Tsedaka'];
   if(!Array.isArray(D.dvar)) D.dvar=[];
+  if(!Array.isArray(D.checks)) D.checks=[];
   try{ _provInit(); }catch(e){}   // carnet prestataires : migration D.suppliers → D.providers
   migrateThemesToDossiers();   // fusion : les thèmes deviennent des dossiers (une seule notion)
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
