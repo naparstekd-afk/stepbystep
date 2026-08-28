@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a47">
+<meta name="app-build" content="b-2026-08-28-a48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -592,7 +592,7 @@ function save(){
   catch(e){ _memStore[key]=(js!=null?js:'{}'); }
   try{ if(js!=null) _histPush(js); }catch(e){}   // pile annuler / rétablir (Réglages)
   try{ snapshotBackup('auto'); }catch(e){}   // sauvegarde locale tournante (throttlée)
-  if(!_cloudSuppress){ scheduleCloudPush(); scheduleGcalPush(); }
+  if(!_cloudSuppress){ scheduleCloudPush(); scheduleGcalPush(); try{ scheduleRespPush(); }catch(e){} }
 }
 // ---------- HISTORIQUE : Annuler ↩ / Rétablir ↪ (instantané, pas à pas) ----------
 let _hist=[], _histPos=-1, _histSuppress=false;
@@ -627,6 +627,11 @@ let _orgs=[];        // associations de l'utilisateur (via sbs_my_orgs)
 let _org=null;       // association active
 let _isAdmin=false;  // accès admin gratuit (défini côté serveur)
 let _freshEntry=false; // vrai lors de la 1re entrée dans une association (pas de cache local)
+// ---- Mode « responsable » (compte à accès restreint, isolé) ----
+let _respMode=false;      // vrai = session responsable (vue réduite à ses tâches)
+let _respView=null;       // {org_id,user_id,name,pages,data,back}
+let _respBusy=false, _respBackTimer=null, _respPushTimer=null;
+let _respInvites=[], _respViews=[], _respAppliedRev={};
 
 function _authLoad(){ try{ const s=localStorage.getItem('sbs_auth'); if(s) _auth=JSON.parse(s); }catch(e){} }
 function _authSave(){ try{ if(_auth) localStorage.setItem('sbs_auth',JSON.stringify(_auth)); else localStorage.removeItem('sbs_auth'); }catch(e){} }
@@ -864,13 +869,30 @@ function renderGate(mode, msg){
       <input id="g-pwd" type="password" autocomplete="current-password" placeholder="Mot de passe" style="${_GI}">
       <button style="${_GB}" data-act="gateLogin()">Se connecter</button>
       <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-soft)">Pas encore de compte ?
-        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('signup')">Créer un compte</span></div>`;
+        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('signup')">Créer un compte</span></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:13px;color:var(--ink-soft)">Tu es responsable avec un code ?
+        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('resp')">Accès responsable →</span></div>`;
   } else if(mode==='signup'){
     inner=`<input id="g-email" type="email" autocomplete="username" placeholder="Email" style="${_GI}">
       <input id="g-pwd" type="password" autocomplete="new-password" placeholder="Mot de passe (min. 6 caractères)" style="${_GI}">
       <button style="${_GB}" data-act="gateSignup()">Créer mon compte</button>
       <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-soft)">Déjà inscrit ?
         <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('login')">Se connecter</span></div>`;
+  } else if(mode==='resp'){
+    inner=`<div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:2px">${t('Accès responsable','גישת אחראי','Responsible access')}</div>
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;margin-bottom:6px">${t('Première connexion : crée ton compte avec le code qu\'on t\'a donné.','התחברות ראשונה: צור חשבון עם הקוד שקיבלת.','First login: create your account with the code you were given.')}</div>
+      <input id="g-email" type="email" autocomplete="username" placeholder="Email" style="${_GI}">
+      <input id="g-pwd" type="password" autocomplete="new-password" placeholder="${t('Choisis un mot de passe','בחר סיסמה','Choose a password')}" style="${_GI}">
+      <input id="g-code" type="text" placeholder="${t('Code (ex. K7P2QR)','קוד','Code (e.g. K7P2QR)')}" style="${_GI};text-transform:uppercase;letter-spacing:2px;font-weight:600">
+      <button style="${_GB}" data-act="gateRespSignup()">${t('Entrer','כניסה','Enter')}</button>
+      <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-soft)">${t('Déjà un compte responsable ?','כבר יש חשבון?','Already have an account?')}
+        <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('login')">${t('Se connecter','התחבר','Log in')}</span></div>`;
+  } else if(mode==='resp-claim'){
+    inner=`<div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:2px">${t('Activer ton accès','הפעל גישה','Activate access')}</div>
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;margin-bottom:6px">${t('Entre le code qu\'on t\'a donné.','הזן את הקוד שקיבלת.','Enter the code you were given.')}</div>
+      <input id="g-code" type="text" placeholder="${t('Code','קוד','Code')}" style="${_GI};text-transform:uppercase;letter-spacing:2px;font-weight:600">
+      <button style="${_GB}" data-act="gateRespClaim()">${t('Activer','הפעל','Activate')}</button>
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--ink-soft)"><span style="cursor:pointer;text-decoration:underline" data-act="authLogout()">${t('Se déconnecter','התנתק','Log out')}</span></div>`;
   } else if(mode==='org-new'){
     inner=`<div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:4px">Bienvenue 👋</div>
       <div style="font-size:13px;color:var(--ink-soft);text-align:center;margin-bottom:6px">Crée ton association ou rejoins-en une avec un code.</div>
@@ -880,7 +902,8 @@ function renderGate(mode, msg){
       <div style="margin-top:22px;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px">Rejoindre avec un code</div>
       <input id="g-code" type="text" placeholder="Code d'invitation (ex. A1B2C3)" style="${_GI};text-transform:uppercase">
       <button style="${_GBg}" data-act="gateJoinOrg()">Rejoindre</button>
-      <div style="text-align:center;margin-top:18px;font-size:12px;color:var(--ink-soft)"><span style="cursor:pointer;text-decoration:underline" data-act="authLogout()">Se déconnecter</span></div>`;
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--ink-soft)">${t('Tu es responsable avec un code ?','אחראי עם קוד?','Responsible with a code?')} <span style="color:var(--primary);font-weight:600;cursor:pointer" data-act="renderGate('resp-claim')">${t('Activer ici','הפעל כאן','Activate here')}</span></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--ink-soft)"><span style="cursor:pointer;text-decoration:underline" data-act="authLogout()">Se déconnecter</span></div>`;
   } else if(mode==='org-pick'){
     const rows=_orgs.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:13px 14px;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;background:var(--surface-2)" data-act="gatePickOrg('${o.id}')">
         <div style="width:34px;height:34px;border-radius:9px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--serif)">${esc((o.name||'?').charAt(0).toUpperCase())}</div>
@@ -935,6 +958,202 @@ function gatePickOrg(id){ _org=_orgs.find(o=>o.id===id); if(_org) enterApp(); }
 function orgSwitch(id){ // depuis le menu : change d'association active
   const o=_orgs.find(x=>x.id===id); if(!o||(_org&&o.id===_org.id)) return;
   _cloudReady=false; _lastSyncStamp=null; _org=o; _closeOrgPanel(); toggleDrawer(false); enterApp();
+}
+
+// ============================================================
+//  COMPTES RESPONSABLES — accès isolé (chaque responsable ne voit que ses tâches)
+//  Tables Supabase : sbs_resp_invite (invitations) + sbs_user_view (données isolées).
+// ============================================================
+function _orgIsAdmin(){ return !!(_org && !_respMode && (_org.role==='owner' || _org.is_admin || _isAdmin)); }
+function _respCode(){ const C='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=C[Math.floor(Math.random()*C.length)]; return s; }
+
+// — Parcours de TOUTES les tâches de l'app avec leur contexte —
+function _walkAllTasks(cb){
+  const w=(arr,where)=>(arr||[]).forEach(t=>{ if(!t||t.kind) return; cb(t,where); if(t.subtasks) w(t.subtasks,where); });
+  Object.entries(D.months||{}).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); const mn=mm?mm.name:'';
+    w(m.tasks, mn);
+    (m.fetes||[]).forEach(f=>{ w(f.tasks, f.name); (f.events||[]).forEach(e=>w(e.tasks, f.name+' › '+e.name)); });
+  });
+  (D.programs||[]).forEach(p=>{ w(p.tasks, p.name); (p.events||[]).forEach(e=>w(e.tasks, p.name+' › '+e.name)); });
+  (D.themes||[]).forEach(th=>w(th.tasks, (th.icon||'🎯')+' '+th.name));
+  (D.dossiers||[]).forEach(d=>w((d.items||[]).filter(x=>!x.kind), (d.icon||'🗂️')+' '+d.name));
+  w(D.inbox, '');
+  w(D.rdv, t('Rendez-vous','פגישה','Appointment'));
+}
+function _respTasksFor(name){
+  const out=[]; if(!name) return out;
+  _walkAllTasks((t,where)=>{ if((t.responsible||'')===name){ out.push({ id:t.id, text:t.text||'', date:t.date||'', endDate:t.endDate||'', time:t.time||'', duration:t.duration||0, status:t.status||'todo', where:where||'', priority:t.priority||'normale' }); } });
+  return out;
+}
+
+// ---------- Côté ADMIN ----------
+async function respFetchInvites(){ try{ if(!await _ensureToken())return []; const r=await fetch(SUPA_URL+'/rest/v1/sbs_resp_invite?org_id=eq.'+_org.id+'&select=*',{headers:_authH()}); _respInvites = r.ok? (await r.json()):[]; }catch(e){ _respInvites=[]; } return _respInvites; }
+async function respFetchViews(){ try{ if(!await _ensureToken())return []; const r=await fetch(SUPA_URL+'/rest/v1/sbs_user_view?org_id=eq.'+_org.id+'&select=user_id,name,pages,back,updated_at',{headers:_authH()}); _respViews = r.ok? (await r.json()):[]; }catch(e){ _respViews=[]; } return _respViews; }
+async function respAdminOpen(){ toggleDrawer(false); _respBusy=true; await respFetchInvites(); await respFetchViews(); _respBusy=false; sheet={type:'respAdmin'}; renderOverlay(); }
+async function respCreateInvite(name){
+  if(!name){ toast(t('Choisis un responsable','בחר אחראי','Pick a responsible')); return; }
+  const code=_respCode();
+  try{
+    if(!await _ensureToken()) throw 0;
+    const r=await fetch(SUPA_URL+'/rest/v1/sbs_resp_invite',{method:'POST',headers:_authH({Prefer:'return=minimal'}),body:JSON.stringify([{code:code,org_id:_org.id,name:name,pages:['journal']}])});
+    if(!r.ok){ const tx=await r.text(); toast(t('Échec (vérifie le SQL installé)','שגיאה','Failed — check SQL')); console.warn('resp invite',r.status,tx); return; }
+    await respFetchInvites(); renderOverlay();
+    toast(t('Code créé ✓','קוד נוצר ✓','Code created ✓'));
+  }catch(e){ toast(t('Hors-ligne','לא מקוון','Offline')); }
+}
+async function respRevokeInvite(code){
+  const inv=_respInvites.find(x=>x.code===code);
+  if(!confirm(t('Révoquer cet accès ? Le responsable ne pourra plus se connecter.','לבטל גישה זו?','Revoke this access?'))) return;
+  try{
+    if(!await _ensureToken()) throw 0;
+    await fetch(SUPA_URL+'/rest/v1/sbs_resp_invite?code=eq.'+encodeURIComponent(code),{method:'DELETE',headers:_authH({Prefer:'return=minimal'})});
+    if(inv&&inv.claimed_by) await fetch(SUPA_URL+'/rest/v1/sbs_user_view?org_id=eq.'+_org.id+'&user_id=eq.'+inv.claimed_by,{method:'DELETE',headers:_authH({Prefer:'return=minimal'})});
+    await respFetchInvites(); await respFetchViews(); renderOverlay();
+    toast(t('Accès révoqué ✓','הגישה בוטלה ✓','Access revoked ✓'));
+  }catch(e){ toast(t('Hors-ligne','לא מקוון','Offline')); }
+}
+function respCopyCode(code){ try{ navigator.clipboard.writeText(code); toast(t('Code copié ✓','הקוד הועתק ✓','Code copied ✓')); }catch(e){ toast(code); } }
+function respAdminSheet(){
+  const people=(D.people||[]).slice().sort((a,b)=>a.localeCompare(b));
+  const invByName={}; _respInvites.forEach(i=>{ invByName[i.name]=i; });
+  let rows='';
+  if(!people.length){ rows=`<div class="hint">${t("Ajoute d'abord des responsables (via le champ « Responsable » d'une tâche), ils apparaîtront ici.",'הוסף קודם אחראים.','Add responsibles first (via a task\'s Responsible field).')}</div>`; }
+  people.forEach(n=>{
+    const inv=invByName[n]; const nTasks=_respTasksFor(n).length;
+    let right;
+    if(!inv){ right=`<button class="btn btn-primary btn-sm" data-act="respCreateInvite('${esc(n).replace(/'/g,"\\'")}')">＋ ${t('Créer un accès','צור גישה','Create access')}</button>`; }
+    else { const claimed=!!inv.claimed_by;
+      right=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <span style="font-family:var(--serif);font-size:16px;font-weight:700;letter-spacing:2px;color:var(--primary);background:var(--primary-soft);padding:4px 10px;border-radius:8px" data-act="respCopyCode('${inv.code}')">${inv.code}</span>
+        <span class="pill ${claimed?'pill-ok':'pill-mut'}" style="font-size:11px">${claimed?('✓ '+t('connecté','מחובר','connected')):t('en attente','ממתין','pending')}</span>
+        <button class="mini-btn danger" data-act="respRevokeInvite('${inv.code}')" title="${t('Révoquer','בטל','Revoke')}">🗑</button>
+      </div>`;
+    }
+    rows+=`<div class="card" style="padding:11px 12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:14.5px">👤 ${esc(n)}</div><div style="font-size:12px;color:var(--ink-soft)">${nTasks} ${t('tâche(s) assignée(s)','משימות','task(s) assigned')}</div></div>${right}</div></div>`;
+  });
+  return `<div class="sheet-head"><div class="sheet-title">👥 ${t('Comptes responsables','חשבונות אחראים','Responsible accounts')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="hint" style="margin-bottom:12px">${t('Crée un code pour chaque responsable. Donne-lui le code : à sa première connexion (écran « Je suis responsable »), il crée son compte avec ce code et ne verra QUE ses tâches.','צור קוד לכל אחראי.','Create a code per responsible. Give it to them; on first login they create their account with it and see ONLY their tasks.')}</div>
+    ${rows}
+  </div>`;
+}
+
+// — Push : pour chaque responsable connecté, envoyer SA liste filtrée + appliquer ses retours —
+function scheduleRespPush(){ if(!_orgIsAdmin())return; if(_respPushTimer)clearTimeout(_respPushTimer); _respPushTimer=setTimeout(respPushAll,1500); }
+async function respPushAll(){
+  if(!_orgIsAdmin()||_respBusy) return; _respBusy=true;
+  try{
+    if(!await _ensureToken()){ _respBusy=false; return; }
+    const views=await respFetchViews();
+    let localChanged=false;
+    // 1) Appliquer les retours (tâches cochées par les responsables) sur les vraies tâches.
+    for(const v of views){
+      const rev=(v.back&&v.back.rev)||0;
+      if(v.back && v.back.done && rev>(_respAppliedRev[v.user_id]||0)){
+        Object.entries(v.back.done).forEach(([tid,done])=>{ const r=findTaskAnywhere(tid); if(r&&r.task){ const ns=done?'done':'todo'; if(r.task.status!==ns){ r.task.status=ns; localChanged=true; } } });
+        _respAppliedRev[v.user_id]=rev;
+      }
+    }
+    if(localChanged){ _cloudSuppress=true; save(); _cloudSuppress=false; try{render();}catch(e){} scheduleCloudPush(); }
+    // 2) Pousser la liste filtrée de chaque responsable.
+    for(const v of views){
+      const payload={ name:v.name, tasks:_respTasksFor(v.name), at:new Date().toISOString() };
+      await fetch(SUPA_URL+'/rest/v1/sbs_user_view?org_id=eq.'+_org.id+'&user_id=eq.'+v.user_id,{method:'PATCH',headers:_authH({Prefer:'return=minimal'}),body:JSON.stringify({data:payload,updated_at:new Date().toISOString()})});
+    }
+  }catch(e){}
+  _respBusy=false;
+}
+
+// ---------- Côté RESPONSABLE ----------
+async function respLoadMine(){ try{ const rows=await _rpc('sbs_my_view',{}); if(rows&&rows.length) return rows[0]; }catch(e){} return null; }
+function respEnter(rv){ _respMode=true; _respView=rv; _cloudReady=false; try{ localStorage.setItem('sbs_resp','1'); }catch(e){} renderResp(); respPollStart(); }
+function respExit(){ _respMode=false; _respView=null; try{ localStorage.removeItem('sbs_resp'); }catch(e){} }
+let _respPollBound=false;
+async function _respRefresh(){ if(_respMode && document.visibilityState==='visible'){ const rv=await respLoadMine(); if(rv){ _respView=rv; if(!sheet) renderResp(); } } }
+function respPollStart(){
+  if(_respPollBound)return; _respPollBound=true;
+  try{ setInterval(_respRefresh,30000); }catch(e){}
+  try{ document.addEventListener('visibilitychange',_respRefresh); }catch(e){}
+}
+function _respTasks(){ return (_respView && _respView.data && Array.isArray(_respView.data.tasks))? _respView.data.tasks : []; }
+function _respDoneMap(){ return (_respView && _respView.back && _respView.back.done) || {}; }
+function _respStatus(tk){ const dm=_respDoneMap(); if(tk.id in dm) return dm[tk.id]?'done':'todo'; return tk.status||'todo'; }
+function respToggleTask(id){
+  if(!_respView) return; if(!_respView.back) _respView.back={done:{},rev:0};
+  if(!_respView.back.done) _respView.back.done={};
+  const tk=_respTasks().find(x=>x.id===id); const cur=_respStatus(tk||{id});
+  _respView.back.done[id]=(cur!=='done'); _respView.back.rev=((_respView.back.rev||0)+1); _respView.back.at=new Date().toISOString();
+  renderResp(); scheduleRespBack();
+}
+function scheduleRespBack(){ if(_respBackTimer)clearTimeout(_respBackTimer); _respBackTimer=setTimeout(respFlushBack,900); }
+async function respFlushBack(){
+  if(!_respView) return;
+  try{ if(!await _ensureToken()) return;
+    await fetch(SUPA_URL+'/rest/v1/sbs_user_view?org_id=eq.'+_respView.org_id+'&user_id=eq.'+_respView.user_id,{method:'PATCH',headers:_authH({Prefer:'return=minimal'}),body:JSON.stringify({back:_respView.back,updated_at:new Date().toISOString()})});
+  }catch(e){}
+}
+function renderResp(){
+  const app=$('app'); if(!app) return;
+  const name=(_respView&&_respView.name)||t('Responsable','אחראי','Responsible');
+  const tasks=_respTasks().slice();
+  const today=todayKey();
+  const isDone=tk=>_respStatus(tk)==='done';
+  const inRange=tk=> tk.date && (tk.date<=today) && (!tk.endDate || tk.endDate>=today);
+  const todo = tasks.filter(tk=>!isDone(tk));
+  const done = tasks.filter(tk=>isDone(tk));
+  const aujourd = todo.filter(tk=> tk.date && (tk.date<=today || inRange(tk)) );
+  const avenir  = todo.filter(tk=> tk.date && tk.date>today && !inRange(tk) );
+  const sansDate= todo.filter(tk=> !tk.date );
+  const row=(tk)=>{ const d=isDone(tk); const late=tk.date&&tk.date<today&&!d;
+    const meta=[]; if(tk.where) meta.push(esc(tk.where)); if(tk.date) meta.push((late?'⏰ ':'📅 ')+fmtDate(tk.date)+((tk.endDate&&tk.endDate>tk.date)?(' → '+fmtDate(tk.endDate)):'')+(tk.time?' · '+tk.time:'')); if(tk.duration) meta.push('⏱ '+fmtM(tk.duration));
+    return `<div class="shop-item" style="align-items:flex-start">
+      <div class="check" style="width:24px;height:24px;border-color:${d?'var(--green)':(late?'var(--red)':'var(--primary)')};background:${d?'var(--green)':'#fff'};flex:none;margin-top:1px" data-act="respToggleTask('${tk.id}')">${d?'✓':''}</div>
+      <div class="shop-item-main" data-act="respToggleTask('${tk.id}')"><div class="shop-item-name ${d?'':''}" style="${d?'text-decoration:line-through;color:var(--ink-soft)':''}">${(tk.text&&tk.text.trim())?esc(tk.text):'—'}</div>${meta.length?`<div class="shop-item-meta">${meta.join(' · ')}</div>`:''}</div>
+    </div>`; };
+  const sec=(icon,label,list,color)=> list.length? `<div class="section-label" style="margin-top:14px">${icon} ${label} (${list.length})</div>${list.map(row).join('')}` : '';
+  const empty = (!todo.length&&!done.length);
+  const body = empty
+    ? `<div style="text-align:center;padding:50px 16px;color:var(--ink-soft)"><div style="font-size:44px">🎉</div><div style="font-weight:700;margin-top:8px;color:var(--ink)">${t('Aucune tâche pour le moment','אין משימות כרגע','No tasks yet')}</div><div style="font-size:13px;margin-top:4px">${t('Les tâches qui te seront attribuées apparaîtront ici.','המשימות שיוקצו לך יופיעו כאן.','Tasks assigned to you will appear here.')}</div></div>`
+    : `${sec('📌',t("À faire aujourd'hui",'להיום','Due today'),aujourd)}
+       ${sec('🔜',t('À venir','בקרוב','Upcoming'),avenir)}
+       ${sec('📝',t('Sans date','ללא תאריך','No date'),sansDate)}
+       ${done.length?`<div class="section-label" style="margin-top:18px;color:var(--ink-soft)">✅ ${t('Terminées','הושלמו','Done')} (${done.length})</div>${done.map(row).join('')}`:''}`;
+  app.innerHTML=`<div style="min-height:100vh;background:var(--bg);font-family:var(--sans)">
+    <div style="position:sticky;top:0;z-index:5;background:var(--primary);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;box-shadow:var(--sh)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;font-family:var(--serif)">${esc(name.charAt(0).toUpperCase())}</div>
+        <div style="flex:1;min-width:0"><div style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.1">${esc(name)}</div><div style="font-size:12px;opacity:.85">${t('Mes tâches','המשימות שלי','My tasks')} · ${(_org&&_org.name)||'stepbystep'}</div></div>
+        <button style="background:rgba(255,255,255,.16);border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer" data-act="authLogout()">${t('Quitter','יציאה','Log out')}</button>
+      </div>
+    </div>
+    <div style="max-width:620px;margin:0 auto;padding:8px 14px 40px">${body}</div>
+  </div>`;
+}
+
+// ---------- Écrans de connexion responsable ----------
+async function gateRespSignup(){
+  if(_gateBusy)return; const email=_gv('g-email'), pwd=_gv('g-pwd'), code=_gv('g-code').toUpperCase();
+  if(!email||!pwd||!code){ _gateMsg(t('Email, mot de passe et code sont requis.','דרושים אימייל, סיסמה וקוד.','Email, password and code are required.')); return; }
+  if(pwd.length<6){ _gateMsg(t('Mot de passe : au moins 6 caractères.','סיסמה: לפחות 6 תווים.','Password: at least 6 characters.')); return; }
+  _gateBusy=true; _gateMsg(t('Création de ton accès…','יוצר גישה…','Creating your access…'),true);
+  try{
+    let hasSession=false;
+    try{ const r=await authSignup(email,pwd); hasSession=!!r.session; }
+    catch(e){ // déjà inscrit ? on tente la connexion.
+      try{ await authLogin(email,pwd); hasSession=true; }catch(e2){ throw new Error(t("Cet email existe déjà avec un autre mot de passe.",'האימייל כבר קיים.','This email already exists with another password.')); }
+    }
+    if(!hasSession){ try{ await authLogin(email,pwd); hasSession=true; }catch(e){} }
+    if(!hasSession){ renderGate('login', t('Compte créé. Confirme ton email puis reviens ici avec ton code.','אשר את האימייל וחזור עם הקוד.','Account created. Confirm your email, then return here with your code.')); _gateBusy=false; return; }
+    const res=await _rpc('sbs_claim_resp',{p_code:code});
+    _gateBusy=false;
+    const rv=await respLoadMine(); if(rv){ respEnter(rv); } else { _gateMsg(t('Code accepté mais accès introuvable. Réessaie.','הקוד התקבל אך הגישה לא נמצאה.','Code accepted but access not found. Retry.')); }
+  }catch(e){ _gateBusy=false; _gateMsg(/code_invalide/.test(e.message)?t('Code invalide.','קוד שגוי.','Invalid code.'):/code_deja/.test(e.message)?t('Ce code est déjà utilisé.','הקוד כבר בשימוש.','This code is already used.'):(e.message||t('Impossible.','לא ניתן.','Failed.'))); }
+}
+async function gateRespClaim(){ // déjà connecté, il a juste un code à saisir
+  if(_gateBusy)return; const code=_gv('g-code').toUpperCase(); if(!code){ _gateMsg(t('Entre ton code.','הזן קוד.','Enter your code.')); return; }
+  _gateBusy=true; _gateMsg(t('Vérification…','בודק…','Checking…'),true);
+  try{ await _rpc('sbs_claim_resp',{p_code:code}); _gateBusy=false; const rv=await respLoadMine(); if(rv){ respEnter(rv); } else { _gateMsg(t('Accès introuvable.','גישה לא נמצאה.','Access not found.')); } }
+  catch(e){ _gateBusy=false; _gateMsg(/code_invalide/.test(e.message)?t('Code invalide.','קוד שגוי.','Invalid code.'):(e.message||'Erreur')); }
 }
 
 // ---- Panneau Association / Collaborateurs / Admin (superposition) ----
@@ -2126,6 +2345,7 @@ function drawerHTML(){
         <div class="drawer-sub">${esc((_org&&_org.name)||'stepbystep')} · ${t('Année','שנה','Year')} ${D.year} ›</div></div>
       <div class="drawer-body">${body}
         <button class="drawer-item" data-act="openOrgPanel()" style="margin-top:8px"><span class="ic">👥</span>${t('Association & collaborateurs','ארגון','Association')}</button>
+        ${_orgIsAdmin()?`<button class="drawer-item" data-act="respAdminOpen()"><span class="ic">🧑‍💼</span>${t('Comptes responsables','חשבונות אחראים','Responsible accounts')}</button>`:''}
         <button class="drawer-item" data-act="authLogout()"><span class="ic">🚪</span>${t('Se déconnecter','התנתק','Log out')}</button>
       </div>
     </div>`;
@@ -3071,6 +3291,7 @@ function sheetHTML(){
   else if(sheet.type==='provAdd') inner=provAddSheet();
   else if(sheet.type==='provPick') inner=provPickSheet();
   else if(sheet.type==='backups') inner=backupSheet();
+  else if(sheet.type==='respAdmin') inner=respAdminSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -5958,6 +6179,7 @@ function commitDragOrder(kind){
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
+ respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
@@ -6076,7 +6298,7 @@ async function bootAuthed(){
     await loadOrgs();
     let want=null; try{ want=localStorage.getItem('sbs_org'); }catch(e){}
     _org = _orgs.find(o=>o.id===want) || (_orgs.length===1?_orgs[0]:null);
-    if(!_orgs.length){ renderGate('org-new'); return; }
+    if(!_orgs.length){ const rv=await respLoadMine(); if(rv){ respEnter(rv); return; } renderGate('org-new'); return; }
     if(!_org){ renderGate('org-pick'); return; }
     enterApp();
   }catch(e){
