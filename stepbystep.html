@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a55">
+<meta name="app-build" content="b-2026-08-28-a56">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1205,6 +1205,9 @@ function importSheet(){
     <button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importTo('task')">✅ ${t('Tâche (à planifier)','משימה','Task (to plan)')}</button>
     <button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importStep('dossier')">🗂️ ${t('Dans un dossier','לתיקייה','Into a folder')}</button>
     <button class="btn btn-soft btn-block" style="justify-content:flex-start" data-act="importTo('idea')">💡 ${t('Idée','רעיון','Idea')}</button>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center;font-size:12.5px;color:var(--ink-soft)">
+      ${_geminiKey()?`🔎 ${t('Lecture IA activée','קריאת AI פעילה','AI reading on')} · <span style="color:var(--primary);cursor:pointer" data-act="geminiClear()">${t('retirer','הסר','remove')}</span>`:`<span style="color:var(--primary);cursor:pointer;font-weight:600" data-act="geminiSetKey()">🔎 ${t('Activer la lecture IA (clé Gemini)','הפעל קריאת AI','Enable AI reading (Gemini key)')}</span>`}
+    </div>
   </div>`;
 }
 function _importMedia(){ return {id:uid(),kind:'media',mtype:'image',data:_importImg.data,name:_importImg.name}; }
@@ -1233,17 +1236,35 @@ function _parseInvite(txt){
   res.title=(kw || lines.filter(l=>l.length>=4 && l!==addr).sort((a,b)=>b.length-a.length)[0] || t('Invitation','הזמנה','Invitation')).slice(0,80);
   return res;
 }
+// — Lecture d'image : IA Gemini si une clé est configurée, sinon OCR local gratuit —
+function _geminiKey(){ try{ return localStorage.getItem('sbs_gemini_key')||''; }catch(e){ return ''; } }
+function geminiSetKey(){ const cur=_geminiKey(); const k=prompt(t('Colle ta clé Gemini (AIza…) :','הדבק מפתח Gemini:','Paste your Gemini key (AIza…):'),cur); if(k===null)return; try{ localStorage.setItem('sbs_gemini_key',(k||'').trim()); }catch(e){} renderOverlay(); toast((k||'').trim()?t('Lecture IA activée ✓','AI הופעל ✓','AI reading on ✓'):t('Clé retirée','המפתח הוסר','Key removed')); }
+function geminiClear(){ try{ localStorage.removeItem('sbs_gemini_key'); }catch(e){} renderOverlay(); toast(t('Lecture IA désactivée','AI כבוי','AI reading off')); }
+function _aiGemini(dataUrl,cb){
+  const key=_geminiKey(); if(!key){ cb(null); return; }
+  const b64=String(dataUrl).split(',')[1]||''; const mime=(String(dataUrl).match(/^data:([^;]+)/)||[])[1]||'image/jpeg';
+  const prompt="Tu lis une invitation ou une affiche d'événement (français/hébreu). Renvoie UNIQUEMENT un objet JSON avec ces clés (valeur vide si absent) : title (titre/nom de l'événement, ex. \"Mariage de Kevin et Ryan\"), date (AAAA-MM-JJ), time (HH:MM 24h), place (adresse complète), phone, type (mariage, bar-mitsva, brit, farbrenguen, soirée, fête, cours, autre).";
+  const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:mime,data:b64}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}};
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=> r.ok ? r.json() : Promise.reject(r.status))
+    .then(j=>{ let txt=''; try{ txt=j.candidates[0].content.parts[0].text; }catch(e){} let p={}; try{ p=JSON.parse(txt); }catch(e){ p={}; } cb({title:p.title||'',date:p.date||'',time:p.time||'',place:p.place||'',phone:p.phone||'',type:p.type||''}); })
+    .catch(()=>cb(null));
+}
+function _readImage(dataUrl,cb){
+  if(_geminiKey()){ _aiGemini(dataUrl,(res)=>{ if(res && (res.title||res.date||res.place||res.time)){ cb(res); } else { _ocrImage(dataUrl,(txt)=>cb(_parseInvite(txt))); } }); }
+  else { _ocrImage(dataUrl,(txt)=>cb(_parseInvite(txt))); }
+}
 function importTo(dest){
   if(!_importImg) return;
   if(dest==='idea'){ const idn={id:uid(),title:'',text:'',attachments:[],media:[_importMedia()],created:todayKey()}; if(!Array.isArray(D.ideas))D.ideas=[]; D.ideas.push(idn); save(); _ideaBuf=JSON.parse(JSON.stringify(idn)); _importImg=null; sheet={type:'idea'}; renderOverlay(); setTimeout(()=>{const e=$('idea-title');if(e)e.focus();},60); toast(t('Idée créée ✓','רעיון נוצר ✓','Idea created ✓')); return; }
   if(dest==='task'||dest==='journal'){
     _importBusy=true; renderOverlay();
-    _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(dest==='journal') tk.date=todayKey(); if(!Array.isArray(D.inbox))D.inbox=[]; D.inbox.push(tk); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(tk)); sheet={type:'task'}; renderOverlay(); toast(t('Tâche créée ✓','משימה נוצרה ✓','Task created ✓')); });
+    _readImage(_importImg.data,(p)=>{ const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(dest==='journal') tk.date=p.date||todayKey(); else if(p.date) tk.date=p.date; if(!Array.isArray(D.inbox))D.inbox=[]; D.inbox.push(tk); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(tk)); sheet={type:'task'}; renderOverlay(); toast(t('Tâche créée ✓','משימה נוצרה ✓','Task created ✓')); });
     return;
   }
   if(dest==='rappel'){
     _importBusy=true; renderOverlay();
-    _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const r=mkRdv(p.title||t('Invitation','הזמנה','Invitation')); r.date=p.date||''; r.time=p.time||''; r.place=p.place||''; if(p.phone)r.notes=(t('Tél. :','טל:','Tel:')+' '+p.phone); r.media=[_importMedia()]; if(!Array.isArray(D.rdv))D.rdv=[]; D.rdv.push(r); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(r)); sheet={type:'task'}; renderOverlay(); toast(t('Rappel créé ✓ — vérifie les champs','תזכורת נוצרה ✓','Reminder created ✓ — check the fields')); });
+    _readImage(_importImg.data,(p)=>{ const r=mkRdv(p.title||t('Invitation','הזמנה','Invitation')); r.date=p.date||''; r.time=p.time||''; r.place=p.place||''; if(p.phone)r.notes=(t('Tél. :','טל:','Tel:')+' '+p.phone); r.media=[_importMedia()]; if(!Array.isArray(D.rdv))D.rdv=[]; D.rdv.push(r); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(r)); sheet={type:'task'}; renderOverlay(); toast(t('Rappel créé ✓ — vérifie les champs','תזכורת נוצרה ✓','Reminder created ✓ — check the fields')); });
     return;
   }
 }
@@ -1265,7 +1286,7 @@ async function _checkSharedImage(){
 function importPickDossier(did,titleId){
   const d=dossierById(did); if(!d){ importClose(); return; }
   _importBusy=true; renderOverlay();
-  _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(p.date)tk.date=p.date;
+  _readImage(_importImg.data,(p)=>{ const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(p.date)tk.date=p.date;
     if(!Array.isArray(d.items))d.items=[];
     if(titleId){ const idx=d.items.findIndex(x=>x.id===titleId); if(idx>=0){ d.items.splice(idx+1,0,tk); } else d.items.push(tk); } else d.items.push(tk);
     save(); _importImg=null; _importBusy=false; _importDoss=null; _importStep='choose'; nav={...nav,view:'dossier',dossierId:did}; sheet=null; render(); toast(t('Ajouté au dossier ✓','נוסף לתיקייה ✓','Added to folder ✓')); });
@@ -6452,7 +6473,7 @@ function commitDragOrder(kind){
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
- openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,
+ openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,geminiSetKey,geminiClear,
  louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
  dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
