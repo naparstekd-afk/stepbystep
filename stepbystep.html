@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a46">
+<meta name="app-build" content="b-2026-08-28-a47">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3564,10 +3564,10 @@ function openDatePicker(target){
 function hebParts(d){ const p=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'}).formatToParts(d); const o={}; p.forEach(x=>{if(x.type==='day')o.day=parseInt(x.value);if(x.type==='month')o.month=x.value;if(x.type==='year')o.year=x.value;}); return o; }
 function dpHebShift(dir){ const a=new Date((datePicker.anchor||todayKey())+'T12:00:00');
   if(datePicker.mode==='fr'){ // Vue grégorienne : on avance/recule d'un mois CIVIL
-    const d=new Date(a.getFullYear(), a.getMonth()+dir, 1); datePicker.anchor=todayKey(d); renderOverlay(); return;
+    const d=new Date(a.getFullYear(), a.getMonth()+dir, 1); datePicker.anchor=todayKey(d); dpRefresh(); return;
   }
-  const ap=hebParts(a); let d=new Date(a); d.setDate(d.getDate()-(ap.day-1)); if(dir<0){ d.setDate(d.getDate()-1); } else { let cur=new Date(d); for(let i=0;i<32;i++){ cur.setDate(cur.getDate()+1); const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year){ d=cur; break; } } } datePicker.anchor=todayKey(d); renderOverlay(); }
-function dpToday(){ datePicker.anchor=todayKey(); if(datePicker.target==='task'){ datePicker.sel=todayKey(); if(datePicker.repeat) datePicker.repeat.start=todayKey(); } renderOverlay(); }
+  const ap=hebParts(a); let d=new Date(a); d.setDate(d.getDate()-(ap.day-1)); if(dir<0){ d.setDate(d.getDate()-1); } else { let cur=new Date(d); for(let i=0;i<32;i++){ cur.setDate(cur.getDate()+1); const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year){ d=cur; break; } } } datePicker.anchor=todayKey(d); dpRefresh(); }
+function dpToday(){ datePicker.anchor=todayKey(); if(datePicker.target==='task'){ datePicker.sel=todayKey(); if(datePicker.repeat) datePicker.repeat.start=todayKey(); } dpRefresh(); }
 function dpPick(iso){
   const dp=datePicker; const t=dp.target;
   // Mode « période » (façon Google Agenda) : 1er tap = début, 2e tap = fin ; un tap avant le début redéfinit le début.
@@ -3577,17 +3577,17 @@ function dpPick(iso){
     else if(iso===dp.sel){ dp.end=''; }
     else { dp.end=iso; }
     if(t==='task' && dp.repeat) dp.repeat.start=dp.sel;
-    renderOverlay(); return;
+    dpRefresh(); return;
   }
   // Pour une tâche : on sélectionne sans fermer, afin de choisir aussi l'heure et la répétition.
-  if(t==='task'){ dp.sel=iso; dp.end=''; if(dp.repeat) dp.repeat.start=iso; renderOverlay(); return; }
+  if(t==='task'){ dp.sel=iso; dp.end=''; if(dp.repeat) dp.repeat.start=iso; dpRefresh(); return; }
   datePicker=null;
   if(t==='reminder'){ if(iso){ if(!Array.isArray(editBuf.reminders))editBuf.reminders=[]; if(!editBuf.reminders.includes(iso))editBuf.reminders.push(iso); } sheet={type:'task'}; renderOverlay(); }
   else if(t==='fete'){ const c=curContainer(); if(c){c.date=iso; c.endDate=''; save();} closeSheet(); render(); }
   else if(t==='event'){ const e=curEvent(); if(e){e.date=iso; e.endDate=''; save();} closeSheet(); render(); }
 }
 // Bascule un jour ↔ période.
-function dpSetRange(v){ const dp=datePicker; if(!dp)return; dp.range=!!v; if(!dp.range) dp.end=''; renderOverlay(); }
+function dpSetRange(v){ const dp=datePicker; if(!dp)return; dp.range=!!v; if(!dp.range) dp.end=''; dpRefresh(); }
 // Valide la date (ou la période) d'une fête / d'un événement puis ferme.
 function dpConfirmDate(){
   const dp=datePicker; if(!dp)return; const t=dp.target;
@@ -3609,11 +3609,11 @@ function dpClear(){ if(datePicker&&datePicker.target==='task'){ datePicker.sel='
 function dpClose(){ const dp=datePicker; datePicker=null; if(dp&&(dp.target==='task'||dp.target==='reminder')){ sheet={type:(dp.ret||'task')}; renderOverlay(); } else { closeSheet(); } }
 // --- Heure + règle de répétition (façon Google Agenda) ---
 function dpTime(v){ if(datePicker) datePicker.time=v; }
-function dpRepeatToggle(){ const dp=datePicker; if(!dp)return; if(dp.repeat){ dp.repeat=null; } else { const base=dp.sel||todayKey(); const wd=new Date(base+'T12:00:00').getDay(); const map=['SU','MO','TU','WE','TH','FR','SA']; dp.repeat={freq:'week',interval:1,byday:[map[wd]],endType:'never',endDate:'',count:13,start:base}; } renderOverlay(); }
-function dpRepFreq(v){ if(datePicker&&datePicker.repeat){ datePicker.repeat.freq=v; renderOverlay(); } }
+function dpRepeatToggle(){ const dp=datePicker; if(!dp)return; if(dp.repeat){ dp.repeat=null; } else { const base=dp.sel||todayKey(); const wd=new Date(base+'T12:00:00').getDay(); const map=['SU','MO','TU','WE','TH','FR','SA']; dp.repeat={freq:'week',interval:1,byday:[map[wd]],endType:'never',endDate:'',count:13,start:base}; } dpRefresh(); }
+function dpRepFreq(v){ if(datePicker&&datePicker.repeat){ datePicker.repeat.freq=v; dpRefresh(); } }
 function dpRepInterval(v){ if(datePicker&&datePicker.repeat){ let n=parseInt(v)||1; if(n<1)n=1; datePicker.repeat.interval=n; } }
-function dpRepDay(code){ if(!datePicker||!datePicker.repeat)return; const b=datePicker.repeat.byday||[]; const i=b.indexOf(code); if(i>=0)b.splice(i,1); else b.push(code); datePicker.repeat.byday=b; renderOverlay(); }
-function dpRepEnd(type){ if(datePicker&&datePicker.repeat){ datePicker.repeat.endType=type; renderOverlay(); } }
+function dpRepDay(code){ if(!datePicker||!datePicker.repeat)return; const b=datePicker.repeat.byday||[]; const i=b.indexOf(code); if(i>=0)b.splice(i,1); else b.push(code); datePicker.repeat.byday=b; dpRefresh(); }
+function dpRepEnd(type){ if(datePicker&&datePicker.repeat){ datePicker.repeat.endType=type; dpRefresh(); } }
 function dpRepEndDate(v){ if(datePicker&&datePicker.repeat) datePicker.repeat.endDate=v; }
 function dpRepCount(v){ if(datePicker&&datePicker.repeat){ let n=parseInt(v)||1; if(n<1)n=1; datePicker.repeat.count=n; } }
 function repeatLabel(rep){ if(!rep||!rep.freq)return ''; const iv=rep.interval||1; let s='🔁 ';
@@ -3680,7 +3680,9 @@ function renderTimerPill(){
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && _tmrRun){ tmrTick(); } });
 window.addEventListener('focus',()=>{ if(_tmrRun) tmrTick(); });
-function dpSetMode(m){ datePicker.mode=m; renderOverlay(); }
+function dpSetMode(m){ datePicker.mode=m; dpRefresh(); }
+// Rafraîchit UNIQUEMENT le corps du sélecteur (sans re-monter la feuille) → aucun « saut » quand on touche un jour.
+function dpRefresh(){ const b=document.getElementById('dp-body'); if(b&&datePicker){ b.innerHTML=dpBodyHTML(); } else { renderOverlay(); } }
 function _dpDayCls(dp,iso,isOut){
   if(dp.sel===iso || (dp.range&&dp.end&&dp.end===iso)) return ' sel';
   if(dp.range && dp.sel && dp.end && iso>dp.sel && iso<dp.end) return ' rng';
@@ -3688,6 +3690,10 @@ function _dpDayCls(dp,iso,isOut){
   return '';
 }
 function datePickSheet(){
+  return `<div class="sheet-head"><div class="sheet-title">🕎 Choisir une date</div><button class="sheet-close" data-act="dpClose()">✕</button></div>
+  <div class="sheet-body" id="dp-body">${dpBodyHTML()}</div>`;
+}
+function dpBodyHTML(){
   const dp=datePicker;
   const a=new Date((dp.anchor||todayKey())+'T12:00:00');
   let primHdr='', secHdr='', cells='';
@@ -3715,10 +3721,18 @@ function datePickSheet(){
     const g1=days[0].g, g2=days[days.length-1].g;
     secHdr=g1.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' \u2013 '+g2.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
     const startW=days[0].g.getDay();
-    for(let i=0;i<startW;i++) cells+='<div></div>';
+    // Jours du mois hébraïque précédent, en clair, pour compléter la 1re semaine.
+    for(let i=startW;i>0;i--){ const d=new Date(days[0].g); d.setDate(d.getDate()-i); const iso=todayKey(d); const hp=hebParts(d);
+      cells+='<div class="dp-day out'+_dpDayCls(dp,iso,true)+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+hp.day+'</div><div class="dp-h">'+(d.getDate()+'/'+(d.getMonth()+1))+'</div></div>';
+    }
     days.forEach(dy=>{ const iso=todayKey(dy.g);
       cells+='<div class="dp-day'+_dpDayCls(dp,iso,false)+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.hd+'</div><div class="dp-h">'+(dy.g.getDate()+'/'+(dy.g.getMonth()+1))+'</div></div>';
     });
+    // Jours du mois hébraïque suivant, en clair, pour compléter la dernière semaine.
+    const _lastG=days[days.length-1].g; let _extra=(7-((startW+days.length)%7))%7;
+    for(let i=1;i<=_extra;i++){ const d=new Date(_lastG); d.setDate(d.getDate()+i); const iso=todayKey(d); const hp=hebParts(d);
+      cells+='<div class="dp-day out'+_dpDayCls(dp,iso,true)+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+hp.day+'</div><div class="dp-h">'+(d.getDate()+'/'+(d.getMonth()+1))+'</div></div>';
+    }
   }
   const wd=['D','L','M','M','J','V','S'];
   const isTask = dp.target==='task';
@@ -3774,8 +3788,7 @@ function datePickSheet(){
       <button class="toggle-opt ${dp.range?'active':''}" data-act="dpSetRange(true)">↔️ ${t('Une période','טווח','A range')}</button>
     </div>
     ${dp.range?`<div style="text-align:center;font-size:12.5px;font-weight:600;color:var(--primary);margin:-2px 0 10px">${dp.sel?('📅 '+fmtDate(dp.sel)+(dp.end?(' → '+fmtDate(dp.end)):(' → <span style="color:var(--ink-soft);font-weight:500">'+t('touche le jour de fin','בחר יום סיום','tap the end day')+'</span>'))):('<span style="color:var(--ink-soft);font-weight:500">'+t('Touche le jour de début','בחר יום התחלה','Tap the start day')+'</span>')}</div>`:''}`;
-  return `<div class="sheet-head"><div class="sheet-title">🕎 Choisir une date</div><button class="sheet-close" data-act="dpClose()">✕</button></div>
-  <div class="sheet-body">
+  return `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <button class="cbtn" data-act="dpHebShift(-1)">◀</button>
       <div style="flex:1;text-align:center"><div style="font-family:var(--serif);font-size:18px;color:var(--primary)">${primHdr}</div><div style="font-size:12px;color:var(--ink-soft)">${secHdr}</div></div>
@@ -3789,8 +3802,7 @@ function datePickSheet(){
     <div class="dp-grid${dp.mode==='fr'?'':' rtl'}">${wd.map(w=>`<div class="dp-wdh">${w}</div>`).join('')}</div>
     <div class="dp-grid${dp.mode==='fr'?'':' rtl'}" style="margin-top:4px">${cells}</div>
     ${taskExtra}
-    ${bottom}
-  </div>`;
+    ${bottom}`;
 }
 let _mvMode='move';   // 'move' = déplacer · 'dup' = dupliquer (même navigateur)
 let _selMoveMode=false;   // déplacement groupé (sélection multiple) en cours ?
