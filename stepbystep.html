@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a51">
+<meta name="app-build" content="b-2026-08-28-a52">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1643,6 +1643,7 @@ function render(){
   else if(nav.view==='themes'){ nav.view='bdd'; bddNav=null; renderBDD(main); }
   else if(nav.view==='themeEvent') renderEvent(main);
   else if(nav.view==='dossier') renderDossier(main);
+  else if(nav.view==='dvar') renderDvar(main);
   else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
     if(!nav.monthId) renderHome(main);
@@ -2391,6 +2392,7 @@ function drawerHTML(){
     ['',[
       ['report','📋',t("Dou'h",'דו״ח','Report'),null],
       ['hevents','🕎',t("Loua'h",'לוח',"Loua'h"),null],
+      ['dvar','📖',t('Dvar Torah','דבר תורה','Dvar Torah'),null],
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
@@ -2415,11 +2417,11 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||v==='dvar'||menuVisible(v));
     if(!vis.length) return;
     if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
-      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='_import' ? `openImport()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
+      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='_import' ? `openImport()` : v==='dvar' ? `louvahDvar()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       const col=MENU_COL[v]||_palColor(v+label);
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic-badge" style="background:${col}">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
     });
@@ -3121,7 +3123,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='dvar'){ dvarAddEntry(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -3379,6 +3381,7 @@ function sheetHTML(){
   else if(sheet.type==='respAdmin') inner=respAdminSheet();
   else if(sheet.type==='hevOrg') inner=hevOrgSheet();
   else if(sheet.type==='import') inner=importSheet();
+  else if(sheet.type==='dvarEntry') inner=dvarEntrySheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -5380,6 +5383,63 @@ function renderBDD(c){
   else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Touche le + en bas à droite pour créer ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). גע ב-+ למטה מימין ליצירת התיקייה הראשונה.','A folder is a free plan (titles + tasks). Tap the + at bottom right to create your first one.')}</div>`; }
   c.innerHTML=html;
 }
+// ============================================================
+//  DVAR TORAH — arborescence de contenus (dossiers, sous-dossiers, fiches note + image)
+// ============================================================
+let dvarNav=null, _dvarEntry=null;
+function dvarById(id){ return (D.dvar||[]).find(x=>x.id===id); }
+function dvarChildren(pid){ return (D.dvar||[]).filter(x=>x.parentId===(pid||null)); }
+function dvarPath(id){ const out=[]; let cur=dvarById(id); while(cur){ out.unshift(cur); cur=cur.parentId?dvarById(cur.parentId):null; } return out; }
+function louvahDvar(){ drawerOpen=false; dvarNav=null; setView('dvar'); }
+function dvarOpen(id){ dvarNav=id; render(); }
+function dvarBack(){ const cur=dvarNav?dvarById(dvarNav):null; dvarNav=(cur&&cur.parentId)?cur.parentId:null; render(); }
+function dvarAddFolder(){ const n=prompt(t('Nom du dossier :','שם התיקייה:','Folder name:'),''); if(n===null)return; const f={id:uid(),kind:'folder',name:(n||'').trim()||t('Dossier','תיקייה','Folder'),parentId:dvarNav||null,created:todayKey()}; if(!Array.isArray(D.dvar))D.dvar=[]; D.dvar.push(f); save(); render(); }
+function dvarAddEntry(){ const e={id:uid(),kind:'entry',title:'',note:'',media:[],parentId:dvarNav||null,created:todayKey()}; if(!Array.isArray(D.dvar))D.dvar=[]; D.dvar.push(e); save(); _dvarEntry=e.id; sheet={type:'dvarEntry'}; renderOverlay(); setTimeout(()=>{const el=$('dvar-title');if(el)el.focus();},60); }
+function dvarRenameFolder(id){ const f=dvarById(id); if(!f)return; const n=prompt(t('Renommer :','שנה שם:','Rename:'),f.name||''); if(n===null)return; f.name=(n||'').trim()||f.name; save(); render(); }
+function dvarDelFolder(id){ const f=dvarById(id); if(!f)return; const kids=[...dvarDescIds(id)]; if(!confirm(t('Supprimer ce dossier et tout son contenu ?','למחוק תיקייה זו וכל תוכנה?','Delete this folder and all its content?'))) return; D.dvar=(D.dvar||[]).filter(x=>!kids.includes(x.id)); save(); render(); }
+function dvarDescIds(id){ const out=new Set([id]); let add=true; while(add){ add=false; (D.dvar||[]).forEach(x=>{ if(x.parentId && out.has(x.parentId) && !out.has(x.id)){ out.add(x.id); add=true; } }); } return out; }
+function dvarOpenEntry(id){ _dvarEntry=id; sheet={type:'dvarEntry'}; renderOverlay(); }
+function dvarSetTitle(v){ const e=dvarById(_dvarEntry); if(e){ e.title=v; save(); } }
+function dvarSetNote(v){ const e=dvarById(_dvarEntry); if(e){ e.note=v; save(); } }
+function dvarDelEntry(){ const e=dvarById(_dvarEntry); if(!e)return; if(!confirm(t('Supprimer cette fiche ?','למחוק כרטיס זה?','Delete this entry?'))) return; D.dvar=(D.dvar||[]).filter(x=>x.id!==e.id); _dvarEntry=null; save(); closeSheet(); render(); }
+function dvarAttachImage(){ const e=dvarById(_dvarEntry); if(!e)return; const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return; _ebCompressImage(f,(m)=>{ if(!Array.isArray(e.media))e.media=[]; e.media.push({id:uid(),kind:'media',mtype:'image',data:m.data,name:m.name}); save(); renderOverlay(); toast(t('Image ajoutée ✓','תמונה נוספה ✓','Image added ✓')); }); }; inp.click(); }
+function dvarRmMedia(mid){ const e=dvarById(_dvarEntry); if(!e)return; e.media=(e.media||[]).filter(x=>x.id!==mid); save(); renderOverlay(); }
+function renderDvar(c){
+  const cur=dvarNav?dvarById(dvarNav):null;
+  const folders=dvarChildren(dvarNav).filter(x=>x.kind==='folder');
+  const entries=dvarChildren(dvarNav).filter(x=>x.kind==='entry');
+  let html='';
+  // fil d'Ariane / retour
+  if(cur){ const path=dvarPath(dvarNav);
+    html+=`<div class="bc"><span class="bc-item" data-act="dvarOpen('')">📖 Dvar Torah</span>${path.map((p,i)=>`<span class="bc-sep">▸</span>${i===path.length-1?`<span class="bc-item active">${esc(p.name)}</span>`:`<span class="bc-item" data-act="dvarOpen('${p.id}')">${esc(p.name)}</span>`}`).join('')}</div>`;
+    html+=`<div class="sec" style="margin-top:8px"><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-ghost btn-icon" data-act="dvarBack()">←</button><div class="sec-title" style="font-size:22px">📖 ${esc(cur.name)}</div></div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-icon" data-act="dvarRenameFolder('${cur.id}')">✏️</button><button class="btn btn-ghost btn-icon" style="color:var(--red)" data-act="dvarDelFolder('${cur.id}')">🗑</button></div></div>`;
+  } else {
+    html+=`<div class="sec"><div><div class="sec-title">📖 Dvar Torah</div><div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${t('Tes contenus classés : Chabbat, fêtes… en dossiers et sous-dossiers.','התכנים שלך: שבת, חגים… בתיקיות ותת-תיקיות.','Your content, filed in folders and subfolders.')}</div></div></div>`;
+  }
+  // dossiers
+  if(folders.length){ html+=`<div class="tiles">`; folders.forEach(f=>{ const n=dvarChildren(f.id).length; html+=`<div class="tile" data-act="dvarOpen('${f.id}')"><div class="tile-ic">📁</div><div class="tile-name">${esc(f.name)}</div><div class="tile-meta">${n} ${t('élément(s)','פריטים','item(s)')}</div></div>`; }); html+=`<div class="tile tile-add" data-act="dvarAddFolder()"><div class="tile-ic">＋</div><div class="tile-name" style="color:var(--ink-soft)">${t('Dossier','תיקייה','Folder')}</div></div></div>`; }
+  // fiches
+  if(entries.length){ html+=`<div style="margin-top:6px">`; entries.forEach(e=>{ const prev=(e.note||'').slice(0,90); const nImg=(e.media||[]).filter(m=>m.mtype==='image').length;
+    html+=`<div class="card" style="padding:12px 13px;margin-bottom:8px;cursor:pointer" data-act="dvarOpenEntry('${e.id}')"><div style="font-weight:700;font-size:15px">${(e.title&&e.title.trim())?esc(e.title):`<span style="color:var(--ink-soft);font-style:italic">${t('Fiche sans titre','כרטיס ללא כותרת','Untitled entry')}</span>`}</div>${prev?`<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;white-space:pre-wrap">${esc(prev)}${(e.note||'').length>90?'…':''}</div>`:''}${nImg?`<div style="font-size:12px;color:var(--primary);margin-top:5px">🖼️ ${nImg} ${t('image(s)','תמונות','image(s)')}</div>`:''}</div>`; }); html+=`</div>`; }
+  if(!folders.length && !entries.length){ html+=`<div class="hint" style="margin-top:10px">${t('Vide. Touche le ＋ en bas à droite pour créer un dossier ou une fiche.','ריק. גע ב-＋ למטה מימין.','Empty. Tap the + at bottom right to create a folder or an entry.')}</div>`; }
+  // actions rapides
+  html+=`<div style="display:flex;gap:9px;margin-top:14px"><button class="btn btn-soft btn-block" data-act="dvarAddFolder()">📁 ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button><button class="btn btn-primary btn-block" data-act="dvarAddEntry()">📝 ${t('Nouvelle fiche','כרטיס חדש','New entry')}</button></div>`;
+  c.innerHTML=html;
+}
+function dvarEntrySheet(){
+  const e=dvarById(_dvarEntry); if(!e) return `<div class="sheet-head"><div class="sheet-title">📝</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body"><div class="hint">—</div></div>`;
+  const media=(e.media||[]);
+  return `<div class="sheet-head"><div class="sheet-title">📝 ${t('Fiche','כרטיס','Entry')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="field" style="margin-bottom:10px"><input class="input" id="dvar-title" value="${esc(e.title||'')}" placeholder="${t('Titre (ex. Paracha Vayakhel)','כותרת','Title')}" style="font-size:16px;font-weight:600" onchange="dvarSetTitle(this.value)"</div>
+    <div class="field"><label class="field-label">📝 ${t('Note','הערה','Note')}</label>
+      <textarea class="textarea" id="dvar-note" placeholder="${t('Écris ton Dvar Torah, tes idées, ton texte…','כתוב כאן…','Write your text here…')}" style="min-height:230px;line-height:1.5" onchange="dvarSetNote(this.value)">${esc(e.note||'')}</textarea>
+    </div>
+    <button class="btn btn-soft btn-block" data-act="dvarAttachImage()" style="margin-bottom:10px">＋ 🖼️ ${t('Ajouter une image','הוסף תמונה','Add an image')}</button>
+    ${media.length?media.map(m=>`<div class="card" style="padding:8px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><img src="${m.data}" style="max-width:100%;border-radius:8px;display:block"></div><span data-act="dvarRmMedia('${m.id}')" style="cursor:pointer;color:var(--red);font-size:13px">🗑</span></div></div>`).join(''):''}
+    <button class="btn btn-ghost btn-block" style="color:var(--red);margin-top:6px" data-act="dvarDelEntry()">🗑 ${t('Supprimer la fiche','מחק כרטיס','Delete entry')}</button>
+  </div>`;
+}
 function setJTab(t){ jTab=t; render(); }
 function journalNav(delta){ const d=new Date(journalKey+'T12:00:00'); d.setDate(d.getDate()+delta); journalKey=todayKey(d); render(); }
 function journalToday(){ journalKey=todayKey(); render(); }
@@ -6332,6 +6392,7 @@ function commitDragOrder(kind){
  respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
  openImport,importClose,importStep,importTo,importPickDossier,
+ louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
@@ -6406,6 +6467,7 @@ function ensureCollections(){
   if(!Array.isArray(D.dossiers)) D.dossiers=[];
   D.dossiers.forEach(d=>{ if(!d.icon)d.icon='🗂️'; if(!('color' in d))d.color=null; });
   if(!Array.isArray(D.eventTypes)) D.eventTypes=['Farbrenguen','Soirée féminine','Fête pour enfants','Mariage','Bar / Bat Mitsva','Brit Mila','Cours / Chiour','Repas communautaire','Collecte / Tsedaka'];
+  if(!Array.isArray(D.dvar)) D.dvar=[];
   try{ _provInit(); }catch(e){}   // carnet prestataires : migration D.suppliers → D.providers
   migrateThemesToDossiers();   // fusion : les thèmes deviennent des dossiers (une seule notion)
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
