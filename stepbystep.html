@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a41">
+<meta name="app-build" content="b-2026-08-28-a42">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -500,6 +500,9 @@ const MONTHS = [
   {id:'sivan',name:'Sivan',heb:'סיון',emoji:'📜'},{id:'tamuz',name:'Tamuz',heb:'תמוז',emoji:'🌞'},
   {id:'av',name:'Av',heb:'אב',emoji:'🕯️'},{id:'elul',name:'Elul',heb:'אלול',emoji:'🔔'}
 ];
+// ── LOUA'H : mois hébraïques (avec noms ICU pour conversion) + fêtes/Hiloulot ──
+const HEV_MONTHS=[{k:'tishri',intl:['Tishri'],label:'Tichri',heb:'תשרי'},{k:'heshvan',intl:['Heshvan'],label:"'Hechvan",heb:'חשון'},{k:'kislev',intl:['Kislev'],label:'Kislev',heb:'כסלו'},{k:'tevet',intl:['Tevet'],label:'Tevet',heb:'טבת'},{k:'shevat',intl:['Shevat'],label:'Chevat',heb:'שבט'},{k:'adar1',intl:['Adar I'],label:'Adar I',heb:'אדר א׳'},{k:'adar2',intl:['Adar II','Adar'],label:'Adar',heb:'אדר'},{k:'nissan',intl:['Nisan'],label:'Nissan',heb:'ניסן'},{k:'iyar',intl:['Iyar'],label:'Iyar',heb:'אייר'},{k:'sivan',intl:['Sivan'],label:'Sivan',heb:'סיון'},{k:'tamuz',intl:['Tamuz'],label:'Tamouz',heb:'תמוז'},{k:'av',intl:['Av'],label:'Av',heb:'אב'},{k:'elul',intl:['Elul'],label:'Eloul',heb:'אלול'}];
+const HEV_SEED=[{d:1,m:"tishri",c:"juive",n:"Roch Hachana — Jour 1"},{d:2,m:"tishri",c:"juive",n:"Roch Hachana — Jour 2"},{d:3,m:"tishri",c:"juive",n:"Jeûne de Guedalia"},{d:6,m:"tishri",c:"hassidique",n:"Hiloula de la Rabbanit ‘Hanna, mère du Rabbi"},{d:10,m:"tishri",c:"juive",n:"Yom Kippour"},{d:13,m:"tishri",c:"hassidique",n:"Hiloula du Rabbi Maharach"},{d:15,m:"tishri",c:"juive",n:"Souccot — Jour 1"},{d:16,m:"tishri",c:"juive",n:"Souccot — Jour 2"},{d:17,m:"tishri",c:"juive",n:"Souccot — Jour 3"},{d:18,m:"tishri",c:"juive",n:"Souccot — Jour 4"},{d:19,m:"tishri",c:"juive",n:"Souccot — Jour 5"},{d:20,m:"tishri",c:"juive",n:"Souccot — Jour 6"},{d:21,m:"tishri",c:"juive",n:"Hochana Rabba"},{d:22,m:"tishri",c:"juive",n:"Chemini Atséret"},{d:23,m:"tishri",c:"juive",n:"Sim'hat Torah"},{d:1,m:"heshvan",c:"juive",n:"Roch 'Hodech 'Hechvan"},{d:20,m:"heshvan",c:"hassidique",n:"Anniversaire du Rabbi Rachab"},{d:1,m:"kislev",c:"juive",n:"Roch 'Hodech Kislev"},{d:9,m:"kislev",c:"hassidique",n:"Anniversaire et Hiloula du Mitteler Rebbe"},{d:10,m:"kislev",c:"hassidique",n:"Libération du Mitteler Rebbe"},{d:14,m:"kislev",c:"hassidique",n:"Anniversaire de mariage du Rabbi et de la Rabbanit"},{d:19,m:"kislev",c:"hassidique",n:"Youd-Tet Kislev — Libération de l'Admour Hazaken, Roch Hachana de la 'Hassidout"},{d:20,m:"kislev",c:"hassidique",n:"Suite de la célébration de Youd-Tet Kislev"},{d:25,m:"kislev",c:"juive",n:"Hanoucca — Jour 1"},{d:26,m:"kislev",c:"juive",n:"Hanoucca — Jour 2"},{d:27,m:"kislev",c:"juive",n:"Hanoucca — Jour 3"},{d:28,m:"kislev",c:"juive",n:"Hanoucca — Jour 4"},{d:29,m:"kislev",c:"juive",n:"Hanoucca — Jour 5"},{d:30,m:"kislev",c:"juive",n:"Hanoucca — Jour 6"},{d:1,m:"tevet",c:"juive",n:"Hanoucca — Jour 7 + Roch 'Hodech Tevet"},{d:2,m:"tevet",c:"juive",n:"Hanoucca — Jour 8"},{d:5,m:"tevet",c:"hassidique",n:"Didan Notsa'h — Victoire des Sefarim"},{d:10,m:"tevet",c:"juive",n:"Jeûne du 10 Tevet"},{d:1,m:"shevat",c:"juive",n:"Roch 'Hodech Chevat"},{d:10,m:"shevat",c:"hassidique",n:"Youd Chevat — Hiloula du Rabbi Rayats ; début de la Nessiout du Rabbi"},{d:15,m:"shevat",c:"juive",n:"Tou Bichvat"},{d:22,m:"shevat",c:"hassidique",n:"Hiloula de la Rabbanit 'Haya Mouchka"},{d:1,m:"adar1",c:"juive",n:"Roch 'Hodech Adar I"},{d:14,m:"adar1",c:"juive",n:"Pourim Katan"},{d:25,m:"adar2",c:"hassidique",n:"Anniversaire de la Rabbanit 'Haya Mouchka"},{d:1,m:"adar2",c:"juive",n:"Roch 'Hodech Adar II"},{d:13,m:"adar2",c:"juive",n:"Jeûne d'Esther"},{d:14,m:"adar2",c:"juive",n:"Pourim"},{d:15,m:"adar2",c:"juive",n:"Chouchan Pourim"},{d:1,m:"nissan",c:"juive",n:"Roch 'Hodech Nissan"},{d:2,m:"nissan",c:"hassidique",n:"Hiloula du Rabbi Rachab"},{d:11,m:"nissan",c:"hassidique",n:"Anniversaire du Rabbi"},{d:13,m:"nissan",c:"hassidique",n:"Hiloula du Tséma'h Tsédek"},{d:15,m:"nissan",c:"juive",n:"Pessa'h — Jour 1"},{d:16,m:"nissan",c:"juive",n:"Pessa'h — Jour 2"},{d:17,m:"nissan",c:"juive",n:"Pessa'h — Jour 3"},{d:18,m:"nissan",c:"juive",n:"Pessa'h — Jour 4"},{d:19,m:"nissan",c:"juive",n:"Pessa'h — Jour 5"},{d:20,m:"nissan",c:"juive",n:"Pessa'h — Jour 6"},{d:21,m:"nissan",c:"juive",n:"Pessa'h — Jour 7"},{d:22,m:"nissan",c:"juive",n:"Pessa'h — Jour 8"},{d:1,m:"iyar",c:"juive",n:"Roch 'Hodech Iyar"},{d:14,m:"iyar",c:"juive",n:"Pessa'h Chéni"},{d:18,m:"iyar",c:"juive",n:"Lag BaOmer — Hiloula de Rabbi Chimon Bar Yo'haï"},{d:1,m:"sivan",c:"juive",n:"Roch 'Hodech Sivan"},{d:6,m:"sivan",c:"juive",n:"Chavouot — Jour 1"},{d:6,m:"sivan",c:"hassidique",n:"Hiloula du Baal Chem Tov"},{d:7,m:"sivan",c:"juive",n:"Chavouot — Jour 2"},{d:28,m:"sivan",c:"hassidique",n:"Arrivée du Rabbi et de la Rabbanit aux États-Unis"},{d:1,m:"tamuz",c:"juive",n:"Roch 'Hodech Tamouz"},{d:3,m:"tamuz",c:"hassidique",n:"Guimel Tamouz — Hiloula du Rabbi"},{d:12,m:"tamuz",c:"hassidique",n:"Anniversaire et libération du Rabbi Rayats"},{d:13,m:"tamuz",c:"hassidique",n:"Fête de la libération du Rabbi Rayats"},{d:17,m:"tamuz",c:"juive",n:"Jeûne du 17 Tamouz"},{d:1,m:"av",c:"juive",n:"Roch 'Hodech Av"},{d:9,m:"av",c:"juive",n:"Ticha BeAv"},{d:15,m:"av",c:"juive",n:"Tou BeAv"},{d:20,m:"av",c:"hassidique",n:"Hiloula de Rabbi Lévi Its'hak Schneerson, père du Rabbi"},{d:1,m:"elul",c:"juive",n:"Roch 'Hodech Eloul"},{d:18,m:"elul",c:"hassidique",n:"'Haï Eloul — Anniversaire du Baal Chem Tov et de l'Admour Hazaken"},{d:29,m:"elul",c:"hassidique",n:"Anniversaire du Tséma'h Tsédek"}];
 const THEMES = ['Nourriture','Salle','Personnel','Impression','Décoration','Transport','Divers'];
 const STATUSES = [
   {id:'todo',label:'À faire',c:'#A9B0B8'},{id:'inprogress',label:'En cours',c:'#2C5B8E'},
@@ -1340,6 +1343,7 @@ function render(){
     else renderEvent(main);
   }
   else if(nav.view==='shopping') renderShopping(main);
+  else if(nav.view==='hevents') renderHevents(main);
   else if(nav.view==='dashboard') renderDashboard(main);
   else if(nav.view==='suppliers') renderSuppliers(main);
   else if(nav.view==='settings') renderSettings(main);
@@ -2072,6 +2076,7 @@ function drawerHTML(){
   const items=[
     ['',[
       ['report','📋',t('Compte rendu','דיווח','Report'),null],
+      ['hevents','🕎',t("Loua'h",'לוח',"Loua'h"),null],
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
       ['templates','📋',t('Modèles','תבניות','Templates'),null],
@@ -2095,7 +2100,7 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='templates'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='templates'||v==='hevents'||menuVisible(v));
     if(!vis.length) return;
     if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
@@ -2783,7 +2788,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -3025,6 +3030,7 @@ function sheetHTML(){
   else if(sheet.type==='bulkMove') inner=bulkMoveSheet();
   else if(sheet.type==='bulkMoveAny') inner=bulkMoveExplorerSheet();
   else if(sheet.type==='bulkDate') inner=bulkDateSheet();
+  else if(sheet.type==='hevEdit') inner=hevEditSheet();
   else if(sheet.type==='timer') inner=timerSheet();
   else if(sheet.type==='debrief') inner=debriefSheet();
   else if(sheet.type==='themeAssign') inner=themeAssignSheet();
@@ -4354,12 +4360,17 @@ function renderJournal(c){
     const showRdvEv = fE && rdvEvents.length, showEv = fE && evs.length;
     const showTasks = fT && taskItems.length, showNoDate = fT && noDate.length && isJToday;
     const remCount  = rdvRems.length + remItems.length, showRems = fR && remCount;
-    if(!showRdvEv && !showEv && !showTasks && !showNoDate && !showRems){
+    const _hd=hevForDay(jKey); const showHev=fE && (_hd.onDay.length||_hd.reminders.length);
+    if(!showRdvEv && !showEv && !showTasks && !showNoDate && !showRems && !showHev){
       const allEmpty = !open.length && !noDate.length && !evs.length && !rdvs.length;
       html+=allEmpty
         ? emptyHTML('🎉',isJToday?t('Tout est fait !','הכול בוצע!','All done!'):t('Rien ce jour','אין כלום ביום זה','Nothing this day'),isJToday?t('Aucune tâche pour aujourd\'hui.','אין משימות להיום.','No tasks for today.'):t('Aucune tâche prévue ce jour.','אין משימות ליום זה.','No tasks planned this day.'),'','')
         : emptyHTML('👁',t('Rien à afficher','אין מה להציג','Nothing to show'),t('Aucun élément ne correspond au filtre choisi. Touchez 👁 pour changer l\'affichage.','אין פריט התואם את הסינון. הקש 👁 לשינוי התצוגה.','No item matches the filter. Tap 👁 to change the display.'),'','');
     } else {
+      if(showHev){
+        if(_hd.onDay.length){ html+=`<div class="section-label" style="margin-top:4px">🕎 ${t("Loua'h — aujourd'hui",'לוח — היום',"Loua'h — today")}</div>`; _hd.onDay.forEach(o=>html+=_hevRow(o.h,o.iso,{})); }
+        if(_hd.reminders.length){ html+=`<div class="section-label" style="margin-top:12px">🔔 ${t('À préparer','להכין','To prepare')}</div>`; _hd.reminders.forEach(o=>html+=_hevRow(o.h,o.iso,{rem:true,days:o.days})); }
+      }
       if(showRdvEv){ html+=`<div class="section-label" style="margin-top:4px">📅 ${t('Rendez-vous / Invitations','פגישות / הזמנות','Appointments / Invitations')} (${rdvEvents.length})</div>`; rdvEvents.forEach(o=>html+=jRdvRow(o)); }
       if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 ${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`; evs.forEach(x=>html+=jEventRow(x)); }
       if(showTasks){
@@ -4380,12 +4391,13 @@ function renderJournal(c){
     let fT=jFilter.tasks, fE=jFilter.events, fR=jFilter.reminders; if(!fT&&!fE&&!fR){ fT=fE=fR=true; }
     const items=datedAll().filter(x=>x.iso&&x.iso>=rg.from&&x.iso<=rg.to);
     const byDay={}; items.forEach(x=>{ if(x.kind==='reminder')return; if(x.kind==='task'){ if(!fT)return; if(x.t&&x.t.jHidden&&!jShowHidden)return; } else { if(!fE)return; } (byDay[x.iso]=byDay[x.iso]||[]).push(x); });
+    if(fE){ hevOccurrences(rg.from,rg.to).forEach(o=>{ (byDay[o.iso]=byDay[o.iso]||[]).push({kind:'hev',h:o.h,iso:o.iso}); }); }
     const days=Object.keys(byDay).sort();
     if(!days.length){ html+=emptyHTML('🗓️',t('Rien sur la période','אין כלום בתקופה','Nothing in this period'),(fT&&fE)?t('Aucune fête, événement ou tâche datés sur cette période.','אין חגים, אירועים או משימות עם תאריך בתקופה זו.','No dated holiday, event or task in this period.'):t('Aucun élément ne correspond au filtre choisi (touchez 👁).','אין פריט התואם את הסינון (הקש 👁).','No item matches the filter (tap 👁).'),'',''); }
     else days.forEach(d=>{
       const dd=new Date(d+'T12:00:00');
       html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between"><span style="text-transform:capitalize">${dd.toLocaleDateString(_jLocale(),{weekday:'short',day:'numeric',month:'short'})}</span><span style="color:var(--ink-soft);font-weight:500;text-transform:none">🕎 ${hebrewDate(d)}</span></div>`;
-      byDay[d].forEach(x=>{ if(x.kind==='task'){ html+=jTaskCard(x.t,x.where,x.iso); } else { html+=jEventRow(x); } });
+      byDay[d].forEach(x=>{ if(x.kind==='task'){ html+=jTaskCard(x.t,x.where,x.iso); } else if(x.kind==='hev'){ html+=_hevRow(x.h,x.iso,{}); } else { html+=jEventRow(x); } });
     });
   }
   c.innerHTML=html;
@@ -5068,6 +5080,103 @@ function renderDashboard(c){
 //  VUE : LISTE DE COURSES (par magasin)
 // ============================================================
 function setShopRange(v){ shopRange=v; render(); }
+// ══════════════════════════════════════════════════════════════
+//  LOUA'H — Fêtes juives & Hiloulot (date hébraïque récurrente chaque année)
+// ══════════════════════════════════════════════════════════════
+let _hyMapCache={}, _hevEdit=null, _hevFilter='all', _hevTab='fetes';
+const ANNIV_MSG_DEFAULT="🎉 Bon anniversaire {nom} ! 🎂\nQue Hachem t'accorde une année remplie de santé, de bonheur, de réussite et de bénédictions. Que tu ailles de force en force ! Be'H 🙏";
+const AZKARA_MSG_DEFAULT="🕯️ Nous nous souvenons de {nom}.\nQue son âme soit élevée. Un Kaddich et une bonne action en sa mémoire.";
+function hevIsPerso(h){ return h && (h.cat==='anniversaire'||h.cat==='azkara'); }
+function hevSetTab(tab){ _hevTab=tab; render(); }
+function hevSendMsg(id){ const h=hevById(id); if(!h)return; const msg=((h.msg||'')).replace(/\{nom\}/g,h.name||''); const ph=(h.phone||'').replace(/[^\d]/g,''); const url = ph ? ('https://wa.me/'+ph+'?text='+encodeURIComponent(msg)) : ('https://wa.me/?text='+encodeURIComponent(msg)); try{ window.open(url,'_blank'); }catch(e){ try{ location.href=url; }catch(_){} } }
+function _hebYearMap(hy){ if(_hyMapCache[hy]) return _hyMapCache[hy]; const map={}; const fmt=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'}); let d=new Date(hy-3761,7,1); for(let i=0;i<440;i++){ const p=fmt.formatToParts(d); let dd=0,mo='',yr=''; p.forEach(x=>{ if(x.type==='day')dd=parseInt(x.value); if(x.type==='month')mo=x.value; if(x.type==='year')yr=x.value; }); if(parseInt(yr)===hy) map[mo+'|'+dd]=todayKey(d); d.setDate(d.getDate()+1); } _hyMapCache[hy]=map; return map; }
+function _hevMonthDef(mk){ return HEV_MONTHS.find(x=>x.k===mk)||HEV_MONTHS[0]; }
+function hevGreg(h,hy){ if(!h)return ''; const map=_hebYearMap(hy); const names=_hevMonthDef(h.month).intl; for(const nm of names){ const iso=map[nm+'|'+h.day]; if(iso) return iso; } return ''; }
+function hevCurHYear(){ try{ return parseInt(hebParts(new Date()).year)||D.year||5787; }catch(e){ return D.year||5787; } }
+function hevList(){ return Array.isArray(D.hevents)?D.hevents:[]; }
+function hevById(id){ return hevList().find(x=>x.id===id); }
+function hevNextGreg(h){ const now=todayKey(); const hy=hevCurHYear(); for(const y of [hy-1,hy,hy+1,hy+2]){ const iso=hevGreg(h,y); if(iso && iso>=now) return iso; } return hevGreg(h,hy); }
+function hevOccurrences(fromIso,toIso){ const out=[]; const hy=hevCurHYear(); const list=hevList(); [hy-1,hy,hy+1,hy+2].forEach(y=>{ list.forEach(h=>{ if(h.hidden)return; const iso=hevGreg(h,y); if(iso && iso>=fromIso && iso<=toIso) out.push({h,iso,hy:y}); }); }); out.sort((a,b)=> a.iso<b.iso?-1:(a.iso>b.iso?1:0)); return out; }
+function hevForDay(iso){ const onDay=[], reminders=[]; const hy=hevCurHYear(); const list=hevList(); [hy-1,hy,hy+1,hy+2].forEach(y=>{ list.forEach(h=>{ if(h.hidden)return; const g=hevGreg(h,y); if(!g)return; if(g===iso) onDay.push({h,iso:g}); if(h.notifyDays!=null && h.notifyDays>0){ const rd=reminderDate(g,h.notifyDays); if(rd===iso && g>iso) reminders.push({h,iso:g,days:h.notifyDays}); } }); }); return {onDay,reminders}; }
+function hevOrganize(id){ const h=hevById(id); if(!h)return; if(h.dossierId && dossierById(h.dossierId)){ if(sheet)closeSheet(); openDossier(h.dossierId); return; } if(!Array.isArray(D.dossiers))D.dossiers=[]; const short=((h.name||'').split(' — ')[0])||h.name||t('Fête','חג','Holiday'); const d=mkDossier(short); d.icon='🕎'; d.recurring=true; const g=hevNextGreg(h); if(g)d.date=g; if(h.tplId){ const tp=(D.dossierTemplates||[]).find(x=>x.id===h.tplId); if(tp && Array.isArray(tp.items)) d.items=_freshItems(tp.items,true); } D.dossiers.push(d); h.dossierId=d.id; save(); if(sheet)closeSheet(); openDossier(d.id); toast(t("Dossier d'organisation créé ✓",'נוצרה תיקיית ארגון ✓','Organizing folder created ✓')); }
+function louvahOpen(){ drawerOpen=false; setView('hevents'); }
+function hevAdd(){ if(!Array.isArray(D.hevents))D.hevents=[]; const cat=_hevTab==='anniv'?'anniversaire':(_hevTab==='azkara'?'azkara':'juive'); const h={id:uid(),day:1,month:'tishri',cat:cat,name:'',notifyDays:(cat==='juive'?null:7),tplId:null,dossierId:null,hidden:false,phone:'',msg:(cat==='anniversaire'?ANNIV_MSG_DEFAULT:(cat==='azkara'?AZKARA_MSG_DEFAULT:''))}; D.hevents.push(h); save(); _hevEdit=h.id; sheet={type:'hevEdit'}; renderOverlay(); }
+function hevEditOpen(id){ _hevEdit=id; sheet={type:'hevEdit'}; renderOverlay(); }
+function hevSet(f,v){ const h=hevById(_hevEdit); if(!h)return; if(f==='day')h.day=Math.max(1,Math.min(30,parseInt(v)||1)); else if(f==='notifyDays')h.notifyDays=(v==='off'||v===''||v==null)?null:Math.max(0,parseInt(v)||0); else if(f==='tplId')h.tplId=v||null; else h[f]=v; save(); renderOverlay(); }
+function hevSetField(f,v){ const h=hevById(_hevEdit); if(!h)return; h[f]=v; save(); }
+function hevDelete(id){ const h=hevById(id); if(!h)return; if(!confirm(t('Supprimer cette date ?','למחוק תאריך זה?','Delete this date?')))return; D.hevents=hevList().filter(x=>x.id!==id); save(); if(sheet)closeSheet(); render(); }
+function hevSetFilter(c){ _hevFilter=c; render(); }
+function _hevRow(h,iso,opt){ opt=opt||{}; const mo=_hevMonthDef(h.month); const hebd=h.day+' '+mo.label;
+  let col='#B8860B', icon='🕎';
+  if(h.cat==='hassidique'){ col='#7048E8'; icon='🕯️'; } else if(h.cat==='anniversaire'){ col='#E64980'; icon='🎂'; } else if(h.cat==='azkara'){ col='#6B7280'; icon='🕯️'; }
+  let action;
+  if(hevIsPerso(h)){ action=`<button class="btn btn-soft btn-sm" data-act="hevSendMsg('${h.id}')">💬 ${t('Envoyer le message','שלח הודעה','Send message')}</button>`; }
+  else { action = (h.dossierId && dossierById(h.dossierId))
+    ? `<button class="btn btn-soft btn-sm" data-act="openDossier('${h.dossierId}')">📂 ${t('Ouvrir le dossier','פתח תיקייה','Open folder')}</button>`
+    : `<button class="btn btn-soft btn-sm" data-act="hevOrganize('${h.id}')">🗂️ ${t('Commencer à organiser','לארגן','Organize')}</button>`; }
+  return `<div class="shop-item" style="border-left:4px solid ${col};align-items:flex-start">
+    <div class="shop-item-main">
+      <div class="shop-item-name">${opt.rem?'🔔 ':icon+' '}${esc(h.name||'')}</div>
+      <div class="shop-item-meta">${esc(hebd)}${opt.rem?' · '+t('dans','בעוד','in')+' '+opt.days+' j — '+fmtDate(iso):''}</div>
+      <div style="margin-top:7px">${action}</div>
+    </div>
+  </div>`; }
+function _hevMonthGroups(list){ let html=''; HEV_MONTHS.forEach(mo=>{ const items=list.filter(h=>h.month===mo.k).sort((a,b)=>a.day-b.day); if(!items.length)return; html+=`<div class="section-label" style="margin-top:16px">${esc(mo.label)} · ${esc(mo.heb)}</div>`; items.forEach(h=>{ const g=hevNextGreg(h); const cat=h.cat==='hassidique'?'#7048E8':'#B8860B'; const yr=g?new Date(g+'T12:00:00').getFullYear():''; html+=`<div class="card" data-act="hevEditOpen('${h.id}')" style="border-left:4px solid ${cat}${h.hidden?';opacity:.5':''}"><div class="card-body" style="padding:11px 13px"><div class="card-main"><div class="card-name" style="font-size:14px">${h.day} ${esc(mo.label)} — ${esc(h.name||t('Sans nom','ללא שם','Untitled'))}</div><div class="card-meta">${g?'📅 '+fmtDate(g)+' '+yr:''}${h.notifyDays!=null?' · 🔔 '+(h.notifyDays===0?t('jour J','ביום','on day'):'J-'+h.notifyDays):''}${h.dossierId&&dossierById(h.dossierId)?' · 🗂️':''}</div></div><span class="chev">›</span></div></div>`; }); }); return html; }
+function renderHevents(c){
+  if(!Array.isArray(D.hevents)) D.hevents=HEV_SEED.map(s=>({id:uid(),day:s.d,month:s.m,cat:s.c,name:s.n,notifyDays:null,tplId:null,dossierId:null,hidden:false}));
+  const tab=_hevTab;
+  let html=`<div class="sec"><div><div class="sec-title">🕎 ${t("Loua'h",'לוח',"Loua'h")}</div></div></div>`;
+  const tabs=[['fetes','🕎 '+t('Fêtes','חגים','Holidays')],['anniv','🎂 '+t('Anniversaires','ימי הולדת','Birthdays')],['azkara','🕯️ '+t('Azkara','אזכרה','Azkara')]];
+  html+=`<div class="filters" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${tab===v?'active':''}" data-act="hevSetTab('${v}')">${l}</button>`).join('')}</div>`;
+  if(tab==='fetes'){
+    const chips=[['all',t('Toutes','הכול','All')],['juive',t('Juives','חגים','Jewish')],['hassidique',t('Hassidiques','חסידי','Chassidic')]];
+    html+=`<div class="filters">${chips.map(([v,l])=>`<button class="chip ${_hevFilter===v?'active':''}" data-act="hevSetFilter('${v}')">${l}</button>`).join('')}</div>`;
+    const list=hevList().filter(h=>(h.cat==='juive'||h.cat==='hassidique') && (_hevFilter==='all'||h.cat===_hevFilter));
+    html+=_hevMonthGroups(list);
+  } else {
+    const cat = tab==='anniv'?'anniversaire':'azkara';
+    const icon = cat==='anniversaire'?'🎂':'🕯️';
+    const list=hevList().filter(h=>h.cat===cat).sort((a,b)=>{ const A=hevNextGreg(a)||'9999', B=hevNextGreg(b)||'9999'; return A<B?-1:(A>B?1:0); });
+    html+=`<div class="hint" style="margin-bottom:12px">${cat==='anniversaire'?t('Anniversaires (date hébraïque) — un message est prêt à envoyer.','ימי הולדת — הודעה מוכנה לשליחה.','Birthdays (Hebrew date) — a message is ready to send.'):t('Dates de commémoration (Azkara) — rappel chaque année.','תאריכי אזכרה — תזכורת בכל שנה.','Memorial dates (Azkara) — yearly reminder.')}</div>`;
+    if(!list.length){ html+=emptyHTML(icon, cat==='anniversaire'?t('Aucun anniversaire','אין ימי הולדת','No birthday'):t('Aucune Azkara','אין אזכרה','No Azkara'), t('Touche + en bas pour ajouter.','גע ב-+ למטה כדי להוסיף.','Tap + below to add.'),'',''); }
+    list.forEach(h=>{ const g=hevNextGreg(h); const mo=_hevMonthDef(h.month); const col=cat==='anniversaire'?'#E64980':'#6B7280'; const yr=g?new Date(g+'T12:00:00').getFullYear():'';
+      html+=`<div class="card" data-act="hevEditOpen('${h.id}')" style="border-left:4px solid ${col}${h.hidden?';opacity:.5':''}"><div class="card-body" style="padding:11px 13px"><span class="card-icon">${icon}</span><div class="card-main"><div class="card-name" style="font-size:14px">${esc(h.name||t('Sans nom','ללא שם','Untitled'))}</div><div class="card-meta">${h.day} ${esc(mo.label)}${g?' · 📅 '+fmtDate(g)+' '+yr:''}${h.notifyDays!=null?' · 🔔':''}</div></div><span class="chev">›</span></div></div>`;
+    });
+  }
+  c.innerHTML=html;
+}
+function hevEditSheet(){
+  const h=hevById(_hevEdit); if(!h) return `<div class="sheet-head"><div class="sheet-title">—</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>`;
+  const g=hevNextGreg(h); const tpls=(D.dossierTemplates||[]);
+  const notifyOpts=[['off',t('Aucune','ללא','Off')],['0',t('Le jour même','ביום עצמו','On the day')],['1','J-1'],['3','J-3'],['7','J-7'],['14','J-14'],['30','J-30']];
+  const curNotify=h.notifyDays==null?'off':String(h.notifyDays);
+  const perso=hevIsPerso(h);
+  const title = h.cat==='anniversaire'?('🎂 '+t('Anniversaire','יום הולדת','Birthday')) : h.cat==='azkara'?('🕯️ '+t('Azkara','אזכרה','Azkara')) : ('🕎 '+t("Date du Loua'h",'תאריך',"Loua'h date"));
+  let body=`<div class="field"><label class="field-label">${perso?t('Nom de la personne','שם האדם','Person name'):t('Nom','שם','Name')}</label><input class="input" value="${esc(h.name||'')}" placeholder="${perso?t('Ex. David Cohen','לדוגמה','e.g. David Cohen'):t('Ex. Yom Kippour','לדוגמה','e.g. Yom Kippur')}" onchange="hevSetField('name',this.value)"></div>`;
+  body+=`<div style="display:flex;gap:8px">
+      <div class="field" style="flex:0 0 92px"><label class="field-label">${t('Jour','יום','Day')}</label><input class="input" type="number" min="1" max="30" value="${h.day}" onchange="hevSet('day',this.value)"></div>
+      <div class="field" style="flex:1"><label class="field-label">${t('Mois','חודש','Month')}</label><select class="select" onchange="hevSet('month',this.value)">${HEV_MONTHS.map(mo=>`<option value="${mo.k}" ${h.month===mo.k?'selected':''}>${esc(mo.label)} · ${esc(mo.heb)}</option>`).join('')}</select></div>
+    </div>`;
+  if(!perso){ body+=`<div class="field"><label class="field-label">${t('Type','סוג','Type')}</label><div style="display:flex;gap:8px">
+      <button class="chip ${h.cat==='juive'?'active':''}" data-act="hevSet('cat','juive')">🕎 ${t('Juive','חג','Jewish')}</button>
+      <button class="chip ${h.cat==='hassidique'?'active':''}" data-act="hevSet('cat','hassidique')">🕯️ ${t('Hassidique','חסידי','Chassidic')}</button>
+    </div></div>`; }
+  body+=`<div class="field"><label class="field-label">🔔 ${t('Notification','התראה','Notification')}</label><select class="select" onchange="hevSet('notifyDays',this.value)">${notifyOpts.map(([v,l])=>`<option value="${v}" ${curNotify===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  if(perso){
+    body+=`<div class="field"><label class="field-label">📞 ${t('Téléphone (WhatsApp)','טלפון','Phone (WhatsApp)')}</label><input class="input" value="${esc(h.phone||'')}" placeholder="+33 6 12 34 56 78" onchange="hevSetField('phone',this.value)"></div>`;
+    body+=`<div class="field"><label class="field-label">💬 ${t('Message prêt','הודעה מוכנה','Ready message')}</label><textarea class="textarea" style="min-height:120px" onchange="hevSetField('msg',this.value)">${esc(h.msg||'')}</textarea><div class="hint" style="margin-top:4px">${t('{nom} sera remplacé par le nom.','{nom} יוחלף בשם.','{nom} will be replaced by the name.')}</div></div>`;
+    body+=`<button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="hevSendMsg('${h.id}')">💬 ${t('Envoyer le message (WhatsApp)','שלח הודעה (וואטסאפ)','Send message (WhatsApp)')}</button>`;
+  } else {
+    body+=`<div class="field"><label class="field-label">🗂️ ${t("Modèle d'organisation",'תבנית ארגון','Organizing template')}</label><select class="select" onchange="hevSet('tplId',this.value)"><option value="">${t('Aucun (dossier vide)','ללא (תיקייה ריקה)','None (empty folder)')}</option>${tpls.map(tp=>`<option value="${tp.id}" ${h.tplId===tp.id?'selected':''}>${esc(tp.name||'Modèle')}</option>`).join('')}</select>${!tpls.length?`<div class="hint" style="margin-top:5px">${t('Astuce : enregistre un dossier comme modèle (titres + tâches), puis relie-le ici.','טיפ: שמור תיקייה כתבנית ואז קשר אותה כאן.','Tip: save a folder as a template, then link it here.')}</div>`:''}</div>`;
+  }
+  body+=`<div style="background:var(--surface-2);border-radius:12px;padding:11px 13px;margin:6px 0 12px;font-size:13px">${g?'📅 '+t('Prochaine','הבאה','Next')+' : '+esc(civilDate(g)):t('Date introuvable cette année','לא נמצא תאריך','No date this year')}</div>`;
+  if(!perso){ body+=`<button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="hevOrganize('${h.id}')">🗂️ ${(h.dossierId&&dossierById(h.dossierId))?t('Ouvrir le dossier','פתח תיקייה','Open folder'):t('Commencer à organiser','התחל לארגן','Start organizing')}</button>`; }
+  body+=`<div style="display:flex;gap:8px">
+      <button class="btn btn-soft btn-block" style="flex:1" data-act="hevSet('hidden',${h.hidden?'false':'true'})">${h.hidden?'👁 '+t('Réafficher','הצג','Show'):'🙈 '+t('Masquer','הסתר','Hide')}</button>
+      <button class="btn btn-ghost btn-block" style="flex:1;color:var(--red)" data-act="hevDelete('${h.id}')">🗑 ${t('Supprimer','מחק','Delete')}</button>
+    </div>`;
+  return `<div class="sheet-head"><div class="sheet-title">${title}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">${body}</div>`;
+}
 function _shopInit(){ if(!Array.isArray(D.shop)) D.shop=[]; return D.shop; }
 function shopAdd(){ _shopInit(); const el=document.getElementById('shop-add'); if(!el)return; const v=(el.value||'').trim(); if(!v){ el.focus(); return; } D.shop.unshift({id:uid(),text:v,done:false,ts:Date.now()}); el.value=''; save(); render(); setTimeout(()=>{ const e=document.getElementById('shop-add'); if(e)e.focus(); },30); }
 function shopToggle(id){ _shopInit(); const it=D.shop.find(x=>x.id===id); if(it){ it.done=!it.done; it.ts=Date.now(); save(); render(); } }
@@ -5727,7 +5836,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,jToggleFold,selAllVisible,bulkDeleteAny,bulkDateOpen,bulkDateApply,bulkDateClear,bulkMoveOpenAny,bulkMoveApplyAny,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,jToggleFold,hevAdd,hevEditOpen,hevSet,hevSetField,hevDelete,hevSetFilter,hevOrganize,louvahOpen,renderHevents,hevSetTab,hevSendMsg,selAllVisible,bulkDeleteAny,bulkDateOpen,bulkDateApply,bulkDateClear,bulkMoveOpenAny,bulkMoveApplyAny,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
@@ -5801,6 +5910,7 @@ function ensureCollections(){
   migrateMaterials();
   if(!Array.isArray(D.inbox)) D.inbox=[];
   if(!Array.isArray(D.rdv)) D.rdv=[];
+  if(!Array.isArray(D.hevents)) D.hevents=HEV_SEED.map(s=>({id:uid(),day:s.d,month:s.m,cat:s.c,name:s.n,notifyDays:null,tplId:null,dossierId:null,hidden:false}));
   if(!Array.isArray(D.dossiers)) D.dossiers=[];
   D.dossiers.forEach(d=>{ if(!d.icon)d.icon='🗂️'; if(!('color' in d))d.color=null; });
   try{ _provInit(); }catch(e){}   // carnet prestataires : migration D.suppliers → D.providers
