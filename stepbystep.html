@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a43">
+<meta name="app-build" content="b-2026-08-28-a44">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -445,6 +445,14 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .hero-greet{font-size:13.5px;font-weight:600;opacity:.9;position:relative;z-index:1;letter-spacing:.2px}
 .hero-heb{font-family:var(--serif);font-size:33px;font-weight:800;line-height:1.04;margin-top:4px;position:relative;z-index:1;letter-spacing:-.6px}
 .hero-civil{font-size:13.5px;opacity:.9;margin-top:5px;position:relative;z-index:1;text-transform:capitalize;font-weight:500}
+.hero-next{margin-top:11px;padding-top:10px;border-top:1px solid rgba(255,255,255,.22);font-size:13px;font-weight:500;position:relative;z-index:1;opacity:.96}
+.hero-next b{font-weight:800}
+.mitkarev{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 15px 15px;margin-bottom:12px;box-shadow:var(--sh)}
+.mitk-x{position:absolute;top:8px;inset-inline-end:8px;width:26px;height:26px;border:none;background:transparent;color:var(--ink-soft);font-size:14px;border-radius:8px;cursor:pointer}
+.mitk-x:active{background:var(--surface-2)}
+.mitk-top{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--primary)}
+.mitk-title{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink);margin-top:4px;line-height:1.2;padding-inline-end:24px}
+.mitk-sub{font-size:13px;color:var(--ink-soft);margin-top:5px;line-height:1.35}
 /* — Pastille d'icône colorée (menu) — */
 .ic-badge{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;flex:0 0 auto;box-shadow:0 2px 6px rgba(17,24,39,.14)}
 .tile-add{border:1.5px dashed var(--line);background:var(--surface-2);align-items:center;justify-content:center;color:var(--ink-soft);font-weight:600;text-align:center}
@@ -1915,7 +1923,6 @@ function jDisplayMenu(){
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Afficher','הצג','Show')}</div>
     ${opt('tasks','✅',t('Tâches','משימות','Tasks'))}
     ${opt('rappel','🔔',t('Rappel','תזכורת','Reminder'))}
-    ${(()=>{const hn=_jHiddenCount();return (hn||jShowHidden)?`<button class="dd-item" data-act="toggleJShowHidden()">${jShowHidden?'☑':'☐'} 🙈 ${t('Tâches masquées','משימות מוסתרות','Hidden tasks')}${hn?' ('+hn+')':''}</button>`:'';})()}
     <div class="divider" style="margin:6px 0"></div>
     <div style="padding:6px 12px 3px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em">${t('Trier « À faire »','מיין « לביצוע »','Sort “To do”')}</div>
     <button class="dd-item ${!jSort?'sel':''}" data-act="jClearSort()">↕️ ${t('Ordre par défaut','סדר ברירת מחדל','Default order')}</button>
@@ -2075,7 +2082,7 @@ const MENU_COL={report:'#3B5BDB',shopping:'#0CA678',suppliers:'#E8590C',template
 function drawerHTML(){
   const items=[
     ['',[
-      ['report','📋',t('Compte rendu','דיווח','Report'),null],
+      ['report','📋',t("Dou'h",'דו״ח','Report'),null],
       ['hevents','🕎',t("Loua'h",'לוח',"Loua'h"),null],
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
@@ -2264,13 +2271,18 @@ function renderCalGrid(c, asJournal){
   let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Agenda — tous les modules réunis','יומן — כל המודולים יחד','Agenda — all modules together')}</div><div class="sec-title" style="text-transform:capitalize">${title}</div>${sub?`<div class="sec-sub" style="text-transform:capitalize">${sub}</div>`:''}</div></div>`;
   if(asJournal && desk){ html+=`<div class="filters"><button class="chip active" data-act="setJournalDeskMode('cal')">🗓️ ${t('Vue mois','תצוגת חודש','Month view')}</button><button class="chip" data-act="setJournalDeskMode('cards')">📋 ${t('Ma journée (liste)','היום שלי (רשימה)','My day (list)')}</button></div>`; }
   html+=`<div class="filters"><button class="chip ${mode==='civil'?'active':''}" data-act="setAgMode('civil')">📅 ${t('Mois civil','חודש לועזי','Civil month')}</button><button class="chip ${mode==='heb'?'active':''}" data-act="setAgMode('heb')">🕎 ${t('Mois hébraïque','חודש עברי','Hebrew month')}</button><button class="chip ${mode==='week'?'active':''}" data-act="setAgMode('week')">🗓️ ${t('Semaine','שבוע','Week')}</button></div>`;
-  // Légende + filtre par couleur/thème
+  // Filtre par dossier — en liste déroulante (au lieu d'une rangée de chips).
   if(themeList.length || hasNone){
-    html+=`<div class="cal-legend">`;
-    themeList.forEach(th=>{ const off=agHidden[th.id]?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('${th.id}')"><span class="cal-legdot" style="background:${th.color||'#1E3A6E'}"></span>${th.icon||'🎯'} ${esc(th.name)}</span>`; });
-    if(hasNone){ const off=agHidden['__none']?' off':''; html+=`<span class="cal-legch${off}" data-act="agToggleTheme('__none')"><span class="cal-legdot" style="background:#9AA3AF"></span>${t('Sans dossier','ללא תיקייה','No folder')}</span>`; }
-    if(Object.keys(agHidden).length) html+=`<span class="cal-legch" data-act="agShowAllThemes()" style="border-style:dashed">${t('Tout afficher','הצג הכול','Show all')}</span>`;
-    html+=`</div>`;
+    const _nHidden=Object.keys(agHidden).length;
+    const _dot=(c)=>`<span class="cal-legdot" style="background:${c};display:inline-block;width:11px;height:11px;border-radius:50%;margin-inline-end:6px;vertical-align:middle"></span>`;
+    html+=`<div class="dd" style="margin-bottom:10px">
+      <button class="dd-btn${_nHidden?' on':''}" style="width:100%;justify-content:space-between" data-act="toggleDD('agfilter')">🗂️ ${t('Filtrer par dossier','סנן לפי תיקייה','Filter by folder')}${_nHidden?` · ${_nHidden} ${t('masqué(s)','מוסתרים','hidden')}`:''} ▾</button>
+      ${openDD==='agfilter'?`<div class="dd-menu" style="left:0;right:0;max-height:320px;overflow:auto;min-width:auto">
+        ${themeList.map(th=>`<button class="dd-item" data-act="agToggleTheme('${th.id}')">${agHidden[th.id]?'☐':'☑'} ${_dot(th.color||'#1E3A6E')}${th.icon||'🎯'} ${esc(th.name)}</button>`).join('')}
+        ${hasNone?`<button class="dd-item" data-act="agToggleTheme('__none')">${agHidden['__none']?'☐':'☑'} ${_dot('#9AA3AF')}${t('Sans dossier','ללא תיקייה','No folder')}</button>`:''}
+        ${_nHidden?`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div><button class="dd-item" data-act="agShowAllThemes()">✅ ${t('Tout afficher','הצג הכול','Show all')}</button>`:''}
+      </div>`:''}
+    </div>`;
   }
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="cbtn" data-act="agShift(-1)">◀</button><div style="flex:1;text-align:center"><button class="btn btn-soft btn-sm" data-act="agToday()">📔 ${t("Aujourd'hui",'היום','Today')}</button></div><button class="cbtn" data-act="agShift(1)">▶</button></div>`;
   html+=`<div class="cal-grid${rtlCls}">${wd.map(w=>`<div class="cal-wh">${w}</div>`).join('')}</div>`;
@@ -4257,9 +4269,6 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const _dur=totalDuration(t);
   const durTag=_dur?`<span class="tag tag-time">⏱ ${fmtM(_dur)}</span>`:'';
   const subLine = where||prio||remTag||dateTag||who||durTag;
-  const hideBtn = t.jHidden
-    ? `<span class="mini-btn" style="align-self:center;color:var(--gold)" data-act="event.stopPropagation();jUnhideTask('${t.id}')" title="${TT('Réafficher dans Ma Journée','הצג שוב','Show again')}">👁</span>`
-    : `<span class="mini-btn" style="align-self:center;opacity:.35" data-act="event.stopPropagation();jHideTask('${t.id}')" title="${TT('Masquer de Ma Journée','הסתר מהיום שלי','Hide from My Day')}">🙈</span>`;
   const _selM = (typeof selMode!=='undefined' && selMode);
   const _selOn = _selM ? !!selSet[t.id] : false;
   const _wrapStyle = [t.jHidden?'opacity:.55':'', _selOn?'outline:2px solid var(--primary);outline-offset:-2px;border-radius:12px':''].filter(Boolean).join(';');
@@ -4272,7 +4281,6 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
       ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${durTag}${prio}${remTag}${dateTag}${who}</div>`:''}
     </div>
     ${expBtn?`<div style="align-self:center">${expBtn}</div>`:''}
-    ${hideBtn}
   </div>`;
   if(subs.length&&isOpen){ subs.forEach(s=>{ const ss=stOf(s.status); h+=`<div class="subrow"><div class="check" style="width:19px;height:19px;border-color:${ss.c};background:${s.status==='done'?ss.c:'#fff'}" data-act="toggleTask('${s.id}')">${s.status==='done'?'✓':''}</div><div class="task-content" data-act="openTask('${s.id}')"><div class="task-text ${s.status==='done'?'done':''}">${(s.text&&s.text.trim())?esc(s.text):'<span style="color:var(--ink-soft);font-style:italic">Sous-tâche sans titre</span>'}</div>${(s.subtasks&&s.subtasks.length)||s.responsible||s.date?`<div class="task-tags">${s.date?`<span class="tag" style="background:var(--primary-soft);color:var(--primary)">📅 ${fmtDate(s.date)}</span>`:''}${s.responsible?`<span class="tag tag-who">👤 ${esc(s.responsible)}</span>`:''}${s.subtasks&&s.subtasks.length?`<span class="tag tag-sub">▸ ${s.subtasks.length}</span>`:''}</div>`:''}</div></div>`; }); }
   h+=`</div>`; return h;
@@ -4283,7 +4291,9 @@ function renderJournal(c){
   const dStr=now.toLocaleDateString(_jLocale(),{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hStr=hebrewDate(todayKey(now));
   const _h=now.getHours(); const greet=_h<12?t('Bonjour','בוקר טוב','Good morning'):(_h<18?t('Bon après-midi','צהריים טובים','Good afternoon'):t('Bonsoir','ערב טוב','Good evening'));
-  let html=`<div class="hero"><div class="hero-greet">${greet} 👋</div><div class="hero-heb">${hStr?esc(hStr):t('Ma Journée','היום שלי','My Day')}</div><div class="hero-civil">${esc(dStr)}</div></div>`;
+  const _nx=(function(){ try{ return hevNext(); }catch(e){ return null; } })();
+  const _nxLine = _nx?`<div class="hero-next">🎯 <b>${esc(_nx.h.name)}</b> · ${_hevDaysTxt(_nx.days)}</div>`:'';
+  let html=`<div class="hero"><div class="hero-greet">${greet} 👋</div><div class="hero-heb">${hStr?esc(hStr):t('Ma Journée','היום שלי','My Day')}</div><div class="hero-civil">${esc(dStr)}</div>${_nxLine}</div>`;
   if(isDesktop()){ html+=`<div class="filters"><button class="chip" data-act="setJournalDeskMode('cal')">🗓️ ${t('Vue mois','תצוגת חודש','Month view')}</button><button class="chip active" data-act="setJournalDeskMode('cards')">📋 ${t('Ma journée (liste)','היום שלי (רשימה)','My day (list)')}</button></div>`; }
   // — Sélecteur de période + navigation ◀ ▶ —
   const rg=jRange(); const periods=[['today',t("Aujourd'hui",'היום','Today')],['week',t('Semaine','שבוע','Week')],['civil',t('Mois','חודש','Month')]];
@@ -4318,6 +4328,11 @@ function renderJournal(c){
         <button class="btn btn-soft btn-sm" style="color:var(--red)" data-act="bulkDeleteAny()">🗑 ${t('Supprimer','מחק','Delete')}</button>
       </div>
     </div>`;
+  }
+
+  // Carte(s) « À venir » (Loua'h) — style Mitkarev : événement qui approche + organiser.
+  if(jPeriod==='today' && (jDay||todayKey())===todayKey() && !(typeof selMode!=='undefined'&&selMode)){
+    try{ hevMitkarev().forEach(o=>html+=_hevMitkarevCard(o)); }catch(e){}
   }
 
   if(jPeriod==='today'){
@@ -4833,13 +4848,11 @@ function renderDossier(c){
       idx++;
     }
   }
-  // 2) Les tâches libres (hors section) en bas.
-  if(hasTitles){
-    const loose=items.slice(0,firstTitle);
-    if(loose.length){
-      html+=`<div class="section-label" style="margin-top:18px">✅ ${t('Tâches','משימות','Tasks')}</div>`;
-      loose.forEach(it=>{ html+=dossItemHTML(it,0); });
-    }
+  // 2) Les tâches libres (hors section). Sans titre : on affiche TOUT (sinon rien ne s'affichait).
+  const loose = hasTitles ? items.slice(0,firstTitle) : items;
+  if(loose.length){
+    if(hasTitles) html+=`<div class="section-label" style="margin-top:18px">✅ ${t('Tâches','משימות','Tasks')}</div>`;
+    loose.forEach(it=>{ html+=dossItemHTML(it,0); });
   }
   const devs=dossierEvents(d.id);
   if(devs.length){ html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Activités reliées (calendrier)','פעילויות מקושרות (לוח)','Linked activities (calendar)')}</div>`; devs.sort((a,b)=>((a.e.date||'')<(b.e.date||'')?-1:1)); devs.forEach(x=>{ const done=countAllDone(x.e.tasks),tot=countAll(x.e.tasks); const act=x.isProgram?`setView('journal')`:`go({view:'calendar',monthId:'${x.mId}',feteId:'${x.fId}',eventId:'${x.e.id}'})`; html+=`<div class="card" data-act="${act}"><div class="card-body"><span class="card-icon">📌</span><div class="card-main"><div class="card-name">${esc(x.e.name)}</div><div class="card-meta">${x.e.date?'📅 '+civilDate(x.e.date):t('sans date','ללא תאריך','no date')}${tot?' · '+done+'/'+tot+' '+t('tâches','משימות','tasks'):''}</div></div><span class="chev">›</span></div></div>`; }); }
@@ -5100,6 +5113,28 @@ function hevById(id){ return hevList().find(x=>x.id===id); }
 function hevNextGreg(h){ const now=todayKey(); const hy=hevCurHYear(); for(const y of [hy-1,hy,hy+1,hy+2]){ const iso=hevGreg(h,y); if(iso && iso>=now) return iso; } return hevGreg(h,hy); }
 function hevOccurrences(fromIso,toIso){ const out=[]; const hy=hevCurHYear(); const list=hevList(); [hy-1,hy,hy+1,hy+2].forEach(y=>{ list.forEach(h=>{ if(h.hidden)return; const iso=hevGreg(h,y); if(iso && iso>=fromIso && iso<=toIso) out.push({h,iso,hy:y}); }); }); out.sort((a,b)=> a.iso<b.iso?-1:(a.iso>b.iso?1:0)); return out; }
 function hevForDay(iso){ const onDay=[], reminders=[]; const hy=hevCurHYear(); const list=hevList(); [hy-1,hy,hy+1,hy+2].forEach(y=>{ list.forEach(h=>{ if(h.hidden)return; const g=hevGreg(h,y); if(!g)return; if(g===iso) onDay.push({h,iso:g}); if(h.notifyDays!=null && h.notifyDays>0){ const rd=reminderDate(g,h.notifyDays); if(rd===iso && g>iso) reminders.push({h,iso:g,days:h.notifyDays}); } }); }); return {onDay,reminders}; }
+let _hevDismiss={};
+function hevAllUpcoming(){ const now=todayKey(); const hy=hevCurHYear(); const out=[], seen={}; hevList().forEach(h=>{ if(h.hidden)return; for(const y of [hy-1,hy,hy+1,hy+2]){ const iso=hevGreg(h,y); if(iso && iso>=now){ if(!seen[h.id]){ seen[h.id]=1; const days=Math.round((new Date(iso+'T12:00:00')-new Date(now+'T12:00:00'))/86400000); out.push({h,iso,days}); } break; } } }); out.sort((a,b)=> a.iso<b.iso?-1:(a.iso>b.iso?1:0)); return out; }
+function hevNext(){ const u=hevAllUpcoming(); return u.length?u[0]:null; }
+function _hevDaysTxt(days){ return days<=0?t("aujourd'hui",'היום','today'):(days===1?t('demain','מחר','tomorrow'):t('dans','בעוד','in')+' '+days+' '+t('jours','ימים','days')); }
+function hevMitkarev(){ const out=[]; hevAllUpcoming().forEach(o=>{ const win=(o.h.notifyDays!=null)?o.h.notifyDays:30; if(o.days<=win && !_hevDismiss[o.h.id+':'+o.iso]) out.push(o); }); return out.slice(0,2); }
+function hevDismiss(id,iso){ _hevDismiss[id+':'+iso]=1; render(); }
+function _hevMitkarevCard(o){ const h=o.h; const col=h.cat==='hassidique'?'#7048E8':(h.cat==='anniversaire'?'#E64980':(h.cat==='azkara'?'#6B7280':'#B8860B'));
+  const cta = hevIsPerso(h)
+    ? `<button class="btn btn-primary btn-sm" data-act="hevSendMsg('${h.id}')">💬 ${t('Envoyer le message','שלח הודעה','Send message')} ←</button>`
+    : ((h.dossierId&&dossierById(h.dossierId))
+      ? `<button class="btn btn-primary btn-sm" data-act="openDossier('${h.dossierId}')">📂 ${t('Ouvrir le dossier','פתח','Open folder')} ←</button>`
+      : `<button class="btn btn-primary btn-sm" data-act="hevOrganize('${h.id}')">🗂️ ${t("Commencer à organiser",'התחל לארגן','Start organizing')} ←</button>`);
+  const line = hevIsPerso(h)
+    ? (h.cat==='anniversaire'?t('Un message est prêt à envoyer.','הודעה מוכנה לשליחה.','A message is ready to send.'):t('Pense à la commémoration (Kaddich, Minyan).','זכור את האזכרה.','Remember the commemoration.'))
+    : t("C'est le moment de commencer à organiser : quoi faire, pour qui, qui aide.",'זה הזמן להתחיל לתכנן את האירוע.','Time to start planning: what, for whom, who helps.');
+  return `<div class="mitkarev" style="border-inline-start:4px solid ${col}">
+    <button class="mitk-x" data-act="hevDismiss('${h.id}','${o.iso}')" aria-label="${t('Masquer','הסתר','Dismiss')}">✕</button>
+    <div class="mitk-top">${t('À venir','מתקרב','Approaching')}</div>
+    <div class="mitk-title">${esc(h.name)} · ${_hevDaysTxt(o.days)}</div>
+    <div class="mitk-sub">${line}</div>
+    <div style="margin-top:9px">${cta}</div>
+  </div>`; }
 function hevOrganize(id){ const h=hevById(id); if(!h)return; if(h.dossierId && dossierById(h.dossierId)){ if(sheet)closeSheet(); openDossier(h.dossierId); return; } if(!Array.isArray(D.dossiers))D.dossiers=[]; const short=((h.name||'').split(' — ')[0])||h.name||t('Fête','חג','Holiday'); const d=mkDossier(short); d.icon='🕎'; d.recurring=true; const g=hevNextGreg(h); if(g)d.date=g; if(h.tplId){ const tp=(D.dossierTemplates||[]).find(x=>x.id===h.tplId); if(tp && Array.isArray(tp.items)) d.items=_freshItems(tp.items,true); } D.dossiers.push(d); h.dossierId=d.id; save(); if(sheet)closeSheet(); openDossier(d.id); toast(t("Dossier d'organisation créé ✓",'נוצרה תיקיית ארגון ✓','Organizing folder created ✓')); }
 function louvahOpen(){ drawerOpen=false; setView('hevents'); }
 function hevAdd(){ if(!Array.isArray(D.hevents))D.hevents=[]; const cat=_hevTab==='anniv'?'anniversaire':(_hevTab==='azkara'?'azkara':'juive'); const h={id:uid(),day:1,month:'tishri',cat:cat,name:'',notifyDays:(cat==='juive'?null:7),tplId:null,dossierId:null,hidden:false,phone:'',msg:(cat==='anniversaire'?ANNIV_MSG_DEFAULT:(cat==='azkara'?AZKARA_MSG_DEFAULT:''))}; D.hevents.push(h); save(); _hevEdit=h.id; sheet={type:'hevEdit'}; renderOverlay(); }
@@ -5838,7 +5873,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,jToggleFold,hevAdd,hevEditOpen,hevSet,hevSetField,hevDelete,hevSetFilter,hevOrganize,louvahOpen,renderHevents,hevSetTab,hevSendMsg,selAllVisible,bulkDeleteAny,bulkDateOpen,bulkDateApply,bulkDateClear,bulkMoveOpenAny,bulkMoveApplyAny,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,jToggleFold,hevAdd,hevEditOpen,hevSet,hevSetField,hevDelete,hevSetFilter,hevOrganize,louvahOpen,renderHevents,hevSetTab,hevSendMsg,hevDismiss,selAllVisible,bulkDeleteAny,bulkDateOpen,bulkDateApply,bulkDateClear,bulkMoveOpenAny,bulkMoveApplyAny,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
@@ -6016,8 +6051,14 @@ try{
 // ── Clavier mobile : garder le champ en cours de saisie visible AU-DESSUS du clavier ──
 (function(){
   let _kbT=null;
-  function bringIntoView(el){ if(!el||!el.closest)return; if(!el.closest('.sheet'))return; try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){ try{ el.scrollIntoView(); }catch(_){} } }
-  function isField(el){ return el && el.matches && el.matches('input,textarea,select') && el.closest && el.closest('.sheet'); }
+  // Ne défiler QUE si le champ est réellement masqué (sous le clavier) ou hors écran — sinon l'écran « saute » inutilement.
+  function bringIntoView(el){ if(!el||!el.closest)return; if(!el.closest('.sheet'))return; try{
+    const r=el.getBoundingClientRect();
+    const vh=(window.visualViewport?window.visualViewport.height:window.innerHeight);
+    if(r.bottom>vh-6 || r.top<58){ el.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  }catch(e){} }
+  // Les <select> ouvrent un sélecteur natif (overlay) : jamais besoin de défiler. Le reste ne défile que si masqué (voir bringIntoView).
+  function isField(el){ return el && el.matches && el.matches('input,textarea') && el.closest && el.closest('.sheet'); }
   document.addEventListener('focusin', function(e){ const el=e.target; if(!isField(el))return; clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 300); });
   if(window.visualViewport){ window.visualViewport.addEventListener('resize', function(){ const el=document.activeElement; if(isField(el)){ clearTimeout(_kbT); _kbT=setTimeout(()=>bringIntoView(el), 60); } }); }
 })();
