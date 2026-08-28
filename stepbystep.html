@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a54">
+<meta name="app-build" content="b-2026-08-28-a55">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -62,7 +62,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .dp-wdh{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:600;padding:2px 0}
 .dp-day{border:1px solid var(--line-soft);border-radius:8px;padding:5px 2px;text-align:center;cursor:pointer;background:var(--surface)}
 .dp-day.sel{background:var(--primary);color:#fff;border-color:var(--primary)}
-.dp-day.rng{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
+.dp-day.rng{background:color-mix(in srgb, var(--primary) 30%, var(--surface));border-color:color-mix(in srgb, var(--primary) 42%, var(--surface));color:var(--primary);font-weight:700}
+.dp-day.rng .dp-g{color:var(--primary)}
 .dp-day.rng .dp-h{color:var(--primary)}
 .dp-day.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
 .chip-sel{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
@@ -4082,8 +4083,11 @@ function dpBodyHTML(){
   const taskExtra = !isTask ? '' : `
     <div class="divider" style="margin:14px 0 10px"></div>
     <div class="field" style="margin-bottom:10px">
-      <label class="field-label">🕐 Heure ${dp.sel?'':'<span style="color:var(--ink-soft);font-weight:400">(choisis d\'abord un jour)</span>'}</label>
-      <input class="input" id="dp-time" type="time" value="${dp.time||''}" style="max-width:150px" ${dp.sel?'':'disabled'} onchange="dpTime(this.value)">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 14px;background:var(--surface-2)${dp.sel?'':';opacity:.55'}">
+        <span style="font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap">🕐 ${t('Heure','שעה','Time')}</span>
+        <input id="dp-time" type="time" value="${dp.time||''}" style="flex:1;border:none;background:transparent;font-size:15px;font-family:var(--sans);color:var(--ink);outline:none;min-width:0" ${dp.sel?'':'disabled'} onchange="dpTime(this.value)">
+      </div>
+      ${dp.sel?'':`<div style="font-size:12px;color:var(--ink-soft);margin-top:4px">${t('Choisis d\'abord un jour','בחר קודם יום','Pick a day first')}</div>`}
     </div>
     <div class="field" style="margin-bottom:6px">
       <button class="toggle-opt ${rep?'active':''}" style="width:100%" data-act="dpRepeatToggle()">🔁 Répéter ${rep?'· activé':''}</button>
