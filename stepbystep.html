@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a29">
+<meta name="app-build" content="b-2026-08-27-a30">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2800,25 +2800,73 @@ function qaEventHereNamed(){ const c=curContainer(); if(!c)return; const n=promp
 function qaTaskInContainer(){ const c=curContainer(); if(!c)return; if(!c.tasks)c.tasks=[]; const t=mkTask(''); c.tasks.push(t); save(); openQuickTask(t.id); }
 function qaProgramNamed(){ const n=prompt('Nom du nouveau programme :',''); if(n===null)return; const p=mkProgram((n||'').trim()||'Nouveau programme'); D.programs.push(p); save(); go({view:'programs',feteId:p.id,eventId:null,ctx:'program'}); }
 // Importer une liste de tâches (copier-coller depuis Google Docs / Google Sheets)
-function openImportList(){ sheet={type:'importList'}; renderOverlay(); setTimeout(()=>{const e=$('imp-list');if(e)e.focus();},60); }
+let _impText='';
+function _impSyncVal(v){ _impText=v; }
+function impNavRoot(){ moveNav={}; renderOverlay(); }
+function openImportList(){ _impText=''; moveNav={}; sheet={type:'importList'}; renderOverlay(); setTimeout(()=>{const e=$('imp-list');if(e)e.focus();},60); }
 function importListSheet(){
-  const here=curEvent()||curContainer();
-  const hereLabel=curEvent()?('cet événement « '+curEvent().name+' »'):(curContainer()?('« '+curContainer().name+' »'):'');
-  const progs=(D.programs||[]).filter(p=>!p._general);
   return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Nouvelle liste de tâches','רשימת משימות חדשה','New task list')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="hint" style="margin-bottom:8px">Ouvre ton <b>Google Docs</b> ou <b>Google Sheets</b>, sélectionne ta liste, copie (Ctrl/Cmd+C) puis colle ci-dessous — <b>une tâche par ligne</b>.</div>
-    <textarea class="textarea" id="imp-list" style="min-height:150px" placeholder="Acheter les bonbons&#10;Réserver la salle&#10;Imprimer les affiches"></textarea>
-    <div class="field" style="margin-top:10px"><label class="field-label">Où créer les tâches ?</label>
-      <select class="select" id="imp-dest">
-        ${here?`<option value="here">Ici — ${esc(hereLabel)}</option>`:''}
-        <optgroup label="Sous un mois">${MONTHS.map(m=>`<option value="month|${m.id}">${m.emoji} ${m.name}</option>`).join('')}</optgroup>
-        ${progs.length?`<optgroup label="Dans un programme">${progs.map(p=>`<option value="program|${p.id}">📚 ${esc(p.name)}</option>`).join('')}</optgroup>`:''}
-        <optgroup label="Dans un événement">${listEventDests().map(d=>`<option value="ev|${d.v}">${esc(d.label)}</option>`).join('')}</optgroup>
-      </select></div>
-    <button class="btn btn-primary btn-block" style="margin-top:12px" data-act="doImportList()">➕ Importer les tâches</button>
+    <div class="hint" style="margin-bottom:8px">${t('Ouvre ton <b>Google Docs</b> ou <b>Google Sheets</b>, sélectionne ta liste, copie (Ctrl/Cmd+C) puis colle ci-dessous — <b>une tâche par ligne</b>.','פתח <b>Google Docs</b> או <b>Google Sheets</b>, בחר את הרשימה, העתק והדבק למטה — <b>משימה בכל שורה</b>.','Open <b>Google Docs</b> or <b>Google Sheets</b>, select your list, copy then paste below — <b>one task per line</b>.')}</div>
+    <textarea class="textarea" id="imp-list" style="min-height:140px" oninput="_impSyncVal(this.value)" placeholder="Acheter les bonbons&#10;Réserver la salle&#10;Imprimer les affiches">${esc(_impText)}</textarea>
+    <div class="section-label" style="margin-top:12px">${t('Où créer les tâches ?','היכן ליצור את המשימות?','Where to create the tasks?')}</div>
+    ${impExplorerHTML()}
   </div>`;
 }
+function impExplorerHTML(){
+  const H=['<div class="mvbox">'];
+  const dropBtn=(label,v)=>'<button class="btn btn-primary btn-block" style="margin:5px 0;text-align:left;justify-content:flex-start" data-act="impCreateAt(\''+v+'\')">✓ '+esc(label)+'</button>';
+  const drillRow=(icon,label,sub,act)=>'<div class="mvnav" data-act="'+act+'"><span style="font-size:22px;flex:none">'+icon+'</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(label)+'</div>'+(sub?'<div style="font-size:11.5px;color:var(--ink-soft)">'+esc(sub)+'</div>':'')+'</div><span class="chev" style="font-size:20px;color:var(--primary)">›</span></div>';
+  const backBar=(label,act)=>'<div class="mvstep"><span class="mvback" data-act="'+act+'">‹ '+t('Retour','חזרה','Back')+'</span><span style="color:var(--ink);font-weight:600">'+esc(label)+'</span></div>';
+  const hint=(txt)=>'<div style="font-size:12px;color:var(--ink-soft);font-weight:600;margin:12px 0 5px">'+esc(txt)+'</div>';
+  if(moveNav && moveNav.mId && moveNav.fId){
+    const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId); const f=m&&m.fetes.find(x=>x.id===moveNav.fId);
+    H.push(backBar((mm?mName(mm):'')+' › '+(f?f.name:''),"mvMonth('"+moveNav.mId+"')"));
+    H.push(hint(t('Dans quel événement ?','באיזה אירוע?','In which event?')));
+    if(f) f.events.forEach(e=>H.push(dropBtn(t('Mettre dans','שים ב','Put in')+' « '+e.name+' »','fete|'+moveNav.mId+'|'+f.id+'|'+e.id)));
+  } else if(moveNav && moveNav.mId){
+    const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
+    H.push(backBar((mm?mm.emoji+' '+mName(mm):t('Mois','חודש','Month')),"mvOpenMonths()"));
+    H.push(dropBtn(t('Mettre directement dans','שים ישירות ב','Put directly in')+' '+(mm?mName(mm):t('ce mois','חודש זה','this month')),'monthtasks|'+moveNav.mId));
+    const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
+    if(real.length){ H.push(hint(t('Ou ouvrir une fête :','או פתח חג:','Or open a holiday:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
+  } else if(moveNav && moveNav.dId){
+    const d=dossierById(moveNav.dId);
+    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):"mvOpenDossiers()";
+    H.push(backBar((d?(d.icon||'🗂️')+' '+(d.name||'Dossier'):'Dossier'),backAct));
+    if(d){
+      H.push(dropBtn(t('Mettre dans','שים ב','Put in')+' « '+(d.name||t('ce dossier','תיקייה זו','this folder'))+' »','dossier|'+d.id));
+      const titles=(d.items||[]).filter(it=>it.kind==='title' && (it.text||'').trim());
+      if(titles.length){ H.push(hint(t('Ou sous un titre :','או תחת כותרת:','Or under a title:'))); titles.forEach(tt=>{ const ind=Math.min((tt.level||1)-1,4)*14; H.push('<div style="margin-left:'+ind+'px">'+dropBtn((tt.level>1?'◦ ':'▸ ')+tt.text,'dosstitle|'+d.id+'|'+tt.id)+'</div>'); }); }
+      const kids=dossierChildren(d.id);
+      if(kids.length){ H.push(hint(t('Ou ouvrir un sous-dossier :','או פתח תת-תיקייה:','Or open a sub-folder:'))); kids.forEach(k=>H.push(drillRow(k.icon||'🗂️',k.name||'Sans nom',_mvDossMeta(k),"mvDoss('"+k.id+"')"))); }
+    }
+  } else if(moveNav && moveNav.open==='mois'){
+    H.push(backBar(t('Choisis le mois','בחר חודש','Choose the month'),"impNavRoot()"));
+    MONTHS.forEach(mo=>{ const m=D.months[mo.id]; const n=m?m.fetes.filter(f=>!f._monthGeneral).length:0; H.push(drillRow(mo.emoji,mName(mo),(n?nFetes(n):t('toucher pour ouvrir','גע לפתיחה','tap to open')),"mvMonth('"+mo.id+"')")); });
+  } else if(moveNav && moveNav.open==='dossier'){
+    H.push(backBar(t('Choisis le dossier','בחר תיקייה','Choose the folder'),"impNavRoot()"));
+    const roots=_sortDoss((D.dossiers||[]).filter(d=>!d.parentId));
+    if(roots.length) roots.forEach(d=>H.push(drillRow(d.icon||'🗂️',d.name||'Sans nom',_mvDossMeta(d),"mvDoss('"+d.id+"')")));
+    else H.push('<div style="font-size:12.5px;color:var(--ink-soft);padding:8px">'+t('Aucun dossier pour l\'instant.','אין תיקיות עדיין.','No folder yet.')+'</div>');
+  } else {
+    H.push(dropBtn('📥 '+t('Dans Ma Journée (indépendantes)','ביום שלי (עצמאיות)','In My Day (independent)'),'inbox'));
+    H.push('<div style="height:8px"></div>');
+    H.push(drillRow('📅',t('Dans un mois','בחודש','In a month'),t('Calendrier — mois, fête, événement','לוח שנה — חודש, חג, אירוע','Calendar — month, holiday, event'),"mvOpenMonths()"));
+    H.push(drillRow('🗂️',t('Dans un dossier','בתיקייה','In a folder'),t('Un dossier, un sous-dossier, ou un titre','תיקייה, תת-תיקייה או כותרת','A folder, sub-folder, or title'),"mvOpenDossiers()"));
+  }
+  H.push('</div>');
+  return H.join('');
+}
+function _impParse(){ const tasks=[]; (_impText||'').split(/\r?\n/).forEach(line=>{ let name=line; if(name.indexOf('\t')>=0)name=name.split('\t')[0]; name=name.trim(); if(!name)return; if(/^(niveau|type|nom|t[âa]che)s?$/i.test(name))return; name=name.replace(/^[•\-\*\d\.\)\s]+/,'').trim(); if(!name)return; tasks.push(mkTask(name)); }); return tasks; }
+function impCreateAt(v){ _impSyncVal(($('imp-list')||{}).value||_impText); const tasks=_impParse(); if(!tasks.length){ toast(t('Aucune tâche détectée','לא זוהו משימות','No task detected')); return; }
+  let items,index;
+  if(v==='here'){ const arr=_destTasksArray('here'); if(!arr){ toast(t('Destination introuvable','היעד לא נמצא','Destination not found')); return; } items=arr; index=arr.length; }
+  else if(v==='inbox'){ if(!Array.isArray(D.inbox))D.inbox=[]; items=D.inbox; index=D.inbox.length; }
+  else { const dest=_mvDestInfo(v); if(!dest){ toast(t('Destination introuvable','היעד לא נמצא','Destination not found')); return; } items=dest.items; index=dest.index; }
+  items.splice(index,0,...tasks); save(); moveNav=null; _impText=''; closeSheet();
+  if(v==='inbox'){ setView('journal'); } else render();
+  toast(tasks.length+' '+t('tâche(s) importée(s) ✓','משימות יובאו ✓','task(s) imported ✓')); }
 function _destTasksArray(dest){
   if(dest==='here'){ const e=curEvent(); if(e)return e.tasks; const c=curContainer(); if(c){ if(!c.tasks)c.tasks=[]; return c.tasks; } return null; }
   const pr=(dest||'').split('|');
@@ -5399,7 +5447,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
