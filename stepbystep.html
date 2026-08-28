@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a58">
+<meta name="app-build" content="b-2026-08-28-a59">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1241,10 +1241,10 @@ function _parseInvite(txt){
   return res;
 }
 // — Lecture d'image : IA Gemini si une clé est configurée, sinon OCR local gratuit —
-function _geminiKey(){ try{ return localStorage.getItem('sbs_gemini_key')||''; }catch(e){ return ''; } }
+function _geminiKey(){ try{ if(typeof D!=='undefined' && D && D.geminiKey) return D.geminiKey; }catch(e){} try{ return localStorage.getItem('sbs_gemini_key')||''; }catch(e){ return ''; } }
 let _aiErr='';
-function geminiSetKey(){ const cur=_geminiKey(); const k=prompt(t('Colle ta clé Gemini :','הדבק מפתח Gemini:','Paste your Gemini key:'),cur); if(k===null)return; try{ localStorage.setItem('sbs_gemini_key',(k||'').trim()); }catch(e){} renderOverlay(); toast((k||'').trim()?t('Lecture IA activée ✓','AI הופעל ✓','AI reading on ✓'):t('Clé retirée','המפתח הוסר','Key removed')); }
-function geminiClear(){ try{ localStorage.removeItem('sbs_gemini_key'); }catch(e){} renderOverlay(); toast(t('Lecture IA désactivée','AI כבוי','AI reading off')); }
+function geminiSetKey(){ const cur=_geminiKey(); const k=prompt(t('Colle ta clé Gemini (partagée à toute ton organisation) :','הדבק מפתח Gemini:','Paste your Gemini key (shared with your whole org):'),cur); if(k===null)return; const v=(k||'').trim(); try{ if(typeof D!=='undefined' && D){ D.geminiKey=v; save(); } }catch(e){} try{ localStorage.setItem('sbs_gemini_key',v); }catch(e){} renderOverlay(); toast(v?t('Lecture IA activée pour tous ✓','AI הופעל ✓','AI reading on for everyone ✓'):t('Clé retirée','המפתח הוסר','Key removed')); }
+function geminiClear(){ try{ if(typeof D!=='undefined' && D){ D.geminiKey=''; save(); } }catch(e){} try{ localStorage.removeItem('sbs_gemini_key'); }catch(e){} renderOverlay(); toast(t('Lecture IA désactivée','AI כבוי','AI reading off')); }
 function _aiGemini(dataUrl,cb){
   _aiErr=''; const key=_geminiKey(); if(!key){ cb(null); return; }
   const b64=String(dataUrl).split(',')[1]||''; const mime=(String(dataUrl).match(/^data:([^;]+)/)||[])[1]||'image/jpeg';
