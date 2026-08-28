@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a48">
+<meta name="app-build" content="b-2026-08-28-a49">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -65,6 +65,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .dp-day.rng{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
 .dp-day.rng .dp-h{color:var(--primary)}
 .dp-day.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.chip-sel{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.chip-sel.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
 .dp-day.out{background:var(--surface-2);opacity:.5}
 .dp-day.out .dp-g{color:var(--ink-soft);font-weight:500}
 .agw{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
@@ -3292,6 +3294,7 @@ function sheetHTML(){
   else if(sheet.type==='provPick') inner=provPickSheet();
   else if(sheet.type==='backups') inner=backupSheet();
   else if(sheet.type==='respAdmin') inner=respAdminSheet();
+  else if(sheet.type==='hevOrg') inner=hevOrgSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -4817,6 +4820,8 @@ function dossSetColor(cl){ const d=dossierById(nav.dossierId); if(d){ d.color=(d
 function dossSetIcon(){ const d=dossierById(nav.dossierId); if(!d)return; const v=prompt('Icône du dossier (emoji) :',d.icon||'🗂️'); if(v===null)return; d.icon=(v.trim()||'🗂️'); save(); render(); }
 function dossSetDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.date=val||''; if(d.endDate&&d.endDate<=d.date) d.endDate=''; save(); render(); }
 function dossSetEndDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.endDate=(val&&d.date&&val>d.date)?val:''; save(); render(); }
+function dossSetType(v){ const d=dossierById(nav.dossierId); if(!d)return; d.eventType=v||''; closeDD(); save(); render(); }
+function dossNewType(){ const n=prompt(t('Nom du nouveau type :','שם סוג חדש:','New type name:'),''); if(n===null)return; const v=(n||'').trim(); if(!v)return; if(!Array.isArray(D.eventTypes))D.eventTypes=[]; if(!D.eventTypes.includes(v))D.eventTypes.push(v); const d=dossierById(nav.dossierId); if(d)d.eventType=v; closeDD(); save(); render(); }
 function dossToggleRecurring(){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!d.recurring; save(); render(); }
 function dossSetRecurring(v){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!!v; save(); render(); }
 // Tri des dossiers : A→Z par défaut ; si l'utilisateur a réordonné manuellement (champ .ord), on respecte cet ordre.
@@ -5116,6 +5121,10 @@ function renderDossier(c){
   </div>`;
   html+=`${d.public?`<div style="margin:-4px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px">🎯 ${esc(d.public)}</span></div>`:''}`;
   if(d.date){ html+=`<div style="margin:-4px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px">📅 ${(d.endDate&&d.endDate>d.date)?(t('Du','מ־','From')+' '+fmtDate(d.date)+' '+t('au','עד','to')+' '+fmtDate(d.endDate)):fmtDate(d.date)}</span></div>`; }
+  html+=`<div class="dd" style="position:relative;display:inline-block;margin:0 0 12px">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:${d.eventType?'var(--primary-soft)':'var(--surface-2)'};color:${d.eventType?'var(--primary)':'var(--ink-soft)'};font-weight:700;font-size:12.5px;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid var(--line)" data-act="toggleDD('dosstype')">🏷️ ${d.eventType?esc(d.eventType):t('Type d\'événement','סוג','Event type')} ▾</span>
+    ${openDD==='dosstype'?`<div class="dd-menu" style="min-width:190px;max-width:calc(100vw - 20px)">${(D.eventTypes||[]).map(ty=>`<button class="dd-item ${d.eventType===ty?'sel':''}" data-act="dossSetType('${esc(ty).replace(/'/g,"\\'")}')">${esc(ty)}</button>`).join('')}<button class="dd-item" data-act="dossNewType()">＋ ${t('Nouveau type…','סוג חדש…','New type…')}</button>${d.eventType?`<button class="dd-item" style="color:var(--red)" data-act="dossSetType('')">✕ ${t('Retirer','הסר','Remove')}</button>`:''}</div>`:''}
+  </div>`;
   const items=d.items||[];
   const firstTitle=items.findIndex(x=>x.kind==='title');
   const hasTitles=firstTitle>=0;
@@ -5435,7 +5444,64 @@ function _hevMitkarevCard(o){ const h=o.h; const col=h.cat==='hassidique'?'#7048
     <div class="mitk-sub">${line}</div>
     <div style="margin-top:9px">${cta}</div>
   </div>`; }
-function hevOrganize(id){ const h=hevById(id); if(!h)return; if(h.dossierId && dossierById(h.dossierId)){ if(sheet)closeSheet(); openDossier(h.dossierId); return; } if(!Array.isArray(D.dossiers))D.dossiers=[]; const short=((h.name||'').split(' — ')[0])||h.name||t('Fête','חג','Holiday'); const d=mkDossier(short); d.icon='🕎'; d.recurring=true; const g=hevNextGreg(h); if(g)d.date=g; if(h.tplId){ const tp=(D.dossierTemplates||[]).find(x=>x.id===h.tplId); if(tp && Array.isArray(tp.items)) d.items=_freshItems(tp.items,true); } D.dossiers.push(d); h.dossierId=d.id; save(); if(sheet)closeSheet(); openDossier(d.id); toast(t("Dossier d'organisation créé ✓",'נוצרה תיקיית ארגון ✓','Organizing folder created ✓')); }
+function hevOrganize(id){ const h=hevById(id); if(!h)return; if(h.dossierId && dossierById(h.dossierId)){ if(sheet)closeSheet(); openDossier(h.dossierId); return; }
+  // Ouvre une fiche : choisir le TYPE d'événement + dossier existant ou nouveau.
+  const short=((h.name||'').split(' — ')[0])||h.name||t('Fête','חג','Holiday');
+  _orgBuf={ hevId:id, name:short, type:'', mode:'new', dossierId:'', tplId:(h.tplId||'') };
+  sheet={type:'hevOrg'}; renderOverlay();
+}
+let _orgBuf=null;
+function orgSetName(v){ if(_orgBuf) _orgBuf.name=v; }
+function orgSetType(v){ if(_orgBuf){ _orgBuf.type=(_orgBuf.type===v?'':v); renderOverlay(); } }
+function orgNewType(){ const n=prompt(t('Nom du nouveau type :','שם סוג חדש:','New type name:'),''); if(n===null)return; const v=(n||'').trim(); if(!v)return; if(!Array.isArray(D.eventTypes))D.eventTypes=[]; if(!D.eventTypes.includes(v))D.eventTypes.push(v); if(_orgBuf)_orgBuf.type=v; save(); renderOverlay(); }
+function orgSetMode(m){ if(_orgBuf){ _orgBuf.mode=m; renderOverlay(); } }
+function orgSetDossier(v){ if(_orgBuf){ _orgBuf.dossierId=v; renderOverlay(); } }
+function orgSetTpl(v){ if(_orgBuf){ _orgBuf.tplId=v; renderOverlay(); } }
+function hevOrgSheet(){
+  if(!_orgBuf) return '';
+  const h=hevById(_orgBuf.hevId);
+  const types=(D.eventTypes||[]);
+  const existing=(D.dossiers||[]).filter(d=>d.type!=='prov');
+  const tpls=(D.dossierTemplates||[]);
+  return `<div class="sheet-head"><div class="sheet-title">🗂️ ${t('Commencer à organiser','התחל לארגן','Start organizing')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="field"><label class="field-label">${t('Nom','שם','Name')}</label><input class="input" id="org-name" value="${esc(_orgBuf.name||'')}" onchange="orgSetName(this.value)"></div>
+    <div class="field"><label class="field-label">${t("Type d'événement",'סוג האירוע','Event type')}</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${types.map(ty=>`<button class="chip-sel ${_orgBuf.type===ty?'on':''}" data-act="orgSetType('${esc(ty).replace(/'/g,"\\'")}')">${esc(ty)}</button>`).join('')}
+        <button class="chip-sel" style="border-style:dashed" data-act="orgNewType()">＋ ${t('Nouveau type','סוג חדש','New type')}</button>
+      </div>
+    </div>
+    <div class="field"><label class="field-label">${t('Où organiser','היכן לארגן','Where to organize')}</label>
+      <div class="toggle-group" style="margin-bottom:8px">
+        <button class="toggle-opt ${_orgBuf.mode==='new'?'active':''}" data-act="orgSetMode('new')">🆕 ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>
+        <button class="toggle-opt ${_orgBuf.mode==='existing'?'active':''}" data-act="orgSetMode('existing')">📂 ${t('Dossier existant','תיקייה קיימת','Existing folder')}</button>
+      </div>
+      ${_orgBuf.mode==='existing'
+        ? `<select class="select" onchange="orgSetDossier(this.value)"><option value="">${t('— Choisir un dossier —','— בחר תיקייה —','— Choose a folder —')}</option>${existing.map(d=>`<option value="${d.id}" ${_orgBuf.dossierId===d.id?'selected':''}>${esc((d.icon||'🗂️')+' '+d.name)}</option>`).join('')}</select>`
+        : (tpls.length?`<select class="select" onchange="orgSetTpl(this.value)"><option value="">${t('— Sans modèle —','— ללא תבנית —','— No template —')}</option>${tpls.map(tp=>`<option value="${tp.id}" ${_orgBuf.tplId===tp.id?'selected':''}>${esc(tp.name||'Modèle')}</option>`).join('')}</select>`:'')}
+    </div>
+    <button class="btn btn-primary btn-block" data-act="hevOrgConfirm()">${_orgBuf.mode==='existing'?t('Ouvrir ce dossier','פתח תיקייה זו','Open this folder'):t('Créer le dossier','צור תיקייה','Create folder')} →</button>
+  </div>`;
+}
+function hevOrgConfirm(){
+  if(!_orgBuf) return; const h=hevById(_orgBuf.hevId); if(!h){ closeSheet(); return; }
+  if(!Array.isArray(D.dossiers))D.dossiers=[];
+  let d;
+  if(_orgBuf.mode==='existing' && _orgBuf.dossierId && dossierById(_orgBuf.dossierId)){
+    d=dossierById(_orgBuf.dossierId);
+    if(_orgBuf.type) d.eventType=_orgBuf.type;
+  } else {
+    d=mkDossier((_orgBuf.name||'').trim()||h.name||'Dossier'); d.icon='🕎'; d.recurring=true;
+    if(_orgBuf.type) d.eventType=_orgBuf.type;
+    const g=hevNextGreg(h); if(g)d.date=g;
+    const tid=_orgBuf.tplId||h.tplId;
+    if(tid){ const tp=(D.dossierTemplates||[]).find(x=>x.id===tid); if(tp && Array.isArray(tp.items)) d.items=_freshItems(tp.items,true); }
+    D.dossiers.push(d);
+  }
+  h.dossierId=d.id; _orgBuf=null; save(); if(sheet)closeSheet(); openDossier(d.id);
+  toast(t("Dossier prêt ✓",'התיקייה מוכנה ✓','Folder ready ✓'));
+}
 function louvahOpen(){ drawerOpen=false; setView('hevents'); }
 function hevAdd(){ if(!Array.isArray(D.hevents))D.hevents=[]; const cat=_hevTab==='anniv'?'anniversaire':(_hevTab==='azkara'?'azkara':'juive'); const h={id:uid(),day:1,month:'tishri',cat:cat,name:'',notifyDays:(cat==='juive'?null:7),tplId:null,dossierId:null,hidden:false,phone:'',msg:(cat==='anniversaire'?ANNIV_MSG_DEFAULT:(cat==='azkara'?AZKARA_MSG_DEFAULT:''))}; D.hevents.push(h); save(); _hevEdit=h.id; sheet={type:'hevEdit'}; renderOverlay(); }
 function hevEditOpen(id){ _hevEdit=id; sheet={type:'hevEdit'}; renderOverlay(); }
@@ -6180,6 +6246,7 @@ function commitDragOrder(kind){
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
+ orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
@@ -6253,6 +6320,7 @@ function ensureCollections(){
   if(!Array.isArray(D.hevents)) D.hevents=HEV_SEED.map(s=>({id:uid(),day:s.d,month:s.m,cat:s.c,name:s.n,notifyDays:null,tplId:null,dossierId:null,hidden:false}));
   if(!Array.isArray(D.dossiers)) D.dossiers=[];
   D.dossiers.forEach(d=>{ if(!d.icon)d.icon='🗂️'; if(!('color' in d))d.color=null; });
+  if(!Array.isArray(D.eventTypes)) D.eventTypes=['Farbrenguen','Soirée féminine','Fête pour enfants','Mariage','Bar / Bat Mitsva','Brit Mila','Cours / Chiour','Repas communautaire','Collecte / Tsedaka'];
   try{ _provInit(); }catch(e){}   // carnet prestataires : migration D.suppliers → D.providers
   migrateThemesToDossiers();   // fusion : les thèmes deviennent des dossiers (une seule notion)
   migratePrograms();     // retire la fonctionnalité Programmes, range les tâches libres dans D.inbox
