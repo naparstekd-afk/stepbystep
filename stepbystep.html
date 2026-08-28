@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a57">
+<meta name="app-build" content="b-2026-08-28-a58">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1251,7 +1251,7 @@ function _aiGemini(dataUrl,cb){
   const prompt="Tu lis une invitation ou une affiche d'événement (français/hébreu). Renvoie UNIQUEMENT un objet JSON avec ces clés (valeur vide si absent) : title (titre/nom de l'événement, ex. \"Farbrenguen de Haï Eloul\" ou \"Mariage de Kevin et Ryan\"), date (AAAA-MM-JJ ; si l'année manque, déduis l'année à venir), time (HH:MM 24h), place (adresse complète), phone, type (mariage, bar-mitsva, brit, farbrenguen, soirée, fête, cours, autre).";
   const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:mime,data:b64}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}};
   // Clé envoyée via l'en-tête moderne (compatible ancien AIza… et nouveau format AQ.…).
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)})
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)})
     .then(async r=>{ const tx=await r.text(); if(!r.ok){ throw new Error(r.status+' '+tx.replace(/\s+/g,' ').slice(0,200)); } return JSON.parse(tx); })
     .then(j=>{ let txt=''; try{ txt=j.candidates[0].content.parts[0].text; }catch(e){} let p={}; try{ p=JSON.parse(txt); }catch(e){ p={}; } cb({title:p.title||'',date:p.date||'',time:p.time||'',place:p.place||'',phone:p.phone||'',type:p.type||''}); })
     .catch((err)=>{ _aiErr=(err&&err.message)||String(err); cb(null); });
