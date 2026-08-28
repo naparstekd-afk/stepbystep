@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a65">
+<meta name="app-build" content="b-2026-08-28-a66">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3465,6 +3465,7 @@ function sheetHTML(){
   else if(sheet.type==='dvarEntry') inner=dvarEntrySheet();
   else if(sheet.type==='dvarMove') inner=dvarMoveSheet();
   else if(sheet.type==='dvarTplPick') inner=dvarTplPickSheet();
+  else if(sheet.type==='shortcutPick') inner=shortcutPickSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -5046,9 +5047,15 @@ function renderVie(c){
 }
 let _dossFrom=null;   // d'où on est entré dans le monde des dossiers (pour le bouton Retour)
 function openDossier(id){ if(nav.view!=='dossier'){ _dossFrom={view:nav.view, monthId:nav.monthId, feteId:nav.feteId}; } nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+let _navStack=[];     // pile de retour pour les raccourcis (revient à la page d'où l'on vient)
+let _shortcutCtx=null;
 function dossierBack(){ const d=dossierById(nav.dossierId);
-  // 1) Sous-dossier → on remonte d'un niveau vers le dossier parent.
-  if(d&&d.parentId&&dossierById(d.parentId)){ nav={...nav,view:'dossier',dossierId:d.parentId}; render(); return; }
+  const top=_navStack.length?_navStack[_navStack.length-1]:null;
+  const atAnchor = top && top.anchorId && top.anchorId===nav.dossierId;
+  // 1) Sous-dossier → on remonte d'un niveau (sauf si on est au sommet d'une excursion ouverte via un raccourci).
+  if(!atAnchor && d&&d.parentId&&dossierById(d.parentId)){ nav={...nav,view:'dossier',dossierId:d.parentId}; render(); return; }
+  // 1bis) Retour d'un raccourci → on revient exactement à la page d'où l'on est venu.
+  if(top){ _navStack.pop(); nav={...top.nav}; _dossFrom=top.dossFrom||null; groupedView=null; openDD=null; render(); return; }
   // 2) Dossier racine : si on est entré depuis le calendrier, on y retourne ; sinon → page des Projets (dossiers).
   const f=_dossFrom; _dossFrom=null;
   if(f && f.view==='calendar' && f.monthId){ nav={view:'calendar',monthId:f.monthId,feteId:null,eventId:null,ctx:'fete'}; render(); return; }
@@ -5057,6 +5064,29 @@ function dossierBack(){ const d=dossierById(nav.dossierId);
   const _root=_dossRoot(d);
   if((_root&&_root.space==='vie') || (f&&f.view==='vie')){ nav={view:'vie'}; bddNav=null; render(); return; }
   nav={view:'bdd'}; bddNav=null; render(); }
+// ---- RACCOURCIS : un même dossier / titre visible à plusieurs endroits (alias, sans copier) ----
+function _dossPathName(d){ const out=[]; let c=d; while(c){ out.unshift(c.name||t('Sans nom','ללא שם','Untitled')); c=c.parentId?dossierById(c.parentId):null; } return out.join(' ▸ '); }
+function shortcutPickOpen(titleId){ openDD=null; _shortcutCtx={dossierId:nav.dossierId, titleId:titleId||null}; sheet={type:'shortcutPick'}; renderOverlay(); }
+function shortcutCreate(type,targetId,titleId){ const ctx=_shortcutCtx; if(!ctx){ closeSheet(); return; } if(!dossierById(ctx.dossierId)){ closeSheet(); return; }
+  const item={id:uid(),kind:'shortcut',targetType:type,targetId:targetId,titleId:titleId||null}; _dossInsert(item, ctx.titleId); closeSheet(); render(); toast(t('Raccourci créé ✓','קיצור דרך נוצר ✓','Shortcut created ✓')); }
+function shortcutOpen(itemId){ const d=dossierById(nav.dossierId); const it=d&&(d.items||[]).find(x=>x.id===itemId); if(!it)return;
+  const t2=dossierById(it.targetId); if(!t2){ toast(t('Cible introuvable (supprimée)','היעד נמחק','Target not found (deleted)')); return; }
+  _navStack.push({anchorId:it.targetId, nav:{...nav}, dossFrom:_dossFrom});
+  nav={...nav,view:'dossier',dossierId:it.targetId}; groupedView=null; openDD=null;
+  if(it.targetType==='title' && it.titleId){ dossOpen[it.titleId]=true; }
+  render();
+  if(it.targetType==='title' && it.titleId){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+it.titleId+'"]')||document.querySelector('[data-id="'+it.titleId+'"]'); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){} },90); } }
+function shortcutHTML(it,ind){ const t2=dossierById(it.targetId); let name,sub='';
+  if(it.targetType==='title'){ const ti=t2&&(t2.items||[]).find(x=>x.id===it.titleId); name=ti?(ti.text||t('Titre','כותרת','Title')):t('(titre supprimé)','(כותרת נמחקה)','(deleted title)'); sub=t2?t2.name:''; }
+  else { name=t2?(t2.name||t('Dossier','תיקייה','Folder')):t('(dossier supprimé)','(תיקייה נמחקה)','(deleted folder)'); sub=t2?_dossPathName(t2):''; }
+  return `<div class="card" style="margin-left:${ind}px;padding:11px 12px;margin-bottom:9px;border:1px dashed var(--primary);cursor:pointer" data-act="shortcutOpen('${it.id}')"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:18px">🔗</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(name)}</div><div style="font-size:12px;color:var(--ink-soft)">${t('Raccourci','קיצור דרך','Shortcut')}${sub?' · '+esc(sub):''}</div></div><span class="chev" style="color:var(--ink-soft)">›</span><span class="dep-x" style="font-size:14px;cursor:pointer" data-act="event.stopPropagation();dossDelItem('${it.id}')">🗑</span></div></div>`; }
+function shortcutPickSheet(){ const all=(D.dossiers||[]); const cur=_shortcutCtx&&_shortcutCtx.dossierId; let rows='';
+  all.forEach(d=>{ if(d.id===cur) return;
+    rows+=`<button class="dd-item" data-act="shortcutCreate('dossier','${d.id}',null)" style="font-weight:600">📁 ${esc(_dossPathName(d))}</button>`;
+    (d.items||[]).filter(x=>x.kind==='title').forEach(ti=>{ rows+=`<button class="dd-item" data-act="shortcutCreate('title','${d.id}','${ti.id}')" style="padding-left:26px;font-size:13px">▸ ${esc(ti.text||t('Titre','כותרת','Title'))}</button>`; }); });
+  if(!rows) rows=`<div class="hint">${t("Aucun autre dossier pour l'instant. Crée d'abord un dossier ailleurs.",'אין תיקיות נוספות עדיין.','No other folder yet.')}</div>`;
+  return `<div class="sheet-head"><div class="sheet-title">🔗 ${t('Créer un raccourci','צור קיצור דרך','Create a shortcut')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body"><div class="hint" style="margin-bottom:10px">${t("Choisis le dossier ou le titre vers lequel pointer. Le raccourci apparaît ici sans déplacer l'original ; « Retour » te ramène à cette page.",'בחר תיקייה או כותרת. הקיצור מופיע כאן בלי להעביר את המקור.',"Pick the folder or title to point to. The shortcut appears here without moving the original.")}</div>${rows}</div>`; }
 function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; save(); } }
 function _dossFocusTitle(id){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el)el.focus(); }catch(e){} },50); }
 function _dossNextTitle(items,from,maxLevel){ for(let j=from;j<items.length;j++){ if(items[j].kind==='title' && (items[j].level||1)<=maxLevel) return j; } return items.length; }
@@ -5163,6 +5193,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
     h+=`<button class="dd-item" data-act="closeDD();dossPickFile(${idp})">📎 ${t('Fichier','קובץ','File')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossAddLink(${idp})">🔗 ${t('Lien','קישור','Link')}</button>`;
     h+=`<button class="dd-item" data-act="closeDD();dossPickProv(${idp})">📇 ${t('Prestataire','ספק','Supplier')}</button>`;
+    h+=`<button class="dd-item" data-act="closeDD();shortcutPickOpen(${idp})">🔗 ${t('Créer un raccourci','צור קיצור דרך','Create a shortcut')}</button>`;
     if(root){ h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
       h+=`<button class="dd-item" data-act="dossSaveAsTemplate()">📋 ${t('Enregistrer comme modèle','שמור כתבנית','Save as template')}</button>`;
       h+=`<button class="dd-item" data-act="dossInsertTemplateMenu()">📥 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</button>`;
@@ -5177,7 +5208,7 @@ function mediaHTML(it,ind){ let inner='';
   else { inner=`<a href="${it.data}" download="${esc(it.name||'fichier')}" style="color:var(--primary);font-weight:600">📎 ${esc(it.name||'Fichier')}</a>`; }
   return `<div class="card" style="margin-left:${ind}px;padding:10px 12px;margin-bottom:9px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0">${inner}</div><span class="dep-x" style="font-size:14px;cursor:pointer" data-act="dossDelItem('${it.id}')">🗑</span></div></div>`; }
 function noteHTML(it,ind){ return `<div style="margin-left:${ind}px;margin-bottom:9px"><textarea class="textarea doss-note" data-id="${it.id}" placeholder="Note, texte libre…" onchange="dossNoteSet('${it.id}',this.value)" style="min-height:56px;width:100%">${esc(it.text||'')}</textarea><div style="text-align:right;margin-top:-4px"><span class="dep-x" style="font-size:12px;cursor:pointer" data-act="dossDelItem('${it.id}')">🗑 retirer la note</span></div></div>`; }
-function dossItemHTML(it,ind){ if(it.kind==='note') return noteHTML(it,ind); if(it.kind==='media') return mediaHTML(it,ind); if(it.kind==='prov') return `<div style="margin-left:${ind}px">`+provRefHTML(it.provId, "dossDelItem('"+it.id+"')")+`</div>`; return `<div style="margin-left:${ind}px">`+taskHTML(it,null,0,1,false)+`</div>`; }
+function dossItemHTML(it,ind){ if(it.kind==='note') return noteHTML(it,ind); if(it.kind==='media') return mediaHTML(it,ind); if(it.kind==='shortcut') return shortcutHTML(it,ind); if(it.kind==='prov') return `<div style="margin-left:${ind}px">`+provRefHTML(it.provId, "dossDelItem('"+it.id+"')")+`</div>`; return `<div style="margin-left:${ind}px">`+taskHTML(it,null,0,1,false)+`</div>`; }
 function dossAddRow(titleId){ const idp = titleId?`'${titleId}'`:'null'; return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:${titleId?16:0}px;margin-bottom:8px">`+
   `<span style="font-size:11px;color:var(--ink-soft)">Contenu :</span>`+
   `<button class="btn btn-ghost btn-sm" style="padding:4px 10px" data-act="dossAddNote(${idp})">📝 Note</button>`+
@@ -6633,7 +6664,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,openDossierFromTask,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossMoveToMonth,dossDupToMonth,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTitleToTemplate,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossMoveToMonth,dossDupToMonth,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTitleToTemplate,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,shortcutPickOpen,shortcutCreate,shortcutOpen,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpConfirmDate,dpSetRange,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
