@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a32">
+<meta name="app-build" content="b-2026-08-27-a33">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -3027,7 +3027,9 @@ function taskSheet(){
   return `
   <div class="sheet-head"><div class="sheet-title">${isTpl?TT('Tâche du modèle','משימת תבנית','Template task'):(isRdv?'📅 '+TT('Rendez-vous','פגישה','Appointment'):(t._isSub?TT('Sous-tâche','תת-משימה','Subtask'):TT('Tâche','משימה','Task')))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    ${isTpl?'':`<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`}
+    ${isTpl?'':(t._loc&&t._loc.ctx==='dossier'&&t._loc.doId
+      ? `<div style="margin-bottom:8px"><button class="btn btn-soft btn-sm" data-act="openDossierFromTask('${t._loc.doId}')" style="font-size:12.5px;font-weight:700">${esc(parentLabel(t._loc))} ›</button></div>`
+      : `<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`)}
 
     ${(!isTpl&&(t.date||t.duration||(t.repeat&&t.repeat.freq)))?`<div style="font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${t.date?`<span style="color:var(--primary)">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</span>`:''}${t.duration?`<span style="color:var(--gold);font-size:11.5px">⏱ ${fmtDurH(t.duration)}</span>`:''}${(t.repeat&&t.repeat.freq)?`<span style="color:var(--gold);font-size:11.5px">${repeatLabel(t.repeat)}</span>`:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rendez-vous (ex. Mariage de …)','שם הפגישה (למשל חתונה של…)','Appointment name (e.g. Wedding of …)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
@@ -3363,8 +3365,11 @@ function destTaskArray(v){ if(!v) return null;
   const ev=destEvent(v); if(!ev) return null; if(!Array.isArray(ev.tasks))ev.tasks=[]; return ev.tasks;
 }
 // Destination unifiée : renvoie {items, index} où insérer la tâche (mois direct, événement, boîte, dossier, ou sous un titre de dossier).
+// Position d'insertion « racine » d'un dossier = AVANT le 1er titre (les tâches sans titre
+// s'affichent en haut, toujours visibles — sinon elles seraient noyées sous un titre replié).
+function _dossRootIdx(d){ const i=(d.items||[]).findIndex(x=>x.kind==='title'); return i<0?(d.items||[]).length:i; }
 function _mvDestInfo(v){ if(!v)return null; const pr=v.split('|');
-  if(pr[0]==='dossier'){ const d=dossierById(pr[1]); if(!d)return null; if(!Array.isArray(d.items))d.items=[]; return {items:d.items,index:d.items.length}; }
+  if(pr[0]==='dossier'){ const d=dossierById(pr[1]); if(!d)return null; if(!Array.isArray(d.items))d.items=[]; return {items:d.items,index:_dossRootIdx(d)}; }
   if(pr[0]==='dosstitle'){ const d=dossierById(pr[1]); if(!d)return null; if(!Array.isArray(d.items))d.items=[]; const ti=d.items.findIndex(it=>it.id===pr[2]); return {items:d.items,index:(ti<0?d.items.length:ti+1)}; }
   const arr=destTaskArray(v); if(!arr)return null; return {items:arr,index:arr.length};
 }
@@ -4395,10 +4400,11 @@ function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)retu
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null; if(!confirm(t('Supprimer ce titre ? (le contenu en dessous reste)','למחוק את הכותרת? (התוכן שמתחת נשאר)','Delete this title? (the content below stays)'))){ render(); return; } d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
-function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.push(t); save(); openQuickTask(t.id); }
+function openDossierFromTask(doId){ try{ if(editBuf){ syncInputs(); saveTask(true); } }catch(e){} closeSheet(); openDossier(doId); }
+function dossAddTask(){ const d=dossierById(nav.dossierId); if(!d)return; const t=mkTask(''); d.items.splice(_dossRootIdx(d),0,t); save(); openQuickTask(t.id); }
 function dossAddTaskUnder(titleId){ const d=dossierById(nav.dossierId); if(!d)return; let ti=d.items.findIndex(x=>x.id===titleId); if(ti<0){ return dossAddTask(); } dossExpand(titleId); const j=_dossNextTitle(d.items,ti+1,999); const t=mkTask(''); d.items.splice(j,0,t); save(); openQuickTask(t.id); }
 // — Contenu non-tâche : note libre + médias (image / fichier / lien) —
-function _dossInsert(item,titleId){ const d=dossierById(nav.dossierId); if(!d)return; if(titleId){ dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti>=0){ const j=_dossNextTitle(d.items,ti+1,999); d.items.splice(j,0,item); } else d.items.push(item); } else d.items.push(item); save(); }
+function _dossInsert(item,titleId){ const d=dossierById(nav.dossierId); if(!d)return; if(titleId){ dossExpand(titleId); const ti=d.items.findIndex(x=>x.id===titleId); if(ti>=0){ const j=_dossNextTitle(d.items,ti+1,999); d.items.splice(j,0,item); } else d.items.splice(_dossRootIdx(d),0,item); } else d.items.splice(_dossRootIdx(d),0,item); save(); }
 function dossAddNote(titleId){ const it={id:uid(),kind:'note',text:''}; _dossInsert(it,titleId); render(); setTimeout(()=>{ try{ const el=document.querySelector('.doss-note[data-id="'+it.id+'"]'); if(el)el.focus(); }catch(e){} },50); }
 function dossNoteSet(id,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===id); if(it){ it.text=v; save(); } }
 function dossDelItem(id){ const d=dossierById(nav.dossierId); if(!d)return; if(!confirm('Retirer cet élément ?'))return; d.items=d.items.filter(x=>x.id!==id); save(); render(); }
@@ -5462,7 +5468,7 @@ function commitDragOrder(kind){
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
- newDossier,openDossier,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
+ newDossier,openDossier,openDossierFromTask,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
  dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,convertMonthToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
