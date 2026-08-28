@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a63">
+<meta name="app-build" content="b-2026-08-28-a64">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -749,6 +749,9 @@ function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
     (o.dossiers||[]).forEach(d=>{ n+=1+((d.items||[]).length); });
     n+=(o.inbox||[]).length; n+=(o.rdv||[]).length;
     n+=(((o.bdd&&o.bdd.cats)||[]).length); n+=(o.persons||[]).length; n+=(o.suppliers||[]).length; n+=(o.ideas||[]).length;
+    (o.dvar||[]).forEach(x=>{ n+=1; if(Array.isArray(x.media)) n+=x.media.length; });   // Dvar Torah (fiches + pièces jointes)
+    n+=(o.checks||[]).length;                                                            // Vérifications
+    (o.dossierTemplates||[]).forEach(tp=>{ n+=1+((tp.items||[]).length); });             // modèles de dossier
   }catch(e){}
   return n;
 }
@@ -837,8 +840,10 @@ async function cloudStart(){
     const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?org_id=eq.'+_org.id+'&select=data,updated_at',{headers:_authH()});
     if(r.ok){ const rows=await r.json(); const row=rows&&rows[0];
       const cloudReal = row && _isRealD(row.data);
-      // Garde-fou migration : à la 1re entrée, si le local est plus riche que le cloud, on POUSSE (jamais écraser du vrai par du vide).
-      if(cloudReal && !(_freshEntry && _dataScore(D) > _dataScore(row.data))){
+      // Garde-fou anti-perte : à CHAQUE entrée/rechargement, si le local est plus riche que le cloud
+      // (ex. un fichier ajouté que le cloud n'a pas encore reçu — quota, taille…), on POUSSE le local
+      // au lieu de l'écraser. Sinon on adopte le cloud.
+      if(cloudReal && !(_dataScore(D) > _dataScore(row.data))){
         try{ snapshotBackup('avant 1re synchro',true); }catch(e){}
         _lastSyncStamp=row.updated_at; _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false; try{ _histSeed(); }catch(e){} try{render();}catch(e){} setSyncState('ok');
       } else {
@@ -3457,6 +3462,7 @@ function sheetHTML(){
   else if(sheet.type==='hevOrg') inner=hevOrgSheet();
   else if(sheet.type==='import') inner=importSheet();
   else if(sheet.type==='dvarEntry') inner=dvarEntrySheet();
+  else if(sheet.type==='dvarMove') inner=dvarMoveSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -5548,7 +5554,7 @@ function dvarEntrySheet(){
   const media=(e.media||[]);
   return `<div class="sheet-head"><div class="sheet-title">📝 ${t('Fiche','כרטיס','Entry')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="field" style="margin-bottom:10px"><input class="input" id="dvar-title" value="${esc(e.title||'')}" placeholder="${t('Titre (ex. Paracha Vayakhel)','כותרת','Title')}" style="font-size:16px;font-weight:600" onchange="dvarSetTitle(this.value)"</div>
+    <div class="field" style="margin-bottom:10px"><input class="input" id="dvar-title" value="${esc(e.title||'')}" placeholder="${t('Titre (ex. Paracha Vayakhel)','כותרת','Title')}" style="font-size:16px;font-weight:600" onchange="dvarSetTitle(this.value)"></div>
     <div class="field"><label class="field-label">📝 ${t('Note','הערה','Note')}</label>
       <textarea class="textarea" id="dvar-note" placeholder="${t('Écris ton Dvar Torah, tes idées, ton texte…','כתוב כאן…','Write your text here…')}" style="min-height:230px;line-height:1.5" onchange="dvarSetNote(this.value)">${esc(e.note||'')}</textarea>
     </div>
@@ -5564,8 +5570,42 @@ function dvarEntrySheet(){
         <button class="dd-item" data-act="dvarAttachLink()">🔗 ${t('Lien','קישור','Link')}</button>
       </div>`:''}
     </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary btn-block" data-act="dvarSaveEntry()">💾 ${t('Enregistrer','שמור','Save')}</button>
+      <button class="btn btn-soft btn-block" data-act="dvarMoveEntry()">↗ ${t('Déplacer','העבר','Move')}</button>
+      <button class="btn btn-soft btn-block" data-act="dvarExportEntry()">📤 ${t('Exporter','ייצוא','Export')}</button>
+    </div>
     <button class="btn btn-ghost btn-block" style="color:var(--red);margin-top:6px" data-act="dvarDelEntry()">🗑 ${t('Supprimer la fiche','מחק כרטיס','Delete entry')}</button>
   </div>`;
+}
+// Enregistrement explicite : synchronise les champs (titre/note) et sauvegarde tout de suite.
+function dvarSaveEntry(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; } save(); try{ if(_cloudReady) cloudPush(); }catch(_){} toast(t('Enregistré ✓','נשמר ✓','Saved ✓')); }
+// Déplacer la fiche vers un autre dossier Dvar Torah.
+function dvarMoveEntry(){ dvarSyncFields(); if(!dvarById(_dvarEntry)){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; } sheet={type:'dvarMove'}; renderOverlay(); }
+function dvarMoveTo(fid){ const e=dvarById(_dvarEntry); if(!e)return; e.parentId=(fid==='')?null:fid; save(); sheet={type:'dvarEntry'}; renderOverlay(); toast(t('Fiche déplacée ✓','הכרטיס הועבר ✓','Entry moved ✓')); }
+function dvarMoveSheet(){ const e=dvarById(_dvarEntry);
+  const folders=(D.dvar||[]).filter(x=>x.kind==='folder');
+  const rowFor=(id,label,depthPad)=>{ const here=((e&&(e.parentId||null))===(id||null)); return `<button class="dd-item" ${here?'disabled style="opacity:.5"':`data-act="dvarMoveTo('${id}')"`}>${depthPad}📁 ${esc(label)}${here?' · '+t('ici','כאן','here'):''}</button>`; };
+  let rows=`<button class="dd-item" ${((e&&!e.parentId))?'disabled style="opacity:.5"':`data-act="dvarMoveTo('')"`}>📖 ${t('Racine (Dvar Torah)','שורש','Root (Dvar Torah)')}${(e&&!e.parentId)?' · '+t('ici','כאן','here'):''}</button>`;
+  const paths=(f)=>{ const out=[]; let cur=f; while(cur){ out.unshift(cur.name); cur=cur.parentId?(D.dvar||[]).find(x=>x.id===cur.parentId):null; } return out.join(' ▸ '); };
+  folders.forEach(f=>{ rows+=rowFor(f.id, paths(f), ''); });
+  return `<div class="sheet-head"><div class="sheet-title">↗ ${t('Déplacer la fiche','העבר כרטיס','Move entry')}</div><button class="sheet-close" data-act="dvarMoveClose()">✕</button></div>
+  <div class="sheet-body"><div class="hint" style="margin-bottom:10px">${t('Choisis le dossier de destination.','בחר תיקיית יעד.','Pick the destination folder.')}</div>${rows}</div>`;
+}
+function dvarMoveClose(){ sheet={type:'dvarEntry'}; renderOverlay(); }
+// Exporter la fiche : partage le texte (titre + note + liens). Les images/vidéos restent dans l'app.
+function dvarExportEntry(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; }
+  let txt=((e.title||'').trim()? (e.title.trim()+'\n\n') : '');
+  if((e.note||'').trim()) txt+=e.note.trim()+'\n';
+  const links=(e.media||[]).filter(m=>m.mtype==='link');
+  const notes=(e.media||[]).filter(m=>m.kind==='note' && (m.text||'').trim());
+  const files=(e.media||[]).filter(m=>m.mtype==='file'||m.mtype==='image'||m.mtype==='video');
+  notes.forEach(m=>{ txt+='\n'+m.text.trim()+'\n'; });
+  if(links.length){ txt+='\n'+t('Liens :','קישורים:','Links:')+'\n'; links.forEach(m=>{ txt+='• '+(m.name?m.name+' — ':'')+m.url+'\n'; }); }
+  if(files.length){ txt+='\n'+files.length+' '+t('pièce(s) jointe(s) dans l\'app.','קבצים מצורפים באפליקציה.','attachment(s) in the app.')+'\n'; }
+  txt=txt.trim()||t('(fiche vide)','(כרטיס ריק)','(empty entry)');
+  try{ if(navigator.share){ navigator.share({title:(e.title||'Dvar Torah'),text:txt}); return; } }catch(_){}
+  try{ const wa='https://wa.me/?text='+encodeURIComponent(txt); window.open(wa,'_blank'); }catch(_){ try{ navigator.clipboard.writeText(txt); toast(t('Copié ✓','הועתק ✓','Copied ✓')); }catch(e2){} }
 }
 
 // ============================================================
@@ -6560,7 +6600,7 @@ function commitDragOrder(kind){
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
  openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,geminiSetKey,geminiClear,
  louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
- dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,
+ dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,dvarSaveEntry,dvarMoveEntry,dvarMoveTo,dvarMoveClose,dvarExportEntry,
  checksOpen,checksAdd,checksSet,checksToggle,checksDel,checksShare,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
