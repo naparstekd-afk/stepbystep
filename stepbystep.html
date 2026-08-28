@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a35">
+<meta name="app-build" content="b-2026-08-28-a36">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -63,6 +63,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .dp-day{border:1px solid var(--line-soft);border-radius:8px;padding:5px 2px;text-align:center;cursor:pointer;background:var(--surface)}
 .dp-day.sel{background:var(--primary);color:#fff;border-color:var(--primary)}
 .dp-day.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.dp-day.out{background:var(--surface-2);opacity:.5}
+.dp-day.out .dp-g{color:var(--ink-soft);font-weight:500}
 .agw{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
 .agwh{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:600;padding:2px 0}
 .agcell{min-height:52px;border:1px solid var(--line-soft);border-radius:8px;padding:4px 3px;cursor:pointer;background:var(--surface);display:flex;flex-direction:column;align-items:center}
@@ -364,6 +366,22 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .shop-item-main{flex:1;min-width:0}
 .shop-item-name{font-size:14.5px;font-weight:500;color:var(--ink)}
 .shop-item-meta{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.shop-add-row{display:flex;gap:9px;align-items:center;margin-bottom:14px}
+.shop-add-row .input{flex:1;font-size:16px}
+.shop-add-btn{flex:0 0 auto;width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#2C5B8E,#1E3A6E);color:#fff;font-size:24px;font-weight:400;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(30,58,110,.32);transition:.15s}
+.shop-add-btn:active{transform:scale(.9)}
+.shop-list{margin-bottom:6px}
+.shop-item .check.on{background:var(--primary);border-color:var(--primary)}
+.shop-x{flex:0 0 auto;width:30px;height:30px;border-radius:9px;background:transparent;border:none;color:var(--ink-soft);font-size:15px;display:flex;align-items:center;justify-content:center;transition:.12s}
+.shop-x:active{background:var(--surface-2)}
+.shop-sec-head{display:flex;align-items:center;justify-content:space-between;margin:14px 2px 9px;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--ink-soft);text-transform:uppercase}
+.shop-clear{background:transparent;border:none;color:var(--primary);font-size:12.5px;font-weight:700;text-transform:none;letter-spacing:0}
+.shop-empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:26px 10px;background:var(--surface-2);border-radius:var(--r-sm);border:1px dashed var(--line)}
+.ac-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.18);overflow:hidden;max-height:240px;overflow-y:auto}
+.ac-item{padding:10px 13px;font-size:13.5px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-item:last-child{border-bottom:none}
+.ac-item:active{background:var(--surface-2)}
+.place-maps{display:flex;gap:8px;margin-top:8px}
 
 /* helper */
 .hint{font-size:12.5px;color:var(--ink-soft);background:var(--gold-soft);border:1px solid #ECD9B3;border-radius:var(--r-sm);padding:10px 12px;margin-bottom:14px;line-height:1.45}
@@ -1475,12 +1493,7 @@ function renderMonth(c){
   const md=D.months[nav.monthId];
   const realFetes = md ? md.fetes.filter(f=>!f._monthGeneral) : [];
   // Pas de rappel du nom du mois au-dessus du titre : il est déjà dans le fil d'Ariane.
-  let html=`<div class="sec"><div><div class="sec-title">${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`;
-  if(realFetes.length){
-    const tb=realFetes.reduce((a,f)=>a+f.events.reduce((b,e)=>b+sumBud(e.tasks),0),0);
-    html+=`<div class="sec-sub">${nFetes(realFetes.length)}${tb?' · '+fmtE(tb):''}</div>`;
-  }
-  html+=`</div></div>`;
+  let html=`<div class="sec"><div><div class="sec-title">${m?m.emoji+' '+mName(m):t('Mois','חודש','Month')}</div></div>${dossLayoutToggleHTML()}</div>`;
   if(realFetes.length){
     sortByDate(realFetes).forEach(f=>{
       const all=f.events.reduce((a,e)=>a.concat(e.tasks),[]).concat(f.tasks||[]);
@@ -1527,7 +1540,7 @@ function renderMonth(c){
   const mtasks=(md&&md.tasks)||[];
   if(mtasks.length){ html+=`<div class="section-label" style="margin-top:14px">✅ ${t('Tâches du mois','משימות החודש','Month tasks')}</div>`; mtasks.forEach((t,i)=>html+=taskHTML(t,null,i,mtasks.length,false)); }
   const mdoss=dossiersFor('month',nav.monthId);
-  if(mdoss.length){ html+=`<div class="section-label" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center"><span>🗂️ Dossiers</span>${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
+  if(mdoss.length){ html+=dossierListHTML(mdoss,'month:'+nav.monthId); }
   if(realFetes.length){ html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px;color:var(--gold)" data-act="convertMonthToDossiers('${nav.monthId}')" title="${t('Les fêtes deviennent des dossiers datés, événements en sous-dossiers, tout est conservé','החגים הופכים לתיקיות','Holidays become dated folders')}">↦ ${t('Convertir les fêtes en dossiers','המר חגים לתיקיות','Convert holidays to folders')}</button>`; }
   c.innerHTML=html;
 }
@@ -2731,7 +2744,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -3057,16 +3070,22 @@ function taskSheet(){
   // petite poubelle à placer à côté du nom d'un champ ajouté, pour le retirer
   const trash=(k)=>`<span data-act="ebRemoveField('${k}')" title="${TT('Retirer ce champ','הסר שדה זה','Remove this field')}" style="cursor:pointer;color:var(--red);font-size:13px;margin-left:6px">🗑</span>`;
   return `
-  <div class="sheet-head"><div class="sheet-title">${isTpl?TT('Tâche du modèle','משימת תבנית','Template task'):(isRdv?'📅 '+TT('Rendez-vous','פגישה','Appointment'):(t._isSub?TT('Sous-tâche','תת-משימה','Subtask'):TT('Tâche','משימה','Task')))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-head"><div class="sheet-title">${isTpl?TT('Tâche du modèle','משימת תבנית','Template task'):(isRdv?'⏰ '+TT('Rappel','תזכורת','Reminder'):(t._isSub?TT('Sous-tâche','תת-משימה','Subtask'):TT('Tâche','משימה','Task')))}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     ${isTpl?'':(t._loc&&t._loc.ctx==='dossier'&&t._loc.doId
       ? `<div style="margin-bottom:8px"><button class="btn btn-soft btn-sm" data-act="openDossierFromTask('${t._loc.doId}')" style="font-size:12.5px;font-weight:700">${esc(parentLabel(t._loc))} ›</button></div>`
       : `<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`)}
 
     ${(!isTpl&&(t.date||t.duration||(t.repeat&&t.repeat.freq)))?`<div style="font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${t.date?`<span style="color:var(--primary)">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</span>`:''}${t.duration?`<span style="color:var(--gold);font-size:11.5px">⏱ ${fmtDurH(t.duration)}</span>`:''}${(t.repeat&&t.repeat.freq)?`<span style="color:var(--gold);font-size:11.5px">${repeatLabel(t.repeat)}</span>`:''}</div>`:''}
-    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rendez-vous (ex. Mariage de …)','שם הפגישה (למשל חתונה של…)','Appointment name (e.g. Wedding of …)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
+    <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rappel (ex. Appeler le traiteur)','שם התזכורת (למשל להתקשר לקייטרינג)','Reminder name (e.g. Call the caterer)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
 
-    ${isRdv?`<div class="field"><label class="field-label">📍 ${TT('Lieu','מקום','Place')}</label><input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="${TT('Salle, adresse…','אולם, כתובת…','Venue, address…')}"></div>`:''}
+    ${isRdv?`<div class="field"><label class="field-label">📍 ${TT('Lieu','מקום','Place')}</label>
+      <div style="position:relative">
+        <input class="input" id="f-place" value="${esc(t.place||'')}" placeholder="${TT('Commence à taper une adresse…','התחל להקליד כתובת…','Start typing an address…')}" autocomplete="off" oninput="placeAC(this.value)" onblur="placeBlur()">
+        <div id="f-place-sug" class="ac-menu" style="display:none"></div>
+      </div>
+      <div class="place-maps"><button type="button" class="btn btn-soft btn-sm" data-act="placeOpen('gmaps')">🗺️ Google Maps</button><button type="button" class="btn btn-soft btn-sm" data-act="placeOpen('waze')">🚗 Waze</button></div>
+    </div>`:''}
     <div class="field"><label class="field-label">${isRdv?TT('Détails','פרטים','Details'):TT('Description','תיאור','Description')}</label><textarea class="textarea" id="f-notes" placeholder="${TT('Détails, description…','פרטים, תיאור…','Details, description…')}">${esc(t.notes||'')}</textarea></div>
 
     <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -3281,7 +3300,7 @@ function _datePill(iso){ if(!iso) return ''; return `<span style="display:inline
 function civilDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString(_jLocale(),{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }catch(e){ return iso; } }
 function feteOfLoc(loc){ if(!loc||loc.ctx==='program') return null; const m=D.months[loc.mId]; if(!m) return null; return m.fetes.find(x=>x.id===loc.fId)||null; }
 function effectiveDate(task,loc){ if(task&&task.date) return task.date; const ev=eventOfLoc(loc); if(ev&&ev.date) return ev.date; const f=feteOfLoc(loc); if(f&&f.date) return f.date; if(loc&&loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); if(p&&p.date) return p.date; } return ''; }
-function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='themeEvent'){ const th=themeById(loc.thId); const ev=eventOfLoc(loc); return (th?((th.icon||'🎯')+' '+th.name):'Thème')+(ev?' › '+ev.name:''); } if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '📅 Rendez-vous'; if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
+function parentLabel(loc){ if(!loc) return ''; if(loc.ctx==='themeEvent'){ const th=themeById(loc.thId); const ev=eventOfLoc(loc); return (th?((th.icon||'🎯')+' '+th.name):'Thème')+(ev?' › '+ev.name:''); } if(loc.dossier||loc.ctx==='dossier'){ const d=dossierById(loc.doId); return d?('🗂️ '+d.name):'Dossier'; } if(loc.rdv||loc.ctx==='rdv') return '⏰ '+TT('Rappel','תזכורת','Reminder'); if(loc.themeTask||loc.ctx==='theme'){ const th=themeById(loc.thId); return th?((th.icon||'🎯')+' '+th.name):'Thème'; } if(loc.inbox||loc.ctx==='inbox') return '📥 Indépendante'; if(loc.ctx==='program'){ const p=D.programs.find(x=>x.id===loc.pId); const ev=eventOfLoc(loc); return (p?p.name:'')+(ev?' › '+ev.name:''); } const m=MONTHS.find(x=>x.id===loc.mId); const f=feteOfLoc(loc); const ev=eventOfLoc(loc); return (m?m.emoji+' '+m.name:'')+(f?' › '+f.name:'')+(ev?' › '+ev.name:''); }
 function setContainerDate(val){ const c=curContainer(); if(c){ c.date=val; save(); render(); } }
 function setEventDate(val){ const e=curEvent(); if(e){ e.date=val; save(); render(); } }
 function setEventDesc(v){ const e=curEvent(); if(e){ e.desc=v; save(); } }
@@ -3328,6 +3347,44 @@ function syncInputs(){ // récupère les champs texte avant un re-render destruc
   if($('f-place')!=null) editBuf.place=g('f-place');
   if($('f-date')!=null) editBuf.date=g('f-date');
   if($('f-cname')!=null||$('f-cphone')!=null){ if(!editBuf.contact)editBuf.contact={}; if($('f-cname')!=null)editBuf.contact.name=g('f-cname'); if($('f-cphone')!=null)editBuf.contact.phone=g('f-cphone'); }
+}
+// ---- Lieu : autocomplétion d'adresse (Base Adresse Nationale, gratuit, sans clé) + ouverture Maps/Waze ----
+let _placeSugTimer=null, _placeSugList=[];
+function placeAC(q){
+  q=(q||'').trim();
+  if(editBuf) editBuf.place=q;
+  const box=document.getElementById('f-place-sug'); if(!box) return;
+  if(q.length<3){ box.innerHTML=''; box.style.display='none'; _placeSugList=[]; return; }
+  clearTimeout(_placeSugTimer);
+  _placeSugTimer=setTimeout(()=>{
+    fetch('https://api-adresse.data.gouv.fr/search/?limit=5&autocomplete=1&q='+encodeURIComponent(q))
+      .then(r=>r&&r.ok?r.json():null)
+      .then(j=>{
+        const b=document.getElementById('f-place-sug'); if(!b) return;
+        const feats=(j&&j.features)||[];
+        _placeSugList=feats.map(f=>f&&f.properties&&f.properties.label).filter(Boolean);
+        if(!_placeSugList.length){ b.innerHTML=''; b.style.display='none'; return; }
+        b.innerHTML=_placeSugList.map((lbl,i)=>`<div class="ac-item" onmousedown="event.preventDefault();placePick(${i})">📍 ${esc(lbl)}</div>`).join('');
+        b.style.display='block';
+      })
+      .catch(()=>{ const b=document.getElementById('f-place-sug'); if(b){ b.innerHTML=''; b.style.display='none'; } });
+  }, 260);
+}
+function placePick(i){
+  const lbl=_placeSugList[i]; if(lbl==null) return;
+  const inp=document.getElementById('f-place'); if(inp) inp.value=lbl;
+  if(editBuf) editBuf.place=lbl;
+  const box=document.getElementById('f-place-sug'); if(box){ box.innerHTML=''; box.style.display='none'; }
+  _placeSugList=[];
+}
+function placeBlur(){ setTimeout(()=>{ const box=document.getElementById('f-place-sug'); if(box) box.style.display='none'; }, 180); }
+function placeOpen(which){
+  const inp=document.getElementById('f-place');
+  const v=inp?inp.value.trim():((editBuf&&editBuf.place)||'');
+  if(!v){ toast(t('Renseigne d’abord un lieu','הזן קודם מקום','Enter a place first')); return; }
+  const q=encodeURIComponent(v);
+  const url = which==='waze' ? ('https://waze.com/ul?q='+q+'&navigate=yes') : ('https://www.google.com/maps/search/?api=1&query='+q);
+  try{ window.open(url,'_blank'); }catch(e){ try{ location.href=url; }catch(_){} }
 }
 function ebAddDep(id){ syncInputs(); if(!editBuf.dependsOn)editBuf.dependsOn=[]; if(id&&!editBuf.dependsOn.includes(id))editBuf.dependsOn.push(id); renderOverlay(); }
 function ebRmDep(id){ syncInputs(); editBuf.dependsOn=(editBuf.dependsOn||[]).filter(x=>x!==id); renderOverlay(); }
@@ -3430,7 +3487,11 @@ function openDatePicker(target){
   sheet={type:'datepick'}; renderOverlay();
 }
 function hebParts(d){ const p=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'}).formatToParts(d); const o={}; p.forEach(x=>{if(x.type==='day')o.day=parseInt(x.value);if(x.type==='month')o.month=x.value;if(x.type==='year')o.year=x.value;}); return o; }
-function dpHebShift(dir){ const a=new Date((datePicker.anchor||todayKey())+'T12:00:00'); const ap=hebParts(a); let d=new Date(a); d.setDate(d.getDate()-(ap.day-1)); if(dir<0){ d.setDate(d.getDate()-1); } else { let cur=new Date(d); for(let i=0;i<32;i++){ cur.setDate(cur.getDate()+1); const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year){ d=cur; break; } } } datePicker.anchor=todayKey(d); renderOverlay(); }
+function dpHebShift(dir){ const a=new Date((datePicker.anchor||todayKey())+'T12:00:00');
+  if(datePicker.mode==='fr'){ // Vue grégorienne : on avance/recule d'un mois CIVIL
+    const d=new Date(a.getFullYear(), a.getMonth()+dir, 1); datePicker.anchor=todayKey(d); renderOverlay(); return;
+  }
+  const ap=hebParts(a); let d=new Date(a); d.setDate(d.getDate()-(ap.day-1)); if(dir<0){ d.setDate(d.getDate()-1); } else { let cur=new Date(d); for(let i=0;i<32;i++){ cur.setDate(cur.getDate()+1); const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year){ d=cur; break; } } } datePicker.anchor=todayKey(d); renderOverlay(); }
 function dpToday(){ datePicker.anchor=todayKey(); if(datePicker.target==='task'){ datePicker.sel=todayKey(); if(datePicker.repeat) datePicker.repeat.start=todayKey(); } renderOverlay(); }
 function dpPick(iso){
   const t=datePicker.target;
@@ -3527,23 +3588,37 @@ window.addEventListener('focus',()=>{ if(_tmrRun) tmrTick(); });
 function dpSetMode(m){ datePicker.mode=m; renderOverlay(); }
 function datePickSheet(){
   const dp=datePicker;
-  const a=new Date((dp.anchor||todayKey())+'T12:00:00'); const ap=hebParts(a);
-  let d1=new Date(a); d1.setDate(d1.getDate()-(ap.day-1));
-  const days=[]; let cur=new Date(d1);
-  for(let i=0;i<32;i++){ const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year) break; days.push({g:new Date(cur),hd:cp.day}); cur=new Date(cur); cur.setDate(cur.getDate()+1); }
-  let hebHdr=''; { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); hebHdr=(_mo?_mo.name:ap.month)+' '+ap.year; }
-  const g1=days[0].g, g2=days[days.length-1].g;
-  const gregHdr=g1.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' \u2013 '+g2.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
-  const primHdr = dp.mode==='fr'? gregHdr : hebHdr;
-  const secHdr = dp.mode==='fr'? hebHdr : gregHdr;
-  const startW=days[0].g.getDay();
-  let cells='';
-  for(let i=0;i<startW;i++) cells+='<div></div>';
-  days.forEach(dy=>{ const iso=todayKey(dy.g); const seld=dp.sel===iso; const isTd=iso===todayKey();
-    const big = dp.mode==='fr'? dy.g.getDate() : dy.hd;
-    const small = dp.mode==='fr'? dy.hd : (dy.g.getDate()+'/'+(dy.g.getMonth()+1));
-    cells+='<div class="dp-day'+(seld?' sel':(isTd?' today':''))+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+big+'</div><div class="dp-h">'+small+'</div></div>';
-  });
+  const a=new Date((dp.anchor||todayKey())+'T12:00:00');
+  let primHdr='', secHdr='', cells='';
+  if(dp.mode==='fr'){
+    // \u2014 Vue gr\u00e9gorienne : mois civil COMPLET (1 \u2192 fin), jours des mois voisins gris\u00e9s \u2014
+    const y=a.getFullYear(), mo=a.getMonth();
+    const first=new Date(y,mo,1), last=new Date(y,mo+1,0);
+    primHdr=first.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase());
+    const hp1=hebParts(first), hp2=hebParts(last);
+    secHdr = hp1.month===hp2.month ? (hp1.month+' '+hp1.year) : (hp1.month+' \u2013 '+hp2.month+' '+hp2.year);
+    const grid=[]; const lead=first.getDay(); // 0=dimanche
+    for(let i=lead;i>0;i--){ const d=new Date(y,mo,1-i); grid.push({g:d,out:true}); }
+    for(let dnum=1;dnum<=last.getDate();dnum++){ grid.push({g:new Date(y,mo,dnum),out:false}); }
+    let nx=1; while(grid.length%7!==0){ grid.push({g:new Date(y,mo+1,nx++),out:true}); }
+    grid.forEach(cellObj=>{ const dy=cellObj.g; const iso=todayKey(dy); const seld=dp.sel===iso; const isTd=iso===todayKey(); const hp=hebParts(dy);
+      cells+='<div class="dp-day'+(cellObj.out?' out':'')+(seld?' sel':(isTd&&!cellObj.out?' today':''))+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.getDate()+'</div><div class="dp-h">'+hp.day+'</div></div>';
+    });
+  } else {
+    // \u2014 Vue h\u00e9bra\u00efque : mois h\u00e9bra\u00efque complet \u2014
+    const ap=hebParts(a);
+    let d1=new Date(a); d1.setDate(d1.getDate()-(ap.day-1));
+    const days=[]; let cur=new Date(d1);
+    for(let i=0;i<32;i++){ const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year) break; days.push({g:new Date(cur),hd:cp.day}); cur=new Date(cur); cur.setDate(cur.getDate()+1); }
+    { const _mid=hebMonthIdOf(todayKey(a)); const _mo=MONTHS.find(x=>x.id===_mid); primHdr=(_mo?_mo.name:ap.month)+' '+ap.year; }
+    const g1=days[0].g, g2=days[days.length-1].g;
+    secHdr=g1.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' \u2013 '+g2.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+    const startW=days[0].g.getDay();
+    for(let i=0;i<startW;i++) cells+='<div></div>';
+    days.forEach(dy=>{ const iso=todayKey(dy.g); const seld=dp.sel===iso; const isTd=iso===todayKey();
+      cells+='<div class="dp-day'+(seld?' sel':(isTd?' today':''))+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.hd+'</div><div class="dp-h">'+(dy.g.getDate()+'/'+(dy.g.getMonth()+1))+'</div></div>';
+    });
+  }
   const wd=['D','L','M','M','J','V','S'];
   const isTask = dp.target==='task';
   const rep = dp.repeat;
@@ -4899,56 +4974,56 @@ function renderDashboard(c){
 //  VUE : LISTE DE COURSES (par magasin)
 // ============================================================
 function setShopRange(v){ shopRange=v; render(); }
+function _shopInit(){ if(!Array.isArray(D.shop)) D.shop=[]; return D.shop; }
+function shopAdd(){ _shopInit(); const el=document.getElementById('shop-add'); if(!el)return; const v=(el.value||'').trim(); if(!v){ el.focus(); return; } D.shop.unshift({id:uid(),text:v,done:false,ts:Date.now()}); el.value=''; save(); render(); setTimeout(()=>{ const e=document.getElementById('shop-add'); if(e)e.focus(); },30); }
+function shopToggle(id){ _shopInit(); const it=D.shop.find(x=>x.id===id); if(it){ it.done=!it.done; it.ts=Date.now(); save(); render(); } }
+function shopDel(id){ _shopInit(); D.shop=D.shop.filter(x=>x.id!==id); save(); render(); }
+function shopClearDone(){ _shopInit(); if(!D.shop.some(x=>x.done))return; if(!confirm(t('Effacer les articles achetés ?','למחוק את הפריטים שנקנו?','Clear bought items?')))return; D.shop=D.shop.filter(x=>!x.done); save(); render(); }
+function shopFocusAdd(){ const e=document.getElementById('shop-add'); if(e){ e.focus(); try{ e.scrollIntoView({block:'center'}); }catch(_){} } }
 function renderShopping(c){
-  const today=new Date(); today.setHours(0,0,0,0);
-  const limitDays = shopRange==='all'? null : parseInt(shopRange);
-  const within=(iso)=>{ if(limitDays===null) return true; if(!iso) return false; const d=new Date(iso+'T12:00:00'); const days=Math.floor((d-today)/86400000); return days>=0 && days<=limitDays; };
-  // rassembler le matériel "à acheter" non fait, avec échéance héritée (tâche → événement → fête)
-  const byStore={};
-  const collect=(arr,where,effDate)=>{ (arr||[]).forEach(t=>{
-    const m=t.material;
-    const tDate=t.date||effDate||'';
-    if(m&&m.type==='buy'&&t.status!=='done'){
-      const lines=(m.lines&&m.lines.length)?m.lines:null;
-      if(lines){
-        if(within(tDate)) lines.forEach(ln=>{ if(ln.product||ln.store||ln.qty){ const store=ln.store||'Sans magasin'; (byStore[store]=byStore[store]||[]).push({t,where,date:tDate,line:ln}); } });
-      } else if(m.note||/achet/i.test(t.text)){
-        if(within(tDate)){ (byStore['Sans magasin']=byStore['Sans magasin']||[]).push({t,where,date:tDate,line:null}); }
-      }
-    }
-    if(t.subtasks)collect(t.subtasks,where,tDate);
-  }); };
-  Object.values(D.months).forEach(m=>m.fetes.forEach(f=>f.events.forEach(e=>collect(e.tasks,f.name,e.date||f.date||''))));
-  D.programs.forEach(p=>p.events.forEach(e=>collect(e.tasks,p.name,e.date||p.date||'')));
+  _shopInit();
+  const active=D.shop.filter(x=>!x.done);
+  const done=D.shop.filter(x=>x.done);
+  // Achats dérivés des tâches « à acheter » non faites — secondaire, sans regroupement magasin.
+  const derived=[];
+  const collect=(arr,where)=>{ (arr||[]).forEach(tk=>{ const m=tk.material; if(m&&m.type==='buy'&&tk.status!=='done'){ const lines=(m.lines&&m.lines.length)?m.lines:null; if(lines){ lines.forEach(ln=>{ if(ln.product||ln.qty){ derived.push({id:tk.id,name:((ln.qty?ln.qty+' ':'')+(ln.product||'')).trim(),where}); } }); } else if(m.note||/achet/i.test(tk.text)){ derived.push({id:tk.id,name:tk.text,where}); } } if(tk.subtasks)collect(tk.subtasks,where); }); };
+  try{ Object.values(D.months||{}).forEach(m=>(m.fetes||[]).forEach(f=>(f.events||[]).forEach(e=>collect(e.tasks,f.name)))); (D.programs||[]).forEach(p=>(p.events||[]).forEach(e=>collect(e.tasks,p.name))); }catch(e){}
 
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t("Ce qu'il reste à acheter",'מה שנותר לקנות','What\'s left to buy')}</div><div class="sec-title">${t('Liste de courses','רשימת קניות','Shopping List')}</div></div></div>`;
-  const ranges=[['all',t('Tout','הכול','All')],['30',t('30 jours','30 ימים','30 days')],['14',t('14 jours','14 ימים','14 days')],['7',t('7 jours','7 ימים','7 days')]];
-  html+=`<div class="filters">${ranges.map(([v,l])=>`<button class="chip ${shopRange===v?'active':''}" data-act="setShopRange('${v}')">${l}</button>`).join('')}</div>`;
-  const stores=Object.keys(byStore);
-  if(!stores.length){
-    html+= shopRange==='all'
-      ? emptyHTML('🛒',t('Rien à acheter','אין מה לקנות','Nothing to buy'),t('Marque des tâches en « 🛒 À acheter » avec un magasin pour les voir regroupées ici.','סמן משימות כ־« 🛒 לקנייה » עם חנות כדי לראותן מקובצות כאן.','Mark tasks as « 🛒 To buy » with a store to see them grouped here.'),'','')
-      : emptyHTML('🛒',t('Rien sur cette période','אין כלום בתקופה זו','Nothing in this period'),t('Aucun achat daté dans cette fenêtre. Pense à dater les fêtes/événements concernés.','אין קניות מתוארכות בחלון זה. זכור לתארך את החגים/האירועים הרלוונטיים.','No dated purchases in this window. Remember to date the relevant holidays/events.'),'','');
-  } else {
-    html+=`<div class="hint">${shopRange==='all'?t('Tous les achats, regroupés par magasin.','כל הקניות, מקובצות לפי חנות.','All purchases, grouped by store.'):t('À acheter dans les','לקנייה בתוך','To buy within the next')+' '+shopRange+' '+t('prochains jours, par magasin.','הימים הבאים, לפי חנות.','days, by store.')}</div>`;
-    stores.sort().forEach(store=>{
-      const items=byStore[store];
-      html+=`<div class="shop-store"><div class="shop-store-head"><div class="shop-store-name">🏪 ${store==='Sans magasin'?t('Sans magasin','ללא חנות','No store'):esc(store)}</div><span class="shop-store-count">${items.length}</span></div>`;
-      items.forEach(({t,where,date,line})=>{
-        const m=t.material;
-        const ech = date? ' · 📅 '+fmtDate(date) : '';
-        const nm = (line&&(line.product||line.qty)) ? ((line.qty?esc(line.qty)+' ':'')+esc(line.product||'')) : esc(t.text);
-        const ctx = (line&&line.product) ? ' · '+esc(t.text) : '';
-        html+=`<div class="shop-item">
-          <div class="check" style="width:22px;height:22px;border-color:var(--line)" data-act="toggleTask('${t.id}')"></div>
-          <div class="shop-item-main" data-act="openTask('${t.id}')">
-            <div class="shop-item-name">${nm}</div>
-            <div class="shop-item-meta">${esc(where)}${ctx}${m.note?' · '+esc(m.note):''}${t.budget&&t.budget.amount?' · '+fmtE(t.budget.amount):''}${ech}</div>
-          </div>
-        </div>`;
-      });
-      html+=`</div>`;
-    });
+  let html=`<div class="sec"><div><div class="sec-title">${t('Liste de courses','רשימת קניות','Shopping List')}</div></div></div>`;
+  // Barre d'ajout directe
+  html+=`<div class="shop-add-row">
+    <input class="input" id="shop-add" placeholder="${t('Ajouter un article…','הוסף פריט…','Add an item…')}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shopAdd();}">
+    <button class="shop-add-btn" data-act="shopAdd()" aria-label="${t('Ajouter','הוספה','Add')}">＋</button>
+  </div>`;
+  if(active.length){
+    html+=`<div class="shop-list">`;
+    active.forEach(it=>{ html+=`<div class="shop-item">
+      <div class="check" data-act="shopToggle('${it.id}')"></div>
+      <div class="shop-item-main"><div class="shop-item-name">${esc(it.text)}</div></div>
+      <button class="shop-x" data-act="shopDel('${it.id}')" aria-label="${t('Supprimer','מחיקה','Delete')}">✕</button>
+    </div>`; });
+    html+=`</div>`;
+  } else if(!done.length){
+    html+=`<div class="shop-empty">🛒 ${t('Liste vide — ajoute un article ci-dessus.','הרשימה ריקה — הוסף פריט למעלה.','Empty list — add an item above.')}</div>`;
+  }
+  if(done.length){
+    html+=`<div class="shop-sec-head"><span>${t('Acheté','נקנה','Bought')} · ${done.length}</span><button class="shop-clear" data-act="shopClearDone()">${t('Effacer','נקה','Clear')}</button></div>`;
+    html+=`<div class="shop-list">`;
+    done.forEach(it=>{ html+=`<div class="shop-item done">
+      <div class="check on" data-act="shopToggle('${it.id}')">✓</div>
+      <div class="shop-item-main"><div class="shop-item-name" style="text-decoration:line-through;color:var(--ink-soft)">${esc(it.text)}</div></div>
+      <button class="shop-x" data-act="shopDel('${it.id}')" aria-label="${t('Supprimer','מחיקה','Delete')}">✕</button>
+    </div>`; });
+    html+=`</div>`;
+  }
+  if(derived.length){
+    html+=`<div class="shop-sec-head" style="margin-top:22px"><span>🛒 ${t('Issu des tâches','מתוך המשימות','From tasks')} · ${derived.length}</span></div>`;
+    html+=`<div class="shop-list">`;
+    derived.forEach(d=>{ html+=`<div class="shop-item" data-act="openTask('${d.id}')" style="cursor:pointer">
+      <div class="shop-item-main"><div class="shop-item-name">${esc(d.name)}</div>${d.where?`<div class="shop-item-meta">${esc(d.where)}</div>`:''}</div>
+      <span class="chev">›</span>
+    </div>`; });
+    html+=`</div>`;
   }
   c.innerHTML=html;
 }
@@ -5431,6 +5506,17 @@ document.addEventListener('click', function(ev){
   }
   catch(e){ console.error('Action echouee:', code, e); }
 });
+// Fermer TOUT menu déroulant ouvert dès qu'on touche ailleurs sur l'écran.
+document.addEventListener('click', function(ev){
+  try{ if(ev.target.closest && ev.target.closest('.dd')) return; }catch(e){ return; }
+  let changed=false;
+  if(openDD){ openDD=null; changed=true; }
+  try{ if(editBuf && (editBuf._moreOpen||editBuf._expOpen)){ editBuf._moreOpen=false; editBuf._expOpen=false; changed=true; } }catch(e){}
+  try{ if(_ideaBuf && _ideaBuf._moreOpen){ _ideaBuf._moreOpen=false; changed=true; } }catch(e){}
+  try{ if(_provMore){ _provMore=false; changed=true; } }catch(e){}
+  try{ if(_crExpOpen){ _crExpOpen=false; changed=true; } }catch(e){}
+  if(changed){ try{ render(); }catch(e){} }
+}, false);
 // ---------- GLISSER-DÉPOSER DES TÂCHES (poignée ⠿, tactile + souris) ----------
 let _drag=null, _dragMoved=false, _dragSuppressClick=false, _dragScroller=null;
 document.addEventListener('pointerdown', function(ev){
@@ -5513,7 +5599,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
