@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a61">
+<meta name="app-build" content="b-2026-08-28-a62">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -622,7 +622,7 @@ function load(){
 // ============================================================
 const SUPA_URL='https://kpdvdtpvhmdshwtlhmri.supabase.co';
 const SUPA_KEY='sb_publishable_kqAU6bJmXgKMwsSdWRh9Yw_JBCMGCXm';
-let _cloudReady=false, _cloudSuppress=false, _cloudTimer=null, _lastSyncStamp=null, _cloudBusy=false, _syncState='';
+let _cloudReady=false, _cloudSuppress=false, _cloudTimer=null, _lastSyncStamp=null, _cloudBusy=false, _syncState='', _localDirty=false;
 
 // ---- État d'authentification & d'association ----
 let _auth=null;      // {access_token, refresh_token, expires_at, user:{id,email}}
@@ -692,20 +692,33 @@ async function orgCreate(name){ const o=await _rpc('sbs_create_org',{p_name:name
 async function orgJoin(code){ const o=await _rpc('sbs_join_org',{p_code:code}); await loadOrgs(); return o; }
 async function orgMembers(id){ return (await _rpc('sbs_org_members',{p_org:id})) || []; }
 function setSyncState(s){ _syncState=s; try{ const el=document.getElementById('sync-badge'); if(el){ el.textContent=s==='ok'?'☁':(s==='sync'?'⟳':(s==='err'?'⚠':'⊘')); el.style.color=s==='ok'?'var(--green)':(s==='err'?'var(--red)':'var(--ink-soft)'); el.title=s==='ok'?'Synchronisé ✓':(s==='sync'?'Synchronisation…':(s==='err'?'Erreur de synchro':'Hors-ligne')); } }catch(e){} }
-function scheduleCloudPush(){ if(!_cloudReady)return; setSyncState('sync'); if(_cloudTimer)clearTimeout(_cloudTimer); _cloudTimer=setTimeout(cloudPush,1200); }
+function _pushSoon(ms){ if(_cloudTimer)clearTimeout(_cloudTimer); _cloudTimer=setTimeout(function(){ _cloudTimer=null; cloudPush(); }, ms); }
+function scheduleCloudPush(){ if(!_cloudReady)return; _localDirty=true; setSyncState('sync'); _pushSoon(1200); }
 async function cloudPush(){
-  if(!_cloudReady||_cloudBusy||!_org)return; _cloudBusy=true;
+  if(!_cloudReady||!_org)return;
+  // Un envoi est déjà en vol : ne PAS abandonner (sinon la dernière modif ne part jamais) → replanifier.
+  if(_cloudBusy){ _pushSoon(400); return; }
+  _cloudBusy=true;
   try{
-    if(!await _ensureToken()){ setSyncState('off'); _cloudBusy=false; return; }
-    const stamp=new Date().toISOString();
-    const body=[{org_id:_org.id, data:D, updated_at:stamp, updated_by:(_auth&&_auth.user&&_auth.user.id)||null}];
-    const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?on_conflict=org_id',{method:'POST',headers:_authH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
-    if(r.ok){ _lastSyncStamp=stamp; setSyncState('ok'); try{ cloudBackup('auto'); }catch(e){} } else { setSyncState('err'); }
-  }catch(e){ setSyncState('off'); }
+    if(!await _ensureToken()){ setSyncState('off'); }
+    else {
+      _localDirty=false;   // on capture l'état courant ; toute modif arrivée après remettra _localDirty=true
+      const stamp=new Date().toISOString();
+      const body=[{org_id:_org.id, data:D, updated_at:stamp, updated_by:(_auth&&_auth.user&&_auth.user.id)||null}];
+      const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?on_conflict=org_id',{method:'POST',headers:_authH({Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
+      if(r.ok){ _lastSyncStamp=stamp; setSyncState(_localDirty?'sync':'ok'); try{ cloudBackup('auto'); }catch(e){} }
+      else { _localDirty=true; setSyncState('err'); }
+    }
+  }catch(e){ _localDirty=true; setSyncState('off'); }
   _cloudBusy=false;
+  // Modif survenue pendant l'envoi, ou envoi échoué : on repart, jamais d'abandon.
+  if(_localDirty && !_cloudTimer) _pushSoon(1500);
 }
 async function cloudPull(){
   if(!_cloudReady||!_org)return false;
+  // Garde-fou anti-« la tâche revient » : tant qu'une modif locale n'est pas confirmée dans le cloud
+  // (dirty, envoi en cours, ou envoi planifié), on n'écrase JAMAIS l'état local par une relecture entrante.
+  if(_localDirty||_cloudBusy||_cloudTimer){ setSyncState(_syncState==='err'?'err':'sync'); return false; }
   try{
     if(!await _ensureToken()){ setSyncState('off'); return false; }
     const r=await fetch(SUPA_URL+'/rest/v1/sbs_org_state?org_id=eq.'+_org.id+'&select=data,updated_at',{headers:_authH()});
