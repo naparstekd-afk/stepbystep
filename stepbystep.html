@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a60">
+<meta name="app-build" content="b-2026-08-28-a61">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1703,6 +1703,7 @@ function render(){
   else if(nav.view==='dossier') renderDossier(main);
   else if(nav.view==='dvar') renderDvar(main);
   else if(nav.view==='checks') renderChecks(main);
+  else if(nav.view==='vie') renderVie(main);
   else if(nav.view==='bdd') renderBDD(main);
   else if(nav.view==='calendar'){
     if(!nav.monthId) renderHome(main);
@@ -2452,6 +2453,7 @@ function drawerHTML(){
       ['report','📋',t("Dou'h",'דו״ח','Report'),null],
       ['hevents','🕎',t("Loua'h",'לוח',"Loua'h"),null],
       ['dvar','📖',t('Dvar Torah','דבר תורה','Dvar Torah'),null],
+      ['vie','🌿',t('La Vie','החיים','Life'),null],
       ['checks','🏠',t('Vérifications','בדיקות','Checks'),null],
       ['shopping','🛒',t('Liste de courses','רשימת קניות','Shopping List'),null],
       ['suppliers','📇',t('Prestataires','ספקים','Suppliers'),null],
@@ -2477,7 +2479,7 @@ function drawerHTML(){
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||v==='dvar'||v==='checks'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||v==='dvar'||v==='checks'||v==='vie'||menuVisible(v));
     if(!vis.length) return;
     if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
@@ -3183,7 +3185,7 @@ function renderPublics(c){
   c.innerHTML=html;
 }
 function renameFeteById(fid){ const m=curMonth(); const f=m&&m.fetes.find(x=>x.id===fid); if(!f)return; const n=prompt('Nouveau nom de la fête :',f.name); if(n&&n.trim()){ f.name=n.trim(); save(); render(); } }
-function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='dvar'){ dvarAddEntry(); return; } if(nav.view==='checks'){ checksAdd(); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
+function openQuickAdd(){ if(nav.view==='shopping'){ shopFocusAdd(); return; } if(nav.view==='hevents'){ hevAdd(); return; } if(nav.view==='dvar'){ dvarAddEntry(); return; } if(nav.view==='checks'){ checksAdd(); return; } if(nav.view==='vie'){ newDossier(null,'vie'); return; } if(nav.view==='ideas'){ newIdea(); return; } if(nav.view==='suppliers'){ sheet={type:'provAdd'}; renderOverlay(); return; } if(nav.view==='tsedaka'){ tsGive(); return; } if(nav.view==='annonces'){ return; } if(nav.view==='report'){ setView('journal'); openQuickAdd(); return; } if(nav.view==='themes'){ if(themeNav){ themeQuickOpen(themeNav); } else { newTheme(); } return; } if(nav.view==='bdd'&&bddNav&&bddNav.cat){ openBddAdd(); return; } sheet={type:'quickAdd'}; renderOverlay(); }
 // ----- Menu déroulant générique (pilule) -----
 function toggleDD(id){ openDD = (openDD===id)? null : id; render(); }
 function closeDD(){ openDD=null; render(); }
@@ -4978,7 +4980,9 @@ function dossSetRecurring(v){ const d=dossierById(nav.dossierId); if(!d)return; 
 function _sortDoss(list){ const hasOrd=list.some(d=>typeof d.ord==='number'); if(hasOrd){ return list.slice().sort((a,b)=>((a.ord==null?1e9:a.ord)-(b.ord==null?1e9:b.ord))||(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); } return list.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'})); }
 function commitDossOrder(ids){ if(!Array.isArray(ids)||!ids.length)return; ids.forEach((id,i)=>{ const d=dossierById(id); if(d) d.ord=i; }); save(); render(); toast('Ordre enregistré ✓'); }
 function dossiersFor(kind,id){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && d.anchor && d.anchor.kind===kind && d.anchor.id===id)); }
-function dossiersStandalone(){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && !d.anchor)); }
+function dossiersStandalone(){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && !d.anchor && d.space!=='vie')); }
+function vieStandalone(){ return _sortDoss((D.dossiers||[]).filter(d=>!d.parentId && !d.anchor && d.space==='vie')); }
+function _dossRoot(d){ let r=d; while(r&&r.parentId&&dossierById(r.parentId)) r=dossierById(r.parentId); return r; }
 function dossierChildren(id){ return _sortDoss((D.dossiers||[]).filter(d=>d.parentId===id)); }
 function dossDescendantIds(id){ const out=new Set([id]); let added=true; while(added){ added=false; (D.dossiers||[]).forEach(d=>{ if(d.parentId && out.has(d.parentId) && !out.has(d.id)){ out.add(d.id); added=true; } }); } return out; }
 function dossAddSub(){ const d=dossierById(nav.dossierId); if(!d)return; const k=mkDossier(''); k.parentId=d.id; D.dossiers.push(k); save(); openDossier(k.id); }
@@ -5010,7 +5014,15 @@ function dossMoveSheet(){ const d=dossierById(sheet.id); if(!d) return '<div cla
     else { kids.forEach(k=>{ const sub=(D.dossiers||[]).filter(x=>x.parentId===k.id).length; h+=`<div class="card" data-act="dossMoveNavTo('${k.id}')"><div class="card-body"><div class="card-icon">${k.icon||'🗂️'}</div><div class="card-main"><div class="card-name">${esc(k.name||'Sans nom')}</div>${sub?`<div class="card-meta">${sub} ${t('sous-dossier(s)','תת-תיקיות','sub-folder(s)')}</div>`:''}</div><span class="chev">›</span></div></div>`; }); }
   } else { h+=`<div class="hint">${cur?t('Aucun sous-dossier ici.','אין תת-תיקיות כאן.','No sub-folder here.'):t('Aucun dossier général.','אין תיקיות כלליות.','No general folder.')}</div>`; }
   h+=`</div>`; return h; }
-function newDossier(anchor){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; D.dossiers.push(d); save(); openDossier(d.id); }
+function newDossier(anchor,space){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; if(space)d.space=space; D.dossiers.push(d); save(); openDossier(d.id); }
+function renderVie(c){
+  let html=`<div class="sec"><div><div class="sec-title">🌿 ${t('La Vie','החיים','Life')}</div><div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${t('Tes dossiers « La Vie » — mêmes fonctions que Projets.','התיקיות שלך — אותן פונקציות כמו פרויקטים.','Your “Life” folders — same features as Projects.')}</div></div></div>`;
+  const sdoss=vieStandalone();
+  if(sdoss.length){ html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:4px;margin-bottom:6px">${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
+  else { html+=`<div class="hint" style="margin-top:8px">${t('Aucun dossier ici. Touche le ＋ en bas à droite pour créer ton premier dossier « La Vie ».','אין תיקיות. גע ב-＋ למטה מימין.','No folder here yet. Tap the + at bottom right to create your first one.')}</div>`; }
+  html+=`<button class="btn btn-primary btn-block" style="margin-top:10px" data-act="newDossier(null,'vie')">＋ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>`;
+  c.innerHTML=html;
+}
 let _dossFrom=null;   // d'où on est entré dans le monde des dossiers (pour le bouton Retour)
 function openDossier(id){ if(nav.view!=='dossier'){ _dossFrom={view:nav.view, monthId:nav.monthId, feteId:nav.feteId}; } nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
 function dossierBack(){ const d=dossierById(nav.dossierId);
@@ -5021,6 +5033,8 @@ function dossierBack(){ const d=dossierById(nav.dossierId);
   if(f && f.view==='calendar' && f.monthId){ nav={view:'calendar',monthId:f.monthId,feteId:null,eventId:null,ctx:'fete'}; render(); return; }
   const a=d&&d.anchor;
   if(a&&a.kind==='theme'){ nav={view:'themes'}; themeNav=a.id; render(); return; }
+  const _root=_dossRoot(d);
+  if((_root&&_root.space==='vie') || (f&&f.view==='vie')){ nav={view:'vie'}; bddNav=null; render(); return; }
   nav={view:'bdd'}; bddNav=null; render(); }
 function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; save(); } }
 function _dossFocusTitle(id){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el)el.focus(); }catch(e){} },50); }
