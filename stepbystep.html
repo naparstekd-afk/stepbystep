@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a53">
+<meta name="app-build" content="b-2026-08-28-a54">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1245,6 +1245,21 @@ function importTo(dest){
     _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const r=mkRdv(p.title||t('Invitation','הזמנה','Invitation')); r.date=p.date||''; r.time=p.time||''; r.place=p.place||''; if(p.phone)r.notes=(t('Tél. :','טל:','Tel:')+' '+p.phone); r.media=[_importMedia()]; if(!Array.isArray(D.rdv))D.rdv=[]; D.rdv.push(r); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(r)); sheet={type:'task'}; renderOverlay(); toast(t('Rappel créé ✓ — vérifie les champs','תזכורת נוצרה ✓','Reminder created ✓ — check the fields')); });
     return;
   }
+}
+// Image partagée depuis WhatsApp (Partager → stepbystep) : récupérée par le service worker.
+async function _checkSharedImage(){
+  try{
+    if(!/[?&]shared=1/.test(location.search)) return;
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+    if(!('caches' in window)) return;
+    const cache=await caches.open('sbs-share');
+    const res=await cache.match('/__shared_image');
+    if(!res) return;
+    const blob=await res.blob(); const name=res.headers.get('X-Name')||'partage.jpg';
+    await cache.delete('/__shared_image');
+    const file=new File([blob],name,{type:blob.type||'image/jpeg'});
+    _ebCompressImage(file,(m)=>{ _importImg={data:m.data,name:m.name||name}; _importStep='choose'; _importBusy=false; _importFields=null; _importDoss=null; sheet={type:'import'}; renderOverlay(); });
+  }catch(e){}
 }
 function importPickDossier(did,titleId){
   const d=dossierById(did); if(!d){ importClose(); return; }
@@ -6546,6 +6561,7 @@ function enterApp(){
   render();
   try{ _histSeed(); }catch(e){}   // point de départ de l'historique Annuler/Rétablir
   try{ cloudStart(); }catch(e){}
+  try{ setTimeout(_checkSharedImage,300); }catch(e){}   // image partagée depuis WhatsApp ?
 }
 
 // Après connexion : charger les associations et choisir la bonne.
