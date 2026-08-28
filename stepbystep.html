@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a62">
+<meta name="app-build" content="b-2026-08-28-a63">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -5091,6 +5091,15 @@ function dossTitleToDossier(id){ const d=dossierById(nav.dossierId); if(!d)retur
   items.splice(i, blk.end-i);
   delete dossOpen[id]; if(dossEditId===id)dossEditId=null;
   save(); render(); toast(t('Transformé en dossier ✓','הפך לתיקייה ✓','Turned into a folder ✓')); }
+// Enregistre CE titre + tout son contenu comme modèle réutilisable (non destructif : l'original reste).
+function dossTitleToTemplate(id){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null;
+  const items=d.items; const i=items.findIndex(x=>x.id===id); if(i<0)return;
+  const titleItem=items[i]; const blk=_dossBlock(items,i); const shift=(titleItem.level||1)-1;
+  const block=items.slice(i,blk.end).map(x=>{ const c=JSON.parse(JSON.stringify(x)); if(c.kind==='title'){ c.level=Math.max(1,(c.level||1)-shift); } return c; });
+  if(!Array.isArray(D.dossierTemplates))D.dossierTemplates=[];
+  D.dossierTemplates.push({id:uid(),name:(titleItem.text||t('Modèle','תבנית','Template')),items:_freshItems(block,true)});
+  save(); render();
+  toast(t('« '+(titleItem.text||'Titre')+' » enregistré comme modèle ✓ (l\'original reste). Réutilise-le via « Insérer un modèle ».','נשמר כתבנית ✓','Saved as template ✓ (original stays). Reuse it via “Insert a template”.')); }
 function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.rdv))D.rdv=[]; const r=mkRdv(txt); D.rdv.push(r); save(); render(); openTask(r.id); toast('Transformé en rappel ✓'); }
 function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); render(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
@@ -5130,6 +5139,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ ${t('Transformer en tâche','הפוך למשימה','Turn into a task')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 ${t('Transformer en rappel','הפוך לתזכורת','Turn into a reminder')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToDossier(${idp})">🗂️ ${t('Transformer en dossier','הפוך לתיקייה','Turn into a folder')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToTemplate(${idp})">📋 ${t('Transformer en modèle','הפוך לתבנית','Turn into a template')}</button>`;
       h+=`<button class="dd-item" style="color:var(--red)" data-act="dossDelTitle(${idp})">🗑 ${t('Supprimer le titre','מחק כותרת','Delete title')}</button>`;
       h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     }
@@ -6558,7 +6568,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,openDossierFromTask,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossMoveToMonth,dossDupToMonth,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossMoveToMonth,dossDupToMonth,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTitleToTemplate,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpConfirmDate,dpSetRange,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
