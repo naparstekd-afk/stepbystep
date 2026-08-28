@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a36">
+<meta name="app-build" content="b-2026-08-28-a41">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -179,6 +179,9 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .mcard-heb{font-size:10.5px;color:var(--ink-soft);margin-top:0;line-height:1.1}
 .mcard-count{font-size:10px;color:var(--primary);margin-top:2px;font-weight:600;line-height:1.1}
 .mcard-cost{font-size:9.5px;color:var(--gold);font-weight:700;margin-top:1px;line-height:1.1}
+.mcard.current{border-color:var(--primary);background:linear-gradient(160deg,var(--primary-soft),var(--surface));box-shadow:0 5px 16px rgba(30,58,110,.16)}
+.mcard.current::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--gold))}
+.mcard-now{position:absolute;top:5px;right:6px;font-size:8px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--primary);background:var(--surface);padding:1px 6px;border-radius:10px;border:1px solid var(--primary)}
 .mcard-count.empty{color:#BEB39C}
 
 /* TASK */
@@ -243,7 +246,7 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .bnav-btn{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;padding:10px 6px;border-radius:15px;color:#98A0AE;font-size:13px;font-weight:700;transition:.18s cubic-bezier(.34,1.56,.64,1)}
 .bnav-btn .ic{display:flex;align-items:center;justify-content:center}
 .bnav-btn .ic svg{width:23px;height:23px;display:block}
-.bnav-btn .lbl{max-width:0;overflow:hidden;white-space:nowrap;opacity:0;transition:.2s}
+.bnav-btn .lbl{max-width:120px;overflow:hidden;white-space:nowrap;opacity:1;transition:.2s}
 .bnav-btn.active{color:#fff;background:linear-gradient(135deg,var(--primary),#33589B);box-shadow:0 5px 14px rgba(30,58,110,.32)}
 .bnav-btn.active .lbl{max-width:120px;opacity:1}
 
@@ -552,6 +555,8 @@ let groupedView = null; // résultat du tri intelligent {mode, groups}
 let jSort = null; // tri intelligent de Ma Journée : null | 'urgency' | 'theme' | 'where'
 let jFilter = {tasks:true, events:true, reminders:true}; // Ma Journée : affichage multichoix (tâches / événements / rappels)
 let jShowHidden = false; // Ma Journée : afficher aussi les tâches masquées
+let jFold = {todo:false, nodate:false}; // Ma Journée : sections « À faire » / « Sans date » pliées ?
+function jToggleFold(k){ jFold[k]=!jFold[k]; render(); }
 let dossLayout = (function(){ try{ return localStorage.getItem('sbs_dosslayout')||'list'; }catch(e){ return 'list'; } })();  // affichage des dossiers : 'list' | 'grid'
 let shopRange='all'; // filtre échéance de la liste de courses
 let selMode=false; let selSet={}; // sélection multiple de tâches
@@ -688,10 +693,13 @@ async function cloudPull(){
     if(!row){ setSyncState('ok'); return false; }
     if(row.updated_at===_lastSyncStamp){ setSyncState('ok'); return false; }
     if(_isRealD(row.data)){
+      // Écho de notre propre envoi (données identiques) : NE PAS réinitialiser l'historique Annuler/Rétablir.
+      let _incoming='',_cur=''; try{ _incoming=JSON.stringify(row.data); }catch(e){} try{ _cur=JSON.stringify(D); }catch(e){}
+      if(_incoming && _incoming===_cur){ _lastSyncStamp=row.updated_at; setSyncState('ok'); return false; }
       try{ snapshotBackup('avant synchro entrante',true); }catch(e){}   // protège l'état local avant de le remplacer
       _lastSyncStamp=row.updated_at;
       _cloudSuppress=true; D=row.data; ensureCollections(); save(); _cloudSuppress=false;
-      try{ _histSeed(); }catch(e){}
+      try{ _histSeed(); }catch(e){}   // vrai changement distant → repartir de zéro
       if(!sheet && !drawerOpen){ try{ render(); }catch(e){} }
       setSyncState('ok'); return true;
     }
@@ -1380,7 +1388,7 @@ function searchSheet(){ return `<div class="sheet-head"><div class="sheet-title"
 function breadcrumbHTML(){
   let p=[];
   if(nav.view==='calendar'){
-    p.push(['📅 '+t('Calendrier','לוח','Calendar'),'go({monthId:null,feteId:null,eventId:null})']);
+    if(nav.monthId){ p.push(['📅 '+t('Calendrier','לוח','Calendar'),'go({monthId:null,feteId:null,eventId:null})']); }
     if(nav.monthId){const m=MONTHS.find(x=>x.id===nav.monthId);p.push([`${m.emoji} ${mName(m)}`,`go({feteId:null,eventId:null})`]);}
     if(nav.feteId){const f=curFete();if(f)p.push([f.name,`go({eventId:null})`]);}
     if(nav.eventId){const e=curEvent();if(e)p.push([e.name,null]);}
@@ -1417,7 +1425,7 @@ const _NAV_SVG={
   bdd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 7.2a2.4 2.4 0 0 1 2.4-2.4h3.3l2 2.2h7.5a2.4 2.4 0 0 1 2.4 2.4v7.6a2.4 2.4 0 0 1-2.4 2.4H5.6a2.4 2.4 0 0 1-2.4-2.4z"/></svg>'
 };
 function bottomNavHTML(){
-  const all=[['journal',t('Ma Journée','יומן','My Day')],['calendar',t('Calendrier','לוח','Calendar')],['bdd',t('Dossiers','תיקיות','Folders')]];
+  const all=[['journal',t('Ma Journée','יומן','My Day')],['calendar',t('Calendrier','לוח','Calendar')],['bdd',t('Projets','פרויקטים','Projects')]];
   const items=all.filter(([v])=>v==='journal'||menuVisible(v));
   return `<div class="bnav">`+items.map(([v,l])=>{
     const isActive = nav.view===v ? 'active':'';
@@ -1430,9 +1438,11 @@ function fabHTML(){ return `<button class="fab" data-act="openQuickAdd()" title=
 //  VUE : ACCUEIL CALENDRIER (mois)
 // ============================================================
 function renderHome(c){
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Année','שנה','Year')} ${D.year}</div><div class="sec-title">${t('Calendrier hébraïque','לוח עברי','Hebrew Calendar')}</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-title">${t('Calendrier','לוח','Calendar')}</div></div></div>`;
+  const _curMid=hebMonthIdOf(todayKey());
   html+=`<div class="months">`;
   MONTHS.forEach(m=>{
+    const _isCur=(m.id===_curMid);
     const md=D.months[m.id];
     let tot=0,dn=0,bud=0,remMin=0;
     if(md) md.fetes.forEach(f=>f.events.forEach(e=>{tot+=countAll(e.tasks);dn+=countAllDone(e.tasks);bud+=sumBud(e.tasks);remMin+=sumRemDur(e.tasks);}));
@@ -1440,7 +1450,8 @@ function renderHome(c){
     programsInMonth(m.id).forEach(p=>{ bud+=programCost(p); remMin+=programRem(p); });
     const mc=_monthDossCounts(m.id); tot+=mc.tot; dn+=mc.dn; remMin+=mc.mins;
     const filled=(md&&md.fetes.length)||dossiersFor('month',m.id).length;
-    html+=`<div class="mcard ${filled?'filled':''}" data-act="go({monthId:'${m.id}',feteId:null,eventId:null})">
+    html+=`<div class="mcard ${filled?'filled':''}${_isCur?' current':''}" data-act="go({monthId:'${m.id}',feteId:null,eventId:null})">
+      ${_isCur?`<div class="mcard-now">${t('Ce mois','החודש','Now')}</div>`:''}
       <div class="mcard-emoji">${m.emoji}</div>
       <div class="mcard-name">${lang==='he'?m.heb:m.name}</div>
       ${lang==='he'?'':`<div class="mcard-heb">${m.heb}</div>`}
@@ -1793,6 +1804,31 @@ function bulkMoveSheet(){
   </div>`;
 }
 function bulkMoveTo(v){ if(!v)return; const ev=curEvent(); const tgt=destEvent(v); if(!ev||!tgt){toast('Destination introuvable');return;} const ids=new Set(selIds()); const moved=ev.tasks.filter(t=>ids.has(t.id)); ev.tasks=ev.tasks.filter(t=>!ids.has(t.id)); moved.forEach(t=>tgt.tasks.push(t)); save(); selMode=false; selSet={}; sheet=null; render(); toast(moved.length+' tâche(s) déplacée(s) ✓'); }
+// ---------- SÉLECTION MULTIPLE GÉNÉRIQUE (Ma Journée & partout) : suppr / dater / déplacer ----------
+function selAllVisible(){ const ids={}; try{ document.querySelectorAll('#main [data-taskid]').forEach(el=>{ const id=el.getAttribute('data-taskid'); if(id)ids[id]=true; }); }catch(e){} selSet=ids; render(); }
+function bulkDeleteAny(){ const ids=selIds(); if(!ids.length){ toast(t('Rien de sélectionné','לא נבחר כלום','Nothing selected')); return; }
+  if(!confirm(t('Supprimer','למחוק','Delete')+' '+ids.length+' '+t('tâche(s) ?','משימות?','task(s)?'))) return;
+  ids.forEach(id=>{ const r=findTaskAnywhere(id); if(!r)return; const arr=taskArrOfLoc(r.loc); if(!arr)return; const i=arr.findIndex(x=>x.id===id); if(i>=0)arr.splice(i,1); });
+  save(); selMode=false; selSet={}; render(); toast(t('Supprimées ✓','נמחקו ✓','Deleted ✓')); }
+let _bulkDate={date:'',time:''};
+function bulkDateOpen(){ if(!selIds().length){ toast(t('Rien de sélectionné','לא נבחר כלום','Nothing selected')); return; } _bulkDate={date:todayKey(),time:''}; sheet={type:'bulkDate'}; renderOverlay(); }
+function bulkDateSheet(){ const n=selIds().length; return `<div class="sheet-head"><div class="sheet-title">📅 ${t('Dater','תארך','Date')} ${n} ${t('tâche(s)','משימות','task(s)')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="hint" style="margin-bottom:10px">${t('La même date (et heure) sera appliquée à toutes les tâches sélectionnées.','אותו תאריך (ושעה) יחול על כל המשימות שנבחרו.','The same date (and time) applies to all selected tasks.')}</div>
+    <div class="field"><label class="field-label">${t('Date','תאריך','Date')}</label><input type="date" class="input" id="bulk-date" value="${_bulkDate.date||''}"></div>
+    <div class="field"><label class="field-label">${t('Heure (optionnel)','שעה (אופציונלי)','Time (optional)')}</label><input type="time" class="input" id="bulk-time" value="${_bulkDate.time||''}"></div>
+    <button class="btn btn-primary btn-block" data-act="bulkDateApply()">✓ ${t('Appliquer à tout','החל על הכול','Apply to all')}</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="bulkDateClear()">${t('Retirer la date','הסר תאריך','Remove date')}</button>
+  </div>`; }
+function bulkDateApply(){ const de=$('bulk-date'),ti=$('bulk-time'); const iso=de?de.value:''; const tm=ti?ti.value:''; if(!iso){ toast(t('Choisis une date','בחר תאריך','Choose a date')); return; }
+  selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=iso; r.task.time=tm||''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Daté ✓','תוארך ✓','Dated ✓')); }
+function bulkDateClear(){ selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=''; r.task.time=''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Date retirée ✓','התאריך הוסר ✓','Date removed ✓')); }
+function bulkMoveOpenAny(){ if(!selIds().length){ toast(t('Rien de sélectionné','לא נבחר כלום','Nothing selected')); return; } _selMoveMode=true; _mvMode='move'; moveNav={}; sheet={type:'bulkMoveAny'}; renderOverlay(); }
+function bulkMoveApplyAny(v){ if(!v)return; const ids=selIds(); let n=0;
+  ids.forEach(id=>{ const r=findTaskAnywhere(id); if(!r)return; const arr=taskArrOfLoc(r.loc); if(!arr)return; const i=arr.findIndex(x=>x.id===id); if(i<0)return; const moved=arr.splice(i,1)[0];
+    const dest=_mvDestInfo(v); if(!dest){ arr.splice(i,0,moved); return; }
+    let idx=dest.index; if(dest.items===arr && i<idx) idx--; dest.items.splice(idx,0,moved); n++; });
+  save(); _selMoveMode=false; selMode=false; selSet={}; moveNav=null; sheet=null; render(); toast(n+' '+t('tâche(s) déplacée(s) ✓','משימות הועברו ✓','task(s) moved ✓')); }
 function taskHTML(t,ev,idx,total,reorder){
   const st=stOf(t.status);
   const dur=totalDuration(t);
@@ -2027,7 +2063,7 @@ function _fitDropdowns(){
     });
   }catch(e){}
 }
-function closeSheet(){ sheet=null; editBuf=null; _ideaBuf=null; moveNav=null; renderOverlay(); }
+function closeSheet(){ sheet=null; editBuf=null; _ideaBuf=null; moveNav=null; _selMoveMode=false; renderOverlay(); }
 function toggleDrawer(open){ drawerOpen=open; renderOverlay(); }
 
 // ---------- DRAWER (menu complet) ----------
@@ -2640,8 +2676,11 @@ function annBuildText(shabbatIso){
 }
 function openAnnonces(){ annAnchor=nextShabbat(); setView('annonces'); }
 function annSetDate(v){ annAnchor=v||nextShabbat(); openDD=null; render(); }
+const PARASHA={"2026-01-03":{fr:"Vayechi",he:"ויחי"},"2026-01-10":{fr:"Shemot",he:"שמות"},"2026-01-17":{fr:"Vaera",he:"וארא"},"2026-01-24":{fr:"Bo",he:"בא"},"2026-01-31":{fr:"Beshalach",he:"בשלח"},"2026-02-07":{fr:"Yitro",he:"יתרו"},"2026-02-14":{fr:"Mishpatim",he:"משפטים"},"2026-02-21":{fr:"Terumah",he:"תרומה"},"2026-02-28":{fr:"Tetzaveh",he:"תצוה"},"2026-03-07":{fr:"Ki Tisa",he:"כי תשא"},"2026-03-14":{fr:"Vayakhel-Pekudei",he:"ויקהל־פקודי"},"2026-03-21":{fr:"Vayikra",he:"ויקרא"},"2026-03-28":{fr:"Tzav",he:"צו"},"2026-04-11":{fr:"Shmini",he:"שמיני"},"2026-04-18":{fr:"Tazria-Metzora",he:"תזריע־מצרע"},"2026-04-25":{fr:"Achrei Mot-Kedoshim",he:"אחרי מות־קדשים"},"2026-05-02":{fr:"Emor",he:"אמור"},"2026-05-09":{fr:"Behar-Bechukotai",he:"בהר־בחקתי"},"2026-05-16":{fr:"Bamidbar",he:"במדבר"},"2026-05-30":{fr:"Nasso",he:"נשא"},"2026-06-06":{fr:"Beha'alotcha",he:"בהעלתך"},"2026-06-13":{fr:"Sh'lach",he:"שלח־לך"},"2026-06-20":{fr:"Korach",he:"קורח"},"2026-06-27":{fr:"Chukat-Balak",he:"חוקת־בלק"},"2026-07-04":{fr:"Pinchas",he:"פינחס"},"2026-07-11":{fr:"Matot-Masei",he:"מטות־מסעי"},"2026-07-18":{fr:"Devarim",he:"דברים"},"2026-07-25":{fr:"Vaetchanan",he:"ואתחנן"},"2026-08-01":{fr:"Eikev",he:"עקב"},"2026-08-08":{fr:"Re'eh",he:"ראה"},"2026-08-15":{fr:"Shoftim",he:"שופטים"},"2026-08-22":{fr:"Ki Teitzei",he:"כי־תצא"},"2026-08-29":{fr:"Ki Tavo",he:"כי־תבוא"},"2026-09-05":{fr:"Nitzavim-Vayeilech",he:"נצבים־וילך"},"2026-09-19":{fr:"Ha'azinu",he:"האזינו"},"2026-10-10":{fr:"Bereshit",he:"בראשית"},"2026-10-17":{fr:"Noach",he:"נח"},"2026-10-24":{fr:"Lech-Lecha",he:"לך־לך"},"2026-10-31":{fr:"Vayera",he:"וירא"},"2026-11-07":{fr:"Chayei Sara",he:"חיי שרה"},"2026-11-14":{fr:"Toldot",he:"תולדות"},"2026-11-21":{fr:"Vayetzei",he:"ויצא"},"2026-11-28":{fr:"Vayishlach",he:"וישלח"},"2026-12-05":{fr:"Vayeshev",he:"וישב"},"2026-12-12":{fr:"Miketz",he:"מקץ"},"2026-12-19":{fr:"Vayigash",he:"ויגש"},"2026-12-26":{fr:"Vayechi",he:"ויחי"},"2027-01-02":{fr:"Shemot",he:"שמות"},"2027-01-09":{fr:"Vaera",he:"וארא"},"2027-01-16":{fr:"Bo",he:"בא"},"2027-01-23":{fr:"Beshalach",he:"בשלח"},"2027-01-30":{fr:"Yitro",he:"יתרו"},"2027-02-06":{fr:"Mishpatim",he:"משפטים"},"2027-02-13":{fr:"Terumah",he:"תרומה"},"2027-02-20":{fr:"Tetzaveh",he:"תצוה"},"2027-02-27":{fr:"Ki Tisa",he:"כי תשא"},"2027-03-06":{fr:"Vayakhel",he:"ויקהל"},"2027-03-13":{fr:"Pekudei",he:"פקודי"},"2027-03-20":{fr:"Vayikra",he:"ויקרא"},"2027-03-27":{fr:"Tzav",he:"צו"},"2027-04-03":{fr:"Shmini",he:"שמיני"},"2027-04-10":{fr:"Tazria",he:"תזריע"},"2027-04-17":{fr:"Metzora",he:"מצרע"},"2027-05-01":{fr:"Achrei Mot",he:"אחרי מות"},"2027-05-08":{fr:"Kedoshim",he:"קדשים"},"2027-05-15":{fr:"Emor",he:"אמור"},"2027-05-22":{fr:"Behar",he:"בהר"},"2027-05-29":{fr:"Bechukotai",he:"בחקתי"},"2027-06-05":{fr:"Bamidbar",he:"במדבר"},"2027-06-19":{fr:"Nasso",he:"נשא"},"2027-06-26":{fr:"Beha'alotcha",he:"בהעלתך"},"2027-07-03":{fr:"Sh'lach",he:"שלח־לך"},"2027-07-10":{fr:"Korach",he:"קורח"},"2027-07-17":{fr:"Chukat-Balak",he:"חוקת־בלק"},"2027-07-24":{fr:"Pinchas",he:"פינחס"},"2027-07-31":{fr:"Matot-Masei",he:"מטות־מסעי"},"2027-08-07":{fr:"Devarim",he:"דברים"},"2027-08-14":{fr:"Vaetchanan",he:"ואתחנן"},"2027-08-21":{fr:"Eikev",he:"עקב"},"2027-08-28":{fr:"Re'eh",he:"ראה"},"2027-09-04":{fr:"Shoftim",he:"שופטים"},"2027-09-11":{fr:"Ki Teitzei",he:"כי־תצא"},"2027-09-18":{fr:"Ki Tavo",he:"כי־תבוא"},"2027-09-25":{fr:"Nitzavim-Vayeilech",he:"נצבים־וילך"},"2027-10-09":{fr:"Ha'azinu",he:"האזינו"},"2027-10-30":{fr:"Bereshit",he:"בראשית"},"2027-11-06":{fr:"Noach",he:"נח"},"2027-11-13":{fr:"Lech-Lecha",he:"לך־לך"},"2027-11-20":{fr:"Vayera",he:"וירא"},"2027-11-27":{fr:"Chayei Sara",he:"חיי שרה"},"2027-12-04":{fr:"Toldot",he:"תולדות"},"2027-12-11":{fr:"Vayetzei",he:"ויצא"},"2027-12-18":{fr:"Vayishlach",he:"וישלח"},"2027-12-25":{fr:"Vayeshev",he:"וישב"}};
+function _annParashaAuto(iso){ return PARASHA[iso]||null; }
+function _annParaName(iso){ const p=_annParashaAuto(iso); if(!p)return ''; return lang==='he'?('פרשת '+p.he):('Parachat '+p.fr); }
 function _annShort(iso){ try{ return new Date(iso+'T12:00:00').toLocaleDateString(_jLocale(),{day:'numeric',month:'short'}); }catch(e){ return iso; } }
-function _annParacha(iso){ return (D.shabbat&&D.shabbat[iso]&&D.shabbat[iso].paracha)||''; }
+function _annParacha(iso){ return (D.shabbat&&D.shabbat[iso]&&D.shabbat[iso].paracha)||_annParaName(iso)||''; }
 // Nom de la fête juive tombant ce jour (calendrier hébraïque) — sinon ''.
 function _hebFete(iso){ try{ const d=new Date(iso+'T12:00:00'); const parts=new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long'}).formatToParts(d); let day=0,mon=''; parts.forEach(p=>{ if(p.type==='day')day=parseInt(p.value); if(p.type==='month')mon=p.value; });
   const is=(n)=>mon.indexOf(n)===0;
@@ -2657,7 +2696,7 @@ function _hebFete(iso){ try{ const d=new Date(iso+'T12:00:00'); const parts=new 
   return '';
  }catch(e){ return ''; } }
 // Étiquette du sélecteur : fête juive du jour, sinon paracha saisie, sinon date courte.
-function _annLabel(iso){ return _hebFete(iso) || _annParacha(iso) || _annShort(iso); }
+function _annLabel(iso){ const nm=_hebFete(iso) || _annParacha(iso); return nm ? (nm+' · '+_annShort(iso)) : _annShort(iso); }
 function _annShabbatList(){ const out=[], seen={};
   let s=new Date(nextShabbat()+'T12:00:00');
   for(let i=0;i<16;i++){ const iso=todayKey(s); out.push({iso,par:_annParacha(iso),fete:_hebFete(iso)}); seen[iso]=1; s.setDate(s.getDate()+7); }
@@ -2792,7 +2831,7 @@ function quickAddSheet(){
   if(!pick){
     return head+`<div class="sheet-body">
       <button class="btn btn-primary btn-block" style="margin-bottom:9px" data-act="closeSheet();qaTaskIndep()">✅ ${NEWTASK}</button>
-      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Rappel','תזכורת','Reminder')}</button>
+      <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();qaRdv()">📅 ${t('Nouveau rappel','תזכורת חדשה','New reminder')}</button>
       <button class="btn btn-soft btn-block" style="margin-bottom:9px" data-act="closeSheet();newDossier(null)">🗂️ ${t('Nouveau dossier','תיקייה חדשה','New folder')}</button>
       <button class="btn btn-soft btn-block" data-act="openImportList()">📋 ${IMPORT}</button>
     </div>`;
@@ -2854,7 +2893,6 @@ function openImportList(){ _impText=''; moveNav={}; sheet={type:'importList'}; r
 function importListSheet(){
   return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Nouvelle liste de tâches','רשימת משימות חדשה','New task list')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
-    <div class="hint" style="margin-bottom:8px">${t('Ouvre ton <b>Google Docs</b> ou <b>Google Sheets</b>, sélectionne ta liste, copie (Ctrl/Cmd+C) puis colle ci-dessous — <b>une tâche par ligne</b>.','פתח <b>Google Docs</b> או <b>Google Sheets</b>, בחר את הרשימה, העתק והדבק למטה — <b>משימה בכל שורה</b>.','Open <b>Google Docs</b> or <b>Google Sheets</b>, select your list, copy then paste below — <b>one task per line</b>.')}</div>
     <textarea class="textarea" id="imp-list" style="min-height:140px" oninput="_impSyncVal(this.value)" placeholder="Acheter les bonbons&#10;Réserver la salle&#10;Imprimer les affiches">${esc(_impText)}</textarea>
     <div class="section-label" style="margin-top:12px">${t('Où créer les tâches ?','היכן ליצור את המשימות?','Where to create the tasks?')}</div>
     ${impExplorerHTML()}
@@ -2985,6 +3023,8 @@ function sheetHTML(){
   else if(sheet.type==='monthAdd') inner=monthAddSheet();
   else if(sheet.type==='quickAdd') inner=quickAddSheet();
   else if(sheet.type==='bulkMove') inner=bulkMoveSheet();
+  else if(sheet.type==='bulkMoveAny') inner=bulkMoveExplorerSheet();
+  else if(sheet.type==='bulkDate') inner=bulkDateSheet();
   else if(sheet.type==='timer') inner=timerSheet();
   else if(sheet.type==='debrief') inner=debriefSheet();
   else if(sheet.type==='themeAssign') inner=themeAssignSheet();
@@ -3162,10 +3202,10 @@ function taskSheet(){
     </div>
 
     ${isTpl?'':`<div style="display:flex;gap:9px;margin-top:16px">
-      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:19px" data-act="mvOpen()" title="${TT('Déplacer','העבר','Move')}">↗</button>`}
-      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:19px" data-act="mvOpenDup()" title="${TT('Dupliquer','שכפל','Duplicate')}">⧉</button>`}
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:13px" data-act="mvOpen()">↗ ${TT('Déplacer','העבר','Move')}</button>`}
+      ${isRdv?'':`<button class="dd-btn btn-block" style="justify-content:center;flex:1;font-size:13px" data-act="mvOpenDup()">⧉ ${TT('Dupliquer','שכפל','Duplicate')}</button>`}
       <div class="dd" style="flex:1">
-        <button class="dd-btn btn-block" style="justify-content:center;width:100%;font-size:19px" data-act="ebToggleExport()" title="${TT('Exporter','ייצוא','Export')}">⬇</button>
+        <button class="dd-btn btn-block" style="justify-content:center;width:100%;font-size:13px" data-act="ebToggleExport()">⬇ ${TT('Exporter','ייצוא','Export')}</button>
         ${t._expOpen?`<div class="dd-menu right" style="width:100%">
           <button class="dd-item" data-act="taskExport('csv')">📊 Excel</button>
           <button class="dd-item" data-act="taskExport('doc')">📝 Word</button>
@@ -3684,6 +3724,7 @@ function datePickSheet(){
   </div>`;
 }
 let _mvMode='move';   // 'move' = déplacer · 'dup' = dupliquer (même navigateur)
+let _selMoveMode=false;   // déplacement groupé (sélection multiple) en cours ?
 function mvOpen(){ syncInputs(); _mvMode='move'; moveNav={}; renderOverlay(); }
 function mvOpenDup(){ syncInputs(); _mvMode='dup'; moveNav={}; renderOverlay(); }
 function mvClose(){ moveNav=null; renderOverlay(); }
@@ -3697,7 +3738,8 @@ function mvFete(fId){ syncInputs(); moveNav={mId:moveNav.mId,fId:fId}; renderOve
 function mvTheme(thId){ syncInputs(); moveNav={thId:thId}; renderOverlay(); }
 function mvSec(key){ syncInputs(); if(!moveNav)moveNav={}; moveNav={open:(moveNav.open===key?null:key)}; renderOverlay(); }
 function _mvDossMeta(d){ const sub=dossierChildren(d.id).length; const titles=(d.items||[]).filter(x=>x.kind==='title').length; const tasks=(d.items||[]).filter(x=>!x.kind).length; return [titles?nTitres(titles):'', tasks?nTaches(tasks):'', sub?nSousDoss(sub):''].filter(Boolean).join(' · ')||t('toucher pour ouvrir','גע לפתיחה','tap to open'); }
-function mvMove(v){ moveNav=null; ebMoveTo(v); }
+function mvMove(v){ if(_selMoveMode){ bulkMoveApplyAny(v); return; } moveNav=null; ebMoveTo(v); }
+function bulkMoveExplorerSheet(){ return `<div class="sheet-head"><div class="sheet-title">↗ ${t('Déplacer','העבר','Move')} ${selIds().length} ${t('tâche(s)','משימות','task(s)')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div><div class="sheet-body">${moveExplorerHTML()}</div>`; }
 function mvDup(v){ ebDuplicateTo(v); moveNav=null; renderOverlay(); }
 function mvCreateEvent(){ let cont=null, prefix=''; if(moveNav.pId){ cont=D.programs.find(x=>x.id===moveNav.pId); prefix='program|'+moveNav.pId+'||'; } else if(moveNav.mId&&moveNav.fId){ const m=D.months[moveNav.mId]; cont=m&&m.fetes.find(x=>x.id===moveNav.fId); prefix='fete|'+moveNav.mId+'|'+moveNav.fId+'|'; } if(!cont)return; const n=prompt('Nom du nouvel événement :','Nouvel événement'); if(n===null)return; const e=mkEvent(n.trim()||'Nouvel événement'); cont.events.push(e); mvMove(prefix+e.id); }
 function mvCreateFete(){ if(!moveNav.mId)return; if(!D.months[moveNav.mId])D.months[moveNav.mId]={fetes:[]}; const n=prompt('Nom de la nouvelle fête :','Nouvelle fête'); if(n===null)return; const f=mkFete(n.trim()||'Nouvelle fête'); const e=mkEvent('✅ Tâches'); f.events.push(e); D.months[moveNav.mId].fetes.push(f); mvMove('fete|'+moveNav.mId+'|'+f.id+'|'+e.id); }
@@ -4212,9 +4254,14 @@ function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const hideBtn = t.jHidden
     ? `<span class="mini-btn" style="align-self:center;color:var(--gold)" data-act="event.stopPropagation();jUnhideTask('${t.id}')" title="${TT('Réafficher dans Ma Journée','הצג שוב','Show again')}">👁</span>`
     : `<span class="mini-btn" style="align-self:center;opacity:.35" data-act="event.stopPropagation();jHideTask('${t.id}')" title="${TT('Masquer de Ma Journée','הסתר מהיום שלי','Hide from My Day')}">🙈</span>`;
-  let h=`<div class="wrap-task"${t.jHidden?' style="opacity:.55"':''}><div class="jtask">
-    <div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>
-    <div class="jtask-body" data-act="openTask('${t.id}')">
+  const _selM = (typeof selMode!=='undefined' && selMode);
+  const _selOn = _selM ? !!selSet[t.id] : false;
+  const _wrapStyle = [t.jHidden?'opacity:.55':'', _selOn?'outline:2px solid var(--primary);outline-offset:-2px;border-radius:12px':''].filter(Boolean).join(';');
+  let h=`<div class="wrap-task" data-taskid="${t.id}"${_wrapStyle?` style="${_wrapStyle}"`:''}><div class="jtask">
+    ${_selM
+      ? `<div class="selbox${_selOn?' on':''}" data-act="selToggle('${t.id}')">${_selOn?'✓':''}</div>`
+      : `<div class="check" style="border-color:${st.c};background:${done?st.c:'#fff'}" data-act="toggleTask('${t.id}')">${done?'✓':partial}</div>`}
+    <div class="jtask-body" data-act="${_selM?`selToggle('${t.id}')`:`openTask('${t.id}')`}">
       <div class="jtask-title ${done?'done':''}">${(t.text&&t.text.trim())?esc(t.text):'<span style="color:var(--ink-soft);font-style:italic">Tâche sans titre — ouvrir pour modifier / supprimer</span>'}</div>
       ${subLine?`<div class="jtask-sub">${where?`<span class="jtask-where">${esc(where)}</span>`:''}${durTag}${prio}${remTag}${dateTag}${who}</div>`:''}
     </div>
@@ -4233,7 +4280,7 @@ function renderJournal(c){
   let html=`<div class="hero"><div class="hero-greet">${greet} 👋</div><div class="hero-heb">${hStr?esc(hStr):t('Ma Journée','היום שלי','My Day')}</div><div class="hero-civil">${esc(dStr)}</div></div>`;
   if(isDesktop()){ html+=`<div class="filters"><button class="chip" data-act="setJournalDeskMode('cal')">🗓️ ${t('Vue mois','תצוגת חודש','Month view')}</button><button class="chip active" data-act="setJournalDeskMode('cards')">📋 ${t('Ma journée (liste)','היום שלי (רשימה)','My day (list)')}</button></div>`; }
   // — Sélecteur de période + navigation ◀ ▶ —
-  const rg=jRange(); const periods=[['today',t("Aujourd'hui",'היום','Today')],['week',t('Semaine','שבוע','Week')],['civil',t('Mois civil','חודש לועזי','Civil month')],['heb',t('Mois hébraïque','חודש עברי','Hebrew month')]];
+  const rg=jRange(); const periods=[['today',t("Aujourd'hui",'היום','Today')],['week',t('Semaine','שבוע','Week')],['civil',t('Mois','חודש','Month')]];
   const atToday=(jDay||todayKey())===todayKey();
   const _fAllOn=jFilter.tasks&&jFilter.events&&jFilter.reminders; const _dispActive=(!_fAllOn)||!!jSort;
   html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -4250,6 +4297,22 @@ function renderJournal(c){
   </div>
   ${!atToday?`<button class="btn btn-soft btn-sm btn-block" style="margin-bottom:12px" data-act="jDayToday()">↩ ${t("Revenir à aujourd'hui",'חזרה להיום','Back to today')}</button>`:''}`;
   // (Bandeau thèmes retiré de Ma Journée à la demande de l'utilisateur)
+  if(typeof selMode!=='undefined' && selMode){
+    const _n=selIds().length;
+    html+=`<div class="selbar">
+      <div class="selbar-top"><span>${_n} ${t('sélectionnée(s)','נבחרו','selected')}</span>
+        <span style="display:flex;gap:12px;align-items:center">
+          <span class="sellink" data-act="selAllVisible()">${t('Tout sélectionner','בחר הכול','Select all')}</span>
+          <span class="sellink" data-act="selClear()">${t('Aucune','נקה','None')}</span>
+          <span class="sellink" data-act="selStop()" style="font-size:16px">✕</span>
+        </span></div>
+      <div class="selbar-acts">
+        <button class="btn btn-soft btn-sm" data-act="bulkDateOpen()">📅 ${t('Dater','תארך','Date')}</button>
+        <button class="btn btn-soft btn-sm" data-act="bulkMoveOpenAny()">↗ ${t('Déplacer','העבר','Move')}</button>
+        <button class="btn btn-soft btn-sm" style="color:var(--red)" data-act="bulkDeleteAny()">🗑 ${t('Supprimer','מחק','Delete')}</button>
+      </div>
+    </div>`;
+  }
 
   if(jPeriod==='today'){
     const jKey=jDay||todayKey(); const isJToday=jKey===todayKey(); const realToday=todayKey();
@@ -4301,13 +4364,16 @@ function renderJournal(c){
       if(showEv){ html+=`<div class="section-label" style="margin-top:4px">🎉 ${t('Fêtes & événements','חגים ואירועים','Holidays & events')}</div>`; evs.forEach(x=>html+=jEventRow(x)); }
       if(showTasks){
         const _jMins=taskItems.reduce((a,o)=>a+totalDuration(o.t),0);
-        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>✅ ${t('À faire','לביצוע','To do')} (${taskItems.length})${_jMins?' · ⏱ '+fmtM(_jMins):''}</span>`+
+        const _foldTodo=!!jFold.todo;
+        html+=`<div class="section-label" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span data-act="jToggleFold('todo')" style="cursor:pointer;flex:1;min-width:0">${_foldTodo?'▸':'▾'} ✅ ${t('À faire','לביצוע','To do')} (${taskItems.length})${_jMins?' · ⏱ '+fmtM(_jMins):''}</span>`+
           (jSort?`<span class="pill pill-mut" data-act="jClearSort()" style="cursor:pointer">✨ ${jSortLabel(jSort)} ✕</span>`:'')+`</div>`;
-        if(jSort){ jSortGroups(taskItems,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
-        else { taskItems.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+        if(!_foldTodo){
+          if(jSort){ jSortGroups(taskItems,jSort).forEach(g=>{ html+=`<div class="section-label" style="margin-top:12px;font-weight:600">${g.title} (${g.items.length})</div>`; g.items.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }); }
+          else { taskItems.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
+        }
       }
       if(showRems){ html+=`<div class="section-label" style="margin-top:16px">🔔 ${t('Rappels','תזכורות','Reminders')} (${remCount})</div>`; rdvRems.forEach(o=>html+=jRdvRow(o)); remItems.forEach(o=>html+=jTaskCard(o.t,o.where,o.eff,{reminder:o.reminder,auto:o.auto,jKey:jKey})); }
-      if(showNoDate){ html+=`<div class="section-label" style="margin-top:16px">📌 ${t('Sans date — à planifier','ללא תאריך — לתכנן','No date — to plan')} (${noDate.length})</div>`; noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); }
+      if(showNoDate){ const _foldND=!!jFold.nodate; const _ndMins=noDate.reduce((a,o)=>a+totalDuration(o.t),0); html+=`<div class="section-label" style="margin-top:16px;cursor:pointer" data-act="jToggleFold('nodate')">${_foldND?'▸':'▾'} 📌 ${t('À planifier','לתכנן','To plan')} (${noDate.length})${_ndMins?' · ⏱ '+fmtM(_ndMins):''}</div>`; if(!_foldND){ noDate.slice(0,120).forEach(o=>html+=jTaskCard(o.t,o.where,'',{jKey:jKey})); } }
     }
   } else {
     // — période semaine / mois civil / mois hébraïque : agenda groupé par jour —
@@ -4337,7 +4403,7 @@ function jRdvRow(o){ const t=o.t; const meta=[]; if(t.date) meta.push('🗓 '+fm
 function renderReport(c){
   const now=new Date();
   const dStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Suivi','מעקב','Tracking')}</div><div class="sec-title">${t('Compte rendu','דיווח','Report')}</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-eyebrow">${t('Suivi','מעקב','Tracking')}</div><div class="sec-title">${t("La Dou'h",'דו״ח','Report')}</div></div></div>`;
   const key=journalKey; const j=ensureJournal(key);
   const isToday = key===todayKey();
   const dObj=new Date(key+'T12:00:00');
@@ -4465,8 +4531,17 @@ function dossMoveSheet(){ const d=dossierById(sheet.id); if(!d) return '<div cla
   } else { h+=`<div class="hint">${cur?t('Aucun sous-dossier ici.','אין תת-תיקיות כאן.','No sub-folder here.'):t('Aucun dossier général.','אין תיקיות כלליות.','No general folder.')}</div>`; }
   h+=`</div>`; return h; }
 function newDossier(anchor){ if(!Array.isArray(D.dossiers))D.dossiers=[]; const d=mkDossier(''); if(anchor)d.anchor=anchor; D.dossiers.push(d); save(); openDossier(d.id); }
-function openDossier(id){ nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
-function dossierBack(){ const d=dossierById(nav.dossierId); if(d&&d.parentId&&dossierById(d.parentId)){ nav={...nav,view:'dossier',dossierId:d.parentId}; render(); return; } const a=d&&d.anchor; if(a&&a.kind==='month'){ nav={view:'calendar',monthId:a.id,feteId:null,eventId:null,ctx:'fete'}; } else if(a&&a.kind==='theme'){ nav={view:'themes'}; themeNav=a.id; } else { nav={view:'bdd'}; bddNav=null; } render(); }
+let _dossFrom=null;   // d'où on est entré dans le monde des dossiers (pour le bouton Retour)
+function openDossier(id){ if(nav.view!=='dossier'){ _dossFrom={view:nav.view, monthId:nav.monthId, feteId:nav.feteId}; } nav={...nav,view:'dossier',dossierId:id}; groupedView=null; selMode=false; selSet={}; openDD=null; render(); }
+function dossierBack(){ const d=dossierById(nav.dossierId);
+  // 1) Sous-dossier → on remonte d'un niveau vers le dossier parent.
+  if(d&&d.parentId&&dossierById(d.parentId)){ nav={...nav,view:'dossier',dossierId:d.parentId}; render(); return; }
+  // 2) Dossier racine : si on est entré depuis le calendrier, on y retourne ; sinon → page des Projets (dossiers).
+  const f=_dossFrom; _dossFrom=null;
+  if(f && f.view==='calendar' && f.monthId){ nav={view:'calendar',monthId:f.monthId,feteId:null,eventId:null,ctx:'fete'}; render(); return; }
+  const a=d&&d.anchor;
+  if(a&&a.kind==='theme'){ nav={view:'themes'}; themeNav=a.id; render(); return; }
+  nav={view:'bdd'}; bddNav=null; render(); }
 function dossSetName(v){ const d=dossierById(nav.dossierId); if(d){ d.name=v; save(); } }
 function _dossFocusTitle(id){ setTimeout(()=>{ try{ const el=document.querySelector('.doss-title-input[data-id="'+id+'"]'); if(el)el.focus(); }catch(e){} },50); }
 function _dossNextTitle(items,from,maxLevel){ for(let j=from;j<items.length;j++){ if(items[j].kind==='title' && (items[j].level||1)<=maxLevel) return j; } return items.length; }
@@ -4502,8 +4577,15 @@ function titleToTaskSheet(){ const d=dossierById(nav.dossierId); const it=d?d.it
     <button class="btn btn-primary btn-block" style="margin-bottom:10px;text-align:left" data-act="_dossTitleToTaskDeep('${sheet.id}')">📦 ${t('Le titre + tout ce qui est dessous','הכותרת + כל מה שמתחתיה','The title + everything below it')}<div style="font-weight:400;font-size:12px;opacity:.8;margin-top:2px">${t('Une tâche, et chaque sous-titre / tâche devient une sous-tâche.','משימה אחת, וכל כותרת משנה / משימה הופכת לתת-משימה.','One task; each subtitle / task becomes a subtask.')}</div></button>
     <button class="btn btn-soft btn-block" style="text-align:left" data-act="_dossTitleToTaskOnly('${sheet.id}')">📄 ${t('Seulement le titre','רק הכותרת','Only the title')}<div style="font-weight:400;font-size:12px;opacity:.8;margin-top:2px">${t('Le contenu en dessous reste tel quel dans le dossier.','התוכן שמתחת נשאר כמו שהוא בתיקייה.','The content below stays as-is in the folder.')}</div></button>
   </div>`; }
-function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.rdv))D.rdv=[]; const r=mkRdv(txt); D.rdv.push(r); save(); openTask(r.id); toast('Transformé en rendez-vous / invitation ✓'); }
-function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
+function dossTitleToDossier(id){ const d=dossierById(nav.dossierId); if(!d)return; const items=d.items; const i=items.findIndex(x=>x.id===id); if(i<0)return; const titleItem=items[i]; const blk=_dossBlock(items,i); const shift=(titleItem.level||1);
+  const children=items.slice(i+1,blk.end).map(x=>{ if(x.kind==='title'){ const c=JSON.parse(JSON.stringify(x)); c.level=Math.max(1,(x.level||1)-shift); return c; } return x; });
+  const nd={id:uid(),type:'dossier',name:(titleItem.text||t('Sans nom','ללא שם','Untitled')),icon:'🗂️',color:d.color||null,parentId:d.id,anchor:null,date:'',recurring:false,items:children};
+  if(!Array.isArray(D.dossiers))D.dossiers=[]; D.dossiers.push(nd);
+  items.splice(i, blk.end-i);
+  delete dossOpen[id]; if(dossEditId===id)dossEditId=null;
+  save(); render(); toast(t('Transformé en dossier ✓','הפך לתיקייה ✓','Turned into a folder ✓')); }
+function dossTitleToRdv(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.rdv))D.rdv=[]; const r=mkRdv(txt); D.rdv.push(r); save(); render(); openTask(r.id); toast('Transformé en rappel ✓'); }
+function dossTitleToReminder(id){ const d=dossierById(nav.dossierId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; const txt=d.items[i].text||''; d.items.splice(i,1); delete dossOpen[id]; if(dossEditId===id)dossEditId=null; if(!Array.isArray(D.inbox))D.inbox=[]; const t=mkTask(txt); t.reminders=[0]; t._isReminder=true; D.inbox.push(t); save(); render(); openQuickTask(t.id); toast('Transformé en rappel ✓'); }
 function dossTaskToTitle(){ const id=editBuf&&editBuf.id; const loc=editBuf&&editBuf._loc; if(!id||!loc||loc.ctx!=='dossier'){ toast('Uniquement pour une tâche de dossier'); return; } const d=dossierById(loc.doId); if(!d)return; const i=d.items.findIndex(x=>x.id===id); if(i<0)return; syncInputs(); const txt=(editBuf.text||'').trim(); const it=mkTitle(txt,1); d.items.splice(i,1,it); dossOpen[it.id]=true; save(); closeSheet(); render(); toast('Tâche transformée en titre ✓'); }
 function dossTitleSet(itemId,v){ const d=dossierById(nav.dossierId); if(!d)return; const it=d.items.find(x=>x.id===itemId); if(it){ it.text=v; save(); } }
 function dossDelTitle(itemId){ const d=dossierById(nav.dossierId); if(!d)return; openDD=null; if(!confirm(t('Supprimer ce titre ? (le contenu en dessous reste)','למחוק את הכותרת? (התוכן שמתחת נשאר)','Delete this title? (the content below stays)'))){ render(); return; } d.items=d.items.filter(x=>x.id!==itemId); save(); render(); }
@@ -4540,6 +4622,7 @@ function dossAddMenu(opts){ opts=opts||{}; const titleId=opts.titleId||null; con
       h+=`<button class="dd-item" data-act="closeDD();dossMoveTitle(${idp},1)">⬇ ${t('Descendre le titre','הורד כותרת','Move title down')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToTask(${idp})">☑️ ${t('Transformer en tâche','הפוך למשימה','Turn into a task')}</button>`;
       h+=`<button class="dd-item" data-act="closeDD();dossTitleToRdv(${idp})">📅 ${t('Transformer en rappel','הפוך לתזכורת','Turn into a reminder')}</button>`;
+      h+=`<button class="dd-item" data-act="closeDD();dossTitleToDossier(${idp})">🗂️ ${t('Transformer en dossier','הפוך לתיקייה','Turn into a folder')}</button>`;
       h+=`<button class="dd-item" style="color:var(--red)" data-act="dossDelTitle(${idp})">🗑 ${t('Supprimer le titre','מחק כותרת','Delete title')}</button>`;
       h+=`<div style="height:1px;background:var(--line-soft);margin:4px 0"></div>`;
     }
@@ -4664,7 +4747,7 @@ function renderDossier(c){
   const d=dossierById(nav.dossierId);
   if(!d){ c.innerHTML=emptyHTML('🗂️',t('Dossier introuvable','התיקייה לא נמצאה','Folder not found'),'','← '+t('Retour','חזרה','Back'),'dossierBack()'); return; }
   let html=`<div class="bc"><span class="bc-item" data-act="dossierBack()">‹ ${t('Retour','חזרה','Back')}</span><span class="bc-sep">▸</span><span class="bc-item active">${d.icon||'🗂️'} ${esc(d.name||t('Dossier','תיקייה','Folder'))}</span></div>`;
-  html+=`${d.date?`<div style="margin:12px 0 6px"><span style="display:inline-flex;align-items:center;gap:7px;background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:13px;padding:6px 14px;border-radius:20px">📅 ${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}${d.recurring?' · ↻ '+t('chaque année','כל שנה','yearly'):''}</span></div>`:''}`;
+  html+=`${d.date?`<div style="margin:12px 0 6px"><span style="display:inline-flex;align-items:center;gap:7px;background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:13px;padding:6px 14px;border-radius:20px">📅 ${esc(lang==='he'?hebrewDate(d.date):civilDate(d.date))}${d.recurring?` · <span title="${t('Chaque année','כל שנה','Every year')}">↻</span>`:''}</span></div>`:''}`;
   html+=`<div class="field" style="margin-top:${d.date?'0':'12px'};margin-bottom:12px"><input class="input" value="${esc(d.name)}" placeholder="${t('Nom du dossier (ex. Organisation Pourim)','שם התיקייה (למשל ארגון פורים)','Folder name (e.g. Purim organization)')}" onchange="dossSetName(this.value)" style="font-size:24px;font-weight:800;letter-spacing:-.6px;padding:12px 14px"></div>`;
   // En-tête compact : 3 boutons-icônes ronds (couleur, date, récurrence), chacun ouvre un menu déroulant.
   html+=`<div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap">
@@ -4707,7 +4790,10 @@ function renderDossier(c){
   </div>`;
   html+=`${d.public?`<div style="margin:-4px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px">🎯 ${esc(d.public)}</span></div>`:''}`;
   const items=d.items||[];
-  let idx=0;
+  const firstTitle=items.findIndex(x=>x.kind==='title');
+  const hasTitles=firstTitle>=0;
+  // 1) Les sections (titres) d'abord.
+  let idx = hasTitles?firstTitle:items.length;
   while(idx<items.length){
     const it=items[idx];
     if(it.kind==='title'){
@@ -4716,7 +4802,7 @@ function renderDossier(c){
       const mid = editing
         ? `<input class="input doss-title-input" data-id="${it.id}" value="${esc(it.text)}" placeholder="${lvl===2?t('Sous-titre…','כותרת משנה…','Subtitle…'):t('Titre de section…','כותרת מקטע…','Section title…')}" onchange="dossTitleCommit('${it.id}',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:${fs};border:none;border-radius:0;background:transparent;padding:4px 2px">`
         : `<span data-act="dossToggle('${it.id}')" style="flex:1;min-width:0;cursor:pointer;font-weight:700;font-size:${fs};padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${it.text?'':'color:var(--ink-soft);font-weight:500'}">${esc(it.text||(lvl===2?t('Sous-titre…','כותרת משנה…','Subtitle…'):t('Titre de section…','כותרת מקטע…','Section title…')))}</span>`;
-      html+=`<div style="display:flex;align-items:center;gap:5px;margin:${lvl===2?'10px':'16px'} 0 8px;margin-left:${ind}px;border-bottom:${bord};padding-bottom:2px">`+
+      html+=`<div class="dosstitle-row${lvl===1?' drag-row':''}"${lvl===1?` data-dragkind="dosstitle" data-dragid="${it.id}"`:''} style="display:flex;align-items:center;gap:5px;margin:${lvl===2?'10px':'16px'} 0 8px;margin-left:${ind}px;border-bottom:${bord};padding-bottom:2px">`+
         `<span data-act="dossToggle('${it.id}')" style="cursor:pointer;opacity:.55;font-size:13px;width:15px;text-align:center;flex:none">${open?'▾':'▸'}</span>`+
         mid+
         dossAddMenu({titleId:it.id,level:lvl})+
@@ -4731,6 +4817,14 @@ function renderDossier(c){
     } else {
       html+=dossItemHTML(it,0);
       idx++;
+    }
+  }
+  // 2) Les tâches libres (hors section) en bas.
+  if(hasTitles){
+    const loose=items.slice(0,firstTitle);
+    if(loose.length){
+      html+=`<div class="section-label" style="margin-top:18px">✅ ${t('Tâches','משימות','Tasks')}</div>`;
+      loose.forEach(it=>{ html+=dossItemHTML(it,0); });
     }
   }
   const devs=dossierEvents(d.id);
@@ -4862,7 +4956,7 @@ function renderBDD(c){
     c.innerHTML=html; return;
   }
   // — accueil : Dossiers uniquement —
-  let html=`<div class="sec"><div><div class="sec-title">${t('Dossiers','תיקיות','Folders')}</div></div></div>`;
+  let html=`<div class="sec"><div><div class="sec-title">${t('Projets','פרויקטים','Projects')}</div></div></div>`;
   const sdoss=dossiersStandalone();
   if(sdoss.length){ html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:4px;margin-bottom:6px">${dossLayoutToggleHTML()}</div>`; html+=dossierListHTML(sdoss,'root'); }
   else { html+=`<div class="hint" style="margin-top:8px">${t('Un dossier est un plan libre (titres + tâches). Touche le + en bas à droite pour créer ton premier dossier.','תיקייה היא תוכנית חופשית (כותרות ומשימות). גע ב-+ למטה מימין ליצירת התיקייה הראשונה.','A folder is a free plan (titles + tasks). Tap the + at bottom right to create your first one.')}</div>`; }
@@ -5146,7 +5240,7 @@ function provPickSheet(){ _provInit(); const kids=provChildren(_provPickNav); co
 }
 // Rendu d'un prestataire rattaché (référence vivante vers le carnet).
 function provRefHTML(provId, rmAct){ const p=provById(provId); const nm=p?(p.name||t('Sans nom','ללא שם','No name')):t('Prestataire supprimé','ספק נמחק','Deleted supplier'); const ph=p?(p.phone||''):'';
-  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-weight:700">📇 ${esc(nm)}</div>${(ph&&ph.trim())?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn btn-soft btn-sm" data-act="_dial('${esc(ph)}')">📞 ${esc(ph)}</button><button class="btn btn-soft btn-sm" data-act="_waLink('${esc(ph)}')">💬</button></div>`:''}</div>${rmAct?`<span data-act="${rmAct}" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span>`:''}</div></div>`; }
+  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-weight:700${p?';cursor:pointer':''}"${p?` data-act="provOpen('${provId}')"`:''}>📇 ${esc(nm)}${p?' <span class="chev" style="font-size:12px;opacity:.6">›</span>':''}</div>${(ph&&ph.trim())?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn btn-soft btn-sm" data-act="_dial('${esc(ph)}')">📞 ${esc(ph)}</button><button class="btn btn-soft btn-sm" data-act="_waLink('${esc(ph)}')">💬</button></div>`:''}</div>${rmAct?`<span data-act="${rmAct}" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span>`:''}</div></div>`; }
 function dossPickProv(titleId){ openProvPick({ctx:'dossier',titleId:(titleId&&titleId!=='null')?titleId:null}); }
 let _supId=null;
 function addSupplier(){ const n=prompt(t('Nom du prestataire :','שם הספק:','Supplier name:')); if(!n||!n.trim())return; const s={id:uid(),name:n.trim(),info:'',prestations:[]}; D.suppliers.push(s); save(); _supId=s.id; sheet={type:'supplier'}; renderOverlay(); }
@@ -5554,11 +5648,33 @@ document.addEventListener('pointerup', _endDrag);
 // ---------- APPUI LONG SUR UNE TÂCHE → MODE SÉLECTION (remplace le bouton « Sélectionner ») ----------
 let _lpTimer=null, _lpStart=null;
 document.addEventListener('pointerdown', function(ev){
+  if(_drag) return;
+  // — Appui long 2 s sur un TITRE de dossier → démarrer le glisser-déposer de la section —
+  const titleRow=ev.target.closest('.dosstitle-row.drag-row[data-dragkind="dosstitle"]');
+  if(titleRow && !(typeof selMode!=='undefined' && selMode)){
+    _lpStart={x:ev.clientX,y:ev.clientY};
+    if(_lpTimer)clearTimeout(_lpTimer);
+    const _pid=ev.pointerId;
+    _lpTimer=setTimeout(function(){
+      _lpTimer=null;
+      _drag={ row:titleRow, kind:'dosstitle', pid:_pid, handle:titleRow };
+      _dragMoved=false; titleRow.classList.add('dragging');
+      _dragScroller=titleRow.closest('.main')||document.getElementById('main');
+      if(_dragScroller){ _dragScroller.style.touchAction='none'; _dragScroller.style.overflowY='hidden'; }
+      try{ titleRow.setPointerCapture(_pid); }catch(e){}
+      _dragSuppressClick=true; setTimeout(function(){ _dragSuppressClick=false; },700);
+      try{ if(navigator.vibrate)navigator.vibrate(30); }catch(e){}
+    }, 2000);
+    return;
+  }
   if(typeof selMode!=='undefined' && selMode) return;      // déjà en sélection
   if(ev.target.closest('[data-drag]')) return;             // poignée de glissement
-  const content=ev.target.closest('.drag-row[data-dragkind="task"] .task-content');
+  const content=ev.target.closest('.drag-row[data-dragkind="task"] .task-content, .jtask-body');
   if(!content) return;
-  const row=content.closest('.drag-row'); const id=row&&row.getAttribute('data-taskid'); if(!id) return;
+  let id; const row=content.closest('.drag-row');
+  if(row){ id=row.getAttribute('data-taskid'); }
+  else { const wr=content.closest('[data-taskid]'); id=wr&&wr.getAttribute('data-taskid'); }
+  if(!id) return;
   _lpStart={x:ev.clientX,y:ev.clientY};
   if(_lpTimer)clearTimeout(_lpTimer);
   _lpTimer=setTimeout(function(){
@@ -5577,6 +5693,18 @@ document.addEventListener('pointerup', _lpEnd);
 document.addEventListener('pointercancel', _lpEnd);
 document.addEventListener('pointercancel', _endDrag);
 function commitDragOrder(kind){
+  if(kind==='dosstitle'){
+    const d=dossierById(nav.dossierId); if(!d||!Array.isArray(d.items)){ render(); return; }
+    const items=d.items; const firstTitle=items.findIndex(x=>x.kind==='title'); if(firstTitle<0){ render(); return; }
+    const lead=items.slice(0,firstTitle);           // tâches libres avant le 1er titre : restent en tête
+    const blocks=[]; let i=firstTitle;
+    while(i<items.length){ if(items[i].kind==='title' && (items[i].level||1)===1){ const blk=_dossBlock(items,i); blocks.push({id:items[i].id, arr:items.slice(i,blk.end)}); i=blk.end; } else { // sécurité : bloc orphelin
+        const blk=_dossBlock(items,i); blocks.push({id:(items[i].id||('x'+i)), arr:items.slice(i,blk.end)}); i=blk.end; } }
+    const order=Array.from(document.querySelectorAll('.drag-row[data-dragkind="dosstitle"]')).map(r=>r.getAttribute('data-dragid'));
+    blocks.sort((a,b)=>{ const ia=order.indexOf(a.id), ib=order.indexOf(b.id); return (ia<0?9999:ia)-(ib<0?9999:ib); });
+    d.items=[].concat(lead, ...blocks.map(b=>b.arr)); // tâches libres + blocs de titres réordonnés
+    save(); render(); return;
+  }
   let arr=null;
   if(kind==='task'){ const ev=curEvent(); arr=ev&&ev.tasks; }
   else if(kind==='fete'){ const m=curMonth(); arr=m&&m.fetes; }
@@ -5599,7 +5727,7 @@ function commitDragOrder(kind){
  openSmartSort,applySort,clearGroup,openJSort,setJSort,jClearSort,jSortLabel,jSortGroups,jFilterToggle,jDisplayMenu,jHideTask,jUnhideTask,toggleJShowHidden,openTemplates,applyTemplate,journalNav,journalToday,validateReport,openReportDay,openTemplateEditor,openTemplateItem,tplAddItem,tplRemoveItem,tplSave,deleteTemplate,
  setFilter,setJTab,bumpCounter,addCounter,editCounter,delCounter,saveNote,setDashRange,openDashExport,copyExport,shareWhatsApp,crExport,crToggleExp,
  openProgramTools,addAnim,editAnim,addSession,togAbs,progPrevM,progNextM,togPaid,toggleGen,delSession,genSessions,openChildren,setChildFilter,setChildDay,addChild,editChild,togChild,renameContainer,renameEvent,renameFeteById,setEventPublic,setEventPublicI,addPublic,editPublic,delPublic,setPublicFilter,openPublics,openTsedaka,tsGive,tsUndo,tsToggleDay,tsSetHour,openAnnonces,annSetDate,annNext,annCopy,annWhatsApp,annExport,evAnnToggle,evAnnSet,
- openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
+ openIdeas,newIdea,editIdea,ideaAddFile,ideaRmAttach,ideaSave,delIdea,ideaToggleMore,ideaAddNote,ideaAttachImage,ideaAttachCamera,ideaAttachVideo,ideaAttachFile,ideaAttachLink,ideaMediaNoteSet,ideaRmMedia,ideaAttrOpen,ideaAttrCancel,ideaAttrPick,ideaAttrBack,ideaAttrMove,ideaAttrDup,_undoDo,openShabbat,shNav,shSetParacha,shTogPresence,shAddPerson,shAssign,shPersonOpen,shPersonSave,shPersonSetTribe,shPersonDel,shSuggest,shPlanCopy,shPlanWA,shPlanExport,shAddRequest,shReqAccept,shReqRefuse,shReqDel,openAllTasks,setAllFilter,addProgramHere,openMonthAdd,openQuickAdd,qaPick,qaPickBack,qaEventTo,qaTaskTo,openImportList,doImportList,_impSyncVal,impNavRoot,impCreateAt,shopAdd,shopToggle,shopDel,shopClearDone,shopFocusAdd,placeAC,placePick,placeBlur,placeOpen,jToggleFold,selAllVisible,bulkDeleteAny,bulkDateOpen,bulkDateApply,bulkDateClear,bulkMoveOpenAny,bulkMoveApplyAny,qaTask,qaEvent,qaFete,qaProgram,qaProgramNamed,qaTaskIndep,qaRdv,qaTaskHere,qaEventHere,qaEventInMonth,qaFeteHere,qaTaskInMonth,qaFeteNamed,qaEventInMonthNamed,qaEventHereNamed,qaTaskInContainer,delFeteById,delEventInMonth,delCurrentEvent,delCurrentContainer,openCoach,coachSend,coachMic,setLang,evMoveTo,evDupTo,setAgMode,agShift,agToday,openDayTasks,exportICS,jDayNav,jDayToday,toggleChildBulk,addChildBulk,toggleProgDates,genFromDates,
  toggleDrawer,navDrawer,openYearMenu,
  toggleDD,closeDD,setJPeriod,jNav,toggleExpand,renderReport,renderThemes,renderBDD,delEventById,cloudPull,cloudPush,cloudStart,
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
@@ -5609,7 +5737,7 @@ function commitDragOrder(kind){
  openThemeEvent,leaveThemeEvent,leaveThemeEventToList,themeAddEvent,themeQuickOpen,themeQuickSheet,
  newDossier,openDossier,openDossierFromTask,dossierBack,dossSetName,dossAddTitle,dossAddSubtitle,dossTitleSet,dossDelTitle,dossAddTask,dossAddTaskUnder,delDossier,
  dossAddNote,dossNoteSet,dossDelItem,dossPickImage,dossPickCamera,dossPickVideo,dossPickFile,dossAddLink,
- dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
+ dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
  addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
