@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a56">
+<meta name="app-build" content="b-2026-08-28-a57">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1227,8 +1227,12 @@ function _parseInvite(txt){
   let d=txt.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
   if(d){ const yy=d[3].length===2?('20'+d[3]):d[3]; res.date=yy+'-'+('0'+d[2]).slice(-2)+'-'+('0'+d[1]).slice(-2); }
   else { const MO={janvier:1,'février':2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,'août':8,aout:8,septembre:9,octobre:10,novembre:11,'décembre':12,decembre:12};
-    const dm=txt.toLowerCase().match(/\b(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})\b/);
+    const MRE='(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)';
+    const dm=txt.toLowerCase().match(new RegExp('\\b(\\d{1,2})\\s+'+MRE+'\\s+(\\d{4})\\b'));
     if(dm){ res.date=dm[3]+'-'+('0'+MO[dm[2]]).slice(-2)+'-'+('0'+dm[1]).slice(-2); }
+    else { const dm2=txt.toLowerCase().match(new RegExp('\\b(\\d{1,2})\\s+'+MRE+'\\b')); // « 30 août » sans année → année à venir
+      if(dm2){ const mo=MO[dm2[2]], day=parseInt(dm2[1]); const now=new Date(); let y=now.getFullYear(); const cand=new Date(y,mo-1,day); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()); if(cand<today) y++; res.date=y+'-'+('0'+mo).slice(-2)+'-'+('0'+day).slice(-2); }
+    }
   }
   const addr=lines.find(l=>/\b(rue|avenue|av\.|bd|boulevard|impasse|chemin|place|all[ée]e|route)\b/i.test(l) || /\b\d{5}\b/.test(l));
   if(addr) res.place=addr.slice(0,90);
@@ -1238,20 +1242,22 @@ function _parseInvite(txt){
 }
 // — Lecture d'image : IA Gemini si une clé est configurée, sinon OCR local gratuit —
 function _geminiKey(){ try{ return localStorage.getItem('sbs_gemini_key')||''; }catch(e){ return ''; } }
-function geminiSetKey(){ const cur=_geminiKey(); const k=prompt(t('Colle ta clé Gemini (AIza…) :','הדבק מפתח Gemini:','Paste your Gemini key (AIza…):'),cur); if(k===null)return; try{ localStorage.setItem('sbs_gemini_key',(k||'').trim()); }catch(e){} renderOverlay(); toast((k||'').trim()?t('Lecture IA activée ✓','AI הופעל ✓','AI reading on ✓'):t('Clé retirée','המפתח הוסר','Key removed')); }
+let _aiErr='';
+function geminiSetKey(){ const cur=_geminiKey(); const k=prompt(t('Colle ta clé Gemini :','הדבק מפתח Gemini:','Paste your Gemini key:'),cur); if(k===null)return; try{ localStorage.setItem('sbs_gemini_key',(k||'').trim()); }catch(e){} renderOverlay(); toast((k||'').trim()?t('Lecture IA activée ✓','AI הופעל ✓','AI reading on ✓'):t('Clé retirée','המפתח הוסר','Key removed')); }
 function geminiClear(){ try{ localStorage.removeItem('sbs_gemini_key'); }catch(e){} renderOverlay(); toast(t('Lecture IA désactivée','AI כבוי','AI reading off')); }
 function _aiGemini(dataUrl,cb){
-  const key=_geminiKey(); if(!key){ cb(null); return; }
+  _aiErr=''; const key=_geminiKey(); if(!key){ cb(null); return; }
   const b64=String(dataUrl).split(',')[1]||''; const mime=(String(dataUrl).match(/^data:([^;]+)/)||[])[1]||'image/jpeg';
-  const prompt="Tu lis une invitation ou une affiche d'événement (français/hébreu). Renvoie UNIQUEMENT un objet JSON avec ces clés (valeur vide si absent) : title (titre/nom de l'événement, ex. \"Mariage de Kevin et Ryan\"), date (AAAA-MM-JJ), time (HH:MM 24h), place (adresse complète), phone, type (mariage, bar-mitsva, brit, farbrenguen, soirée, fête, cours, autre).";
+  const prompt="Tu lis une invitation ou une affiche d'événement (français/hébreu). Renvoie UNIQUEMENT un objet JSON avec ces clés (valeur vide si absent) : title (titre/nom de l'événement, ex. \"Farbrenguen de Haï Eloul\" ou \"Mariage de Kevin et Ryan\"), date (AAAA-MM-JJ ; si l'année manque, déduis l'année à venir), time (HH:MM 24h), place (adresse complète), phone, type (mariage, bar-mitsva, brit, farbrenguen, soirée, fête, cours, autre).";
   const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:mime,data:b64}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}};
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(r=> r.ok ? r.json() : Promise.reject(r.status))
+  // Clé envoyée via l'en-tête moderne (compatible ancien AIza… et nouveau format AQ.…).
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)})
+    .then(async r=>{ const tx=await r.text(); if(!r.ok){ throw new Error(r.status+' '+tx.replace(/\s+/g,' ').slice(0,200)); } return JSON.parse(tx); })
     .then(j=>{ let txt=''; try{ txt=j.candidates[0].content.parts[0].text; }catch(e){} let p={}; try{ p=JSON.parse(txt); }catch(e){ p={}; } cb({title:p.title||'',date:p.date||'',time:p.time||'',place:p.place||'',phone:p.phone||'',type:p.type||''}); })
-    .catch(()=>cb(null));
+    .catch((err)=>{ _aiErr=(err&&err.message)||String(err); cb(null); });
 }
 function _readImage(dataUrl,cb){
-  if(_geminiKey()){ _aiGemini(dataUrl,(res)=>{ if(res && (res.title||res.date||res.place||res.time)){ cb(res); } else { _ocrImage(dataUrl,(txt)=>cb(_parseInvite(txt))); } }); }
+  if(_geminiKey()){ _aiGemini(dataUrl,(res)=>{ if(res && (res.title||res.date||res.place||res.time)){ cb(res); } else { if(_aiErr){ try{ toast(t('Lecture IA échouée : ','שגיאת AI: ','AI failed: ')+_aiErr); }catch(e){} } _ocrImage(dataUrl,(txt)=>cb(_parseInvite(txt))); } }); }
   else { _ocrImage(dataUrl,(txt)=>cb(_parseInvite(txt))); }
 }
 function importTo(dest){
