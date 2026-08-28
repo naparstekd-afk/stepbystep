@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a33">
+<meta name="app-build" content="b-2026-08-27-a34">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1980,6 +1980,36 @@ function renderOverlay(){
     if(typeof renderTimerPill==='function') renderTimerPill();
   } finally { _renderingOverlay=false; }
   if(_overlayDirty){ _overlayDirty=false; renderOverlay(); }
+  _scheduleFitDropdowns();
+}
+// — Repositionne les menus déroulants pour qu'ils tiennent TOUJOURS entièrement à l'écran —
+let _fitRAF=null;
+function _scheduleFitDropdowns(){ if(_fitRAF)cancelAnimationFrame(_fitRAF); _fitRAF=requestAnimationFrame(()=>{ _fitRAF=null; _fitDropdowns(); }); }
+function _fitDropdowns(){
+  try{
+    const menus=document.querySelectorAll('.dd-menu'); if(!menus.length)return;
+    const M=8, vw=window.innerWidth, vh=window.innerHeight;
+    menus.forEach(menu=>{
+      const anchor=menu.parentElement; if(!anchor)return;
+      const ar=anchor.getBoundingClientRect();
+      menu.style.position='fixed'; menu.style.margin='0'; menu.style.transform='none';
+      menu.style.top='0px'; menu.style.left='0px'; menu.style.right='auto'; menu.style.bottom='auto';
+      menu.style.maxWidth=(vw-2*M)+'px'; menu.style.maxHeight='none'; menu.style.overflowY='visible';
+      const mw=menu.offsetWidth, mh=menu.offsetHeight;
+      // Horizontal : aligné sous l'ancre, borné dans l'écran
+      let left = menu.classList.contains('right') ? (ar.right-mw) : ar.left;
+      if(left+mw > vw-M) left = vw-M-mw;
+      if(left < M) left = M;
+      // Vertical : sous l'ancre si ça rentre, sinon au-dessus, sinon collé en haut avec scroll (dernier recours)
+      let top = ar.bottom+5;
+      if(top+mh > vh-M){
+        const above = ar.top-5-mh;
+        if(above >= M){ top = above; }
+        else { top = M; menu.style.maxHeight=(vh-2*M)+'px'; menu.style.overflowY='auto'; }
+      }
+      menu.style.left=left+'px'; menu.style.top=top+'px';
+    });
+  }catch(e){}
 }
 function closeSheet(){ sheet=null; editBuf=null; _ideaBuf=null; moveNav=null; renderOverlay(); }
 function toggleDrawer(open){ drawerOpen=open; renderOverlay(); }
