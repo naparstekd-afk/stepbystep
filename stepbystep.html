@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a45">
+<meta name="app-build" content="b-2026-08-28-a46">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -62,6 +62,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .dp-wdh{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:600;padding:2px 0}
 .dp-day{border:1px solid var(--line-soft);border-radius:8px;padding:5px 2px;text-align:center;cursor:pointer;background:var(--surface)}
 .dp-day.sel{background:var(--primary);color:#fff;border-color:var(--primary)}
+.dp-day.rng{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
+.dp-day.rng .dp-h{color:var(--primary)}
 .dp-day.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
 .dp-day.out{background:var(--surface-2);opacity:.5}
 .dp-day.out .dp-g{color:var(--ink-soft);font-weight:500}
@@ -523,15 +525,15 @@ const nextSt = id => { const i=STATUSES.findIndex(s=>s.id===id); return STATUSES
 
 // ---------- FABRIQUES ----------
 function mkTask(text=''){
-  return {id:uid(),text,responsible:'',status:'todo',duration:5,dependsOn:[],subtasks:[],notes:'',date:'',
+  return {id:uid(),text,responsible:'',status:'todo',duration:5,dependsOn:[],subtasks:[],notes:'',date:'',endDate:'',
     budget:{amount:0,theme:'Divers'},
     material:{type:'buy',note:'',lines:[]},
     recurring:false,repeat:'',reminders:[30],debrief:'',priority:'normale',media:[]};   // repeat : '' | day | week | month | year (se reprogramme quand cochée) ; media : pièces jointes (note/image/vidéo/fichier/lien) ; debrief : note post-événement ; priority : haute/normale/basse
 }
 // Rendez-vous / invitation : élément daté personnel (mariage, brit…), séparé des tâches à faire.
-function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',time:'',place:'',notes:'',reminders:[3],subtasks:[],duration:0,priority:'normale',responsible:'',dependsOn:[],budget:{amount:0,theme:'Divers'},material:{type:'buy',note:'',lines:[]},recurring:false,debrief:''}; }
-function mkEvent(name=''){ return {id:uid(),name,date:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
-function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',recurring:false,events:[]}; }
+function mkRdv(text=''){ return {id:uid(),text,type:'rdv',status:'todo',date:'',endDate:'',time:'',place:'',notes:'',reminders:[3],subtasks:[],duration:0,priority:'normale',responsible:'',dependsOn:[],budget:{amount:0,theme:'Divers'},material:{type:'buy',note:'',lines:[]},recurring:false,debrief:''}; }
+function mkEvent(name=''){ return {id:uid(),name,date:'',endDate:'',recurring:false,tasks:[],report:'',public:''}; }   // report : compte rendu ; public : audience visée
+function mkFete(name='',color='#1E3A6E'){ return {id:uid(),name,color,date:'',endDate:'',recurring:false,events:[]}; }
 // Dossier : plan libre (titres + tâches), plaçable partout. items = suite ordonnée de {kind:'title'} et de tâches.
 function mkDossier(name=''){ return {id:uid(),type:'dossier',name,items:[],anchor:null,parentId:null,color:null,icon:'🗂️',date:'',recurring:false}; }
 function mkTitle(text='',level=1){ return {id:uid(),kind:'title',text,level}; }
@@ -1827,14 +1829,16 @@ function bulkDateOpen(){ if(!selIds().length){ toast(t('Rien de sélectionné','
 function bulkDateSheet(){ const n=selIds().length; return `<div class="sheet-head"><div class="sheet-title">📅 ${t('Dater','תארך','Date')} ${n} ${t('tâche(s)','משימות','task(s)')}</div><button class="sheet-close" data-act="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div class="hint" style="margin-bottom:10px">${t('La même date (et heure) sera appliquée à toutes les tâches sélectionnées.','אותו תאריך (ושעה) יחול על כל המשימות שנבחרו.','The same date (and time) applies to all selected tasks.')}</div>
-    <div class="field"><label class="field-label">${t('Date','תאריך','Date')}</label><input type="date" class="input" id="bulk-date" value="${_bulkDate.date||''}"></div>
+    <div class="row2"><div class="field" style="margin:0"><label class="field-label">${t('Du','מ־','From')}</label><input type="date" class="input" id="bulk-date" value="${_bulkDate.date||''}"></div>
+      <div class="field" style="margin:0"><label class="field-label">${t('Au (optionnel)','עד (אופציונלי)','To (optional)')}</label><input type="date" class="input" id="bulk-end" value="${_bulkDate.end||''}"></div></div>
     <div class="field"><label class="field-label">${t('Heure (optionnel)','שעה (אופציונלי)','Time (optional)')}</label><input type="time" class="input" id="bulk-time" value="${_bulkDate.time||''}"></div>
     <button class="btn btn-primary btn-block" data-act="bulkDateApply()">✓ ${t('Appliquer à tout','החל על הכול','Apply to all')}</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="bulkDateClear()">${t('Retirer la date','הסר תאריך','Remove date')}</button>
   </div>`; }
-function bulkDateApply(){ const de=$('bulk-date'),ti=$('bulk-time'); const iso=de?de.value:''; const tm=ti?ti.value:''; if(!iso){ toast(t('Choisis une date','בחר תאריך','Choose a date')); return; }
-  selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=iso; r.task.time=tm||''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Daté ✓','תוארך ✓','Dated ✓')); }
-function bulkDateClear(){ selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=''; r.task.time=''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Date retirée ✓','התאריך הוסר ✓','Date removed ✓')); }
+function bulkDateApply(){ const de=$('bulk-date'),ti=$('bulk-time'),en=$('bulk-end'); const iso=de?de.value:''; const tm=ti?ti.value:''; const end=en?en.value:''; if(!iso){ toast(t('Choisis une date','בחר תאריך','Choose a date')); return; }
+  const endF=(end&&end>iso)?end:'';
+  selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=iso; r.task.endDate=endF; r.task.time=tm||''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Daté ✓','תוארך ✓','Dated ✓')); }
+function bulkDateClear(){ selIds().forEach(id=>{ const r=findTaskAnywhere(id); if(r&&r.task){ r.task.date=''; r.task.endDate=''; r.task.time=''; } }); save(); selMode=false; selSet={}; sheet=null; render(); toast(t('Date retirée ✓','התאריך הוסר ✓','Date removed ✓')); }
 function bulkMoveOpenAny(){ if(!selIds().length){ toast(t('Rien de sélectionné','לא נבחר כלום','Nothing selected')); return; } _selMoveMode=true; _mvMode='move'; moveNav={}; sheet={type:'bulkMoveAny'}; renderOverlay(); }
 function bulkMoveApplyAny(v){ if(!v)return; const ids=selIds(); let n=0;
   ids.forEach(id=>{ const r=findTaskAnywhere(id); if(!r)return; const arr=taskArrOfLoc(r.loc); if(!arr)return; const i=arr.findIndex(x=>x.id===id); if(i<0)return; const moved=arr.splice(i,1)[0];
@@ -2156,10 +2160,10 @@ function coachMic(){ const SR=window.SpeechRecognition||window.webkitSpeechRecog
 function datedAll(){
   const out=[];
   Object.entries(D.months).forEach(([mId,m])=>m.fetes.forEach(f=>{
-    if(f.date) out.push({iso:f.date,kind:'fete',label:f.name,mId:mId,fId:f.id,color:f.color});
+    if(f.date) out.push({iso:f.date,endIso:f.endDate,kind:'fete',label:f.name,mId:mId,fId:f.id,color:f.color});
     f.events.forEach(e=>{
       const _ecat=e.dossierId||e.themeId;
-      if(e.date) out.push({iso:e.date,kind:'event',label:f.name+' › '+e.name,mId:mId,fId:f.id,eId:e.id,dossierId:_ecat});
+      if(e.date) out.push({iso:e.date,endIso:e.endDate,kind:'event',label:f.name+' › '+e.name,mId:mId,fId:f.id,eId:e.id,dossierId:_ecat});
       const eff0=e.date||f.date||'';
       flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:f.name+' › '+e.name,dossierId:_ecat}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:f.name+' › '+e.name,n:n,dossierId:_ecat})); } });
     });
@@ -2167,10 +2171,10 @@ function datedAll(){
   }));
   Object.entries(D.months).forEach(([mId,m])=>{ const mm=MONTHS.find(x=>x.id===mId); flattenTasks(m.tasks||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:(mm?mm.name:'Mois')}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:(mm?mm.name:'Mois'),n:n})); } }); });
   D.programs.forEach(p=>{
-    if(p.date) out.push({iso:p.date,kind:'fete',label:'📚 '+p.name,pId:p.id,isProgram:true,color:p.color});
+    if(p.date) out.push({iso:p.date,endIso:p.endDate,kind:'fete',label:'📚 '+p.name,pId:p.id,isProgram:true,color:p.color});
     p.events.forEach(e=>{
       const _ecat=e.dossierId||e.themeId;
-      if(e.date) out.push({iso:e.date,kind:'event',label:p.name+' › '+e.name,pId:p.id,eId:e.id,isProgram:true,dossierId:_ecat});
+      if(e.date) out.push({iso:e.date,endIso:e.endDate,kind:'event',label:p.name+' › '+e.name,pId:p.id,eId:e.id,isProgram:true,dossierId:_ecat});
       const eff0=e.date||p.date||'';
       flattenTasks(e.tasks).forEach(t=>{ const iso=t.date||eff0; if(iso){ out.push({iso:iso,kind:'task',t:t,where:p.name+' › '+e.name,dossierId:_ecat}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:p.name+' › '+e.name,n:n,dossierId:_ecat})); } });
     });
@@ -2181,8 +2185,19 @@ function datedAll(){
   // Tâches directes d'un thème (celles qui ont une date) — calendrier / agenda.
   (D.themes||[]).forEach(th=>{ flattenTasks(th.tasks||[]).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:th.name,themeId:th.id,color:th.color}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:th.name,n:n,themeId:th.id,color:th.color})); } }); });
   // Tâches d'un dossier (celles qui ont une date).
-  (D.dossiers||[]).forEach(d=>{ flattenTasks((d.items||[]).filter(x=>!x.kind)).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,kind:'task',t:t,where:(d.icon||'🗂️')+' '+d.name,dossierId:d.id,color:d.color||null}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:(d.icon||'🗂️')+' '+d.name,n:n,dossierId:d.id,color:d.color||null})); } }); });
-  return out;
+  (D.dossiers||[]).forEach(d=>{ flattenTasks((d.items||[]).filter(x=>!x.kind)).forEach(t=>{ const iso=t.date||''; if(iso){ out.push({iso:iso,endIso:t.endDate,kind:'task',t:t,where:(d.icon||'🗂️')+' '+d.name,dossierId:d.id,color:d.color||null}); if(Array.isArray(t.reminders)) t.reminders.forEach(n=>out.push({iso:remIso(iso,n),kind:'reminder',t:t,where:(d.icon||'🗂️')+' '+d.name,n:n,dossierId:d.id,color:d.color||null})); } }); });
+  // — Plages (« du … au … », façon Google Agenda) : un élément daté sur plusieurs jours apparaît chaque jour. —
+  const expanded=[];
+  out.forEach(x=>{
+    expanded.push(x);
+    if(x.kind==='reminder') return;
+    const end = x.endIso || (x.t && x.t.endDate) || '';
+    if(end && x.iso && end>x.iso){
+      let d=new Date(x.iso+'T12:00:00'); const e=new Date(end+'T12:00:00'); d.setDate(d.getDate()+1);
+      for(let i=0;i<400 && d<=e;i++){ expanded.push(Object.assign({},x,{iso:todayKey(d),span:true,spanStart:x.iso,spanEnd:end})); d=new Date(d); d.setDate(d.getDate()+1); }
+    }
+  });
+  return expanded;
 }
 // Couleur/thème d'un élément daté (pour le calendrier coloré).
 function agThemeOf(x){ const id=x&&(x.dossierId||x.themeId); if(id){ const d=(D.dossiers||[]).find(t=>t.id===id); if(d) return d; const th=(D.themes||[]).find(t=>t.id===id); if(th) return th; } return null; }
@@ -2221,11 +2236,12 @@ function dayTasksSheet(){
 function icsEsc(s){ return String(s||'').replace(/[,;]/g,' ').replace(/[\r\n]+/g,' '); }
 function exportICS(){
   const items=datedAll(); const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//stepbystep//Beth Habad//FR','CALSCALE:GREGORIAN']; const seen={};
-  items.forEach(x=>{ if(x.kind==='reminder') return; const iso=x.iso; if(!iso) return;
+  items.forEach(x=>{ if(x.kind==='reminder'||x.span) return; const iso=x.iso; if(!iso) return;
     const title=(x.kind==='fete'?'🎉 ':x.kind==='event'?'📌 ':x.kind==='rdv'?'📅 ':'✅ ')+((x.kind==='task'||x.kind==='rdv')?x.t.text:x.label);
     const uid=((x.kind==='task'||x.kind==='rdv')?x.t.id:(x.fId||x.eId||x.pId||'x'))+'-'+iso+'@stepbystep';
     if(seen[uid]) return; seen[uid]=1;
-    const d=iso.replace(/-/g,''); const dEnd=todayKey(new Date(new Date(iso+'T12:00:00').getTime()+86400000)).replace(/-/g,'');
+    const _end=x.endIso||(x.t&&x.t.endDate)||''; const _endBase=(_end&&_end>iso)?_end:iso;
+    const d=iso.replace(/-/g,''); const dEnd=todayKey(new Date(new Date(_endBase+'T12:00:00').getTime()+86400000)).replace(/-/g,'');
     lines.push('BEGIN:VEVENT'); lines.push('UID:'+uid); lines.push('DTSTART;VALUE=DATE:'+d); lines.push('DTEND;VALUE=DATE:'+dEnd); lines.push('SUMMARY:'+icsEsc(title));
     if(x.kind==='task'&&x.where) lines.push('DESCRIPTION:'+icsEsc(x.where));
     if(x.kind==='task'&&Array.isArray(x.t.reminders)) x.t.reminders.forEach(n=>{ lines.push('BEGIN:VALARM'); lines.push('ACTION:DISPLAY'); lines.push('DESCRIPTION:'+icsEsc('Rappel : '+x.t.text)); if(typeof n==='number'){ lines.push('TRIGGER:-P'+n+'D'); } else { lines.push('TRIGGER;VALUE=DATE-TIME:'+n.replace(/-/g,'')+'T090000'); } lines.push('END:VALARM'); });
@@ -3134,7 +3150,7 @@ function taskSheet(){
       ? `<div style="margin-bottom:8px"><button class="btn btn-soft btn-sm" data-act="openDossierFromTask('${t._loc.doId}')" style="font-size:12.5px;font-weight:700">${esc(parentLabel(t._loc))} ›</button></div>`
       : `<div style="margin-bottom:8px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(parentLabel(t._loc)||('📥 '+TT('Indépendante','עצמאית','Independent')))}</div>`)}
 
-    ${(!isTpl&&(t.date||t.duration||(t.repeat&&t.repeat.freq)))?`<div style="font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${t.date?`<span style="color:var(--primary)">🗓 ${fmtDate(t.date)}${t.time?' · '+t.time:''}</span>`:''}${t.duration?`<span style="color:var(--gold);font-size:11.5px">⏱ ${fmtDurH(t.duration)}</span>`:''}${(t.repeat&&t.repeat.freq)?`<span style="color:var(--gold);font-size:11.5px">${repeatLabel(t.repeat)}</span>`:''}</div>`:''}
+    ${(!isTpl&&(t.date||t.duration||(t.repeat&&t.repeat.freq)))?`<div style="font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${t.date?`<span style="color:var(--primary)">🗓 ${fmtDate(t.date)}${(t.endDate&&t.endDate>t.date)?' → '+fmtDate(t.endDate):''}${t.time?' · '+t.time:''}</span>`:''}${t.duration?`<span style="color:var(--gold);font-size:11.5px">⏱ ${fmtDurH(t.duration)}</span>`:''}${(t.repeat&&t.repeat.freq)?`<span style="color:var(--gold);font-size:11.5px">${repeatLabel(t.repeat)}</span>`:''}</div>`:''}
     <div class="field" style="margin-bottom:10px"><input class="input" id="f-text" value="${esc(t.text)}" placeholder="${isRdv?TT('Nom du rappel (ex. Appeler le traiteur)','שם התזכורת (למשל להתקשר לקייטרינג)','Reminder name (e.g. Call the caterer)'):TT('Que faut-il faire ?','מה צריך לעשות?','What needs to be done?')}" style="font-size:16px;font-weight:500"></div>
 
     ${isRdv?`<div class="field"><label class="field-label">📍 ${TT('Lieu','מקום','Place')}</label>
@@ -3534,12 +3550,13 @@ function ebDuplicateTo(v){ if(!v) return; syncInputs(); saveTask(true);
 }
 function openDatePicker(target){
   if(target==='task'||target==='reminder') syncInputs();
-  let cur='';
-  if(target==='task') cur=editBuf&&editBuf.date;
-  else if(target==='fete'){ const c=curContainer(); cur=c&&c.date; }
-  else if(target==='event'){ const e=curEvent(); cur=e&&e.date; }
+  let cur='',curEnd='';
+  if(target==='task'){ cur=editBuf&&editBuf.date; curEnd=editBuf&&editBuf.endDate; }
+  else if(target==='fete'){ const c=curContainer(); cur=c&&c.date; curEnd=c&&c.endDate; }
+  else if(target==='event'){ const e=curEvent(); cur=e&&e.date; curEnd=e&&e.endDate; }
   const ret=(sheet&&sheet.type==='quickTask')?'quickTask':'task';
   datePicker={target:target, anchor:cur||todayKey(), sel:cur||'', mode:'he', ret:ret,
+    range:!!(curEnd&&curEnd>cur), end:(curEnd&&curEnd>cur)?curEnd:'',
     time:(target==='task'&&editBuf&&editBuf.time)||'',
     repeat:(target==='task'&&editBuf&&editBuf.repeat)?JSON.parse(JSON.stringify(editBuf.repeat)):null};
   sheet={type:'datepick'}; renderOverlay();
@@ -3552,23 +3569,43 @@ function dpHebShift(dir){ const a=new Date((datePicker.anchor||todayKey())+'T12:
   const ap=hebParts(a); let d=new Date(a); d.setDate(d.getDate()-(ap.day-1)); if(dir<0){ d.setDate(d.getDate()-1); } else { let cur=new Date(d); for(let i=0;i<32;i++){ cur.setDate(cur.getDate()+1); const cp=hebParts(cur); if(cp.month!==ap.month||cp.year!==ap.year){ d=cur; break; } } } datePicker.anchor=todayKey(d); renderOverlay(); }
 function dpToday(){ datePicker.anchor=todayKey(); if(datePicker.target==='task'){ datePicker.sel=todayKey(); if(datePicker.repeat) datePicker.repeat.start=todayKey(); } renderOverlay(); }
 function dpPick(iso){
-  const t=datePicker.target;
+  const dp=datePicker; const t=dp.target;
+  // Mode « période » (façon Google Agenda) : 1er tap = début, 2e tap = fin ; un tap avant le début redéfinit le début.
+  if(dp.range && iso){
+    if(!dp.sel || dp.end){ dp.sel=iso; dp.end=''; }
+    else if(iso<dp.sel){ dp.sel=iso; dp.end=''; }
+    else if(iso===dp.sel){ dp.end=''; }
+    else { dp.end=iso; }
+    if(t==='task' && dp.repeat) dp.repeat.start=dp.sel;
+    renderOverlay(); return;
+  }
   // Pour une tâche : on sélectionne sans fermer, afin de choisir aussi l'heure et la répétition.
-  if(t==='task'){ datePicker.sel=iso; if(datePicker.repeat) datePicker.repeat.start=iso; renderOverlay(); return; }
+  if(t==='task'){ dp.sel=iso; dp.end=''; if(dp.repeat) dp.repeat.start=iso; renderOverlay(); return; }
   datePicker=null;
   if(t==='reminder'){ if(iso){ if(!Array.isArray(editBuf.reminders))editBuf.reminders=[]; if(!editBuf.reminders.includes(iso))editBuf.reminders.push(iso); } sheet={type:'task'}; renderOverlay(); }
-  else if(t==='fete'){ const c=curContainer(); if(c){c.date=iso; save();} closeSheet(); render(); }
-  else if(t==='event'){ const e=curEvent(); if(e){e.date=iso; save();} closeSheet(); render(); }
+  else if(t==='fete'){ const c=curContainer(); if(c){c.date=iso; c.endDate=''; save();} closeSheet(); render(); }
+  else if(t==='event'){ const e=curEvent(); if(e){e.date=iso; e.endDate=''; save();} closeSheet(); render(); }
+}
+// Bascule un jour ↔ période.
+function dpSetRange(v){ const dp=datePicker; if(!dp)return; dp.range=!!v; if(!dp.range) dp.end=''; renderOverlay(); }
+// Valide la date (ou la période) d'une fête / d'un événement puis ferme.
+function dpConfirmDate(){
+  const dp=datePicker; if(!dp)return; const t=dp.target;
+  const start=dp.sel||''; const end=(dp.range&&dp.end&&dp.end>start)?dp.end:'';
+  if(t==='fete'){ const c=curContainer(); if(c){ c.date=start; c.endDate=end; save(); } }
+  else if(t==='event'){ const e=curEvent(); if(e){ e.date=start; e.endDate=end; save(); } }
+  datePicker=null; closeSheet(); render();
 }
 // Valide la date + heure + répétition d'une tâche puis revient à la fiche d'origine.
 function dpConfirmTask(){
   const dp=datePicker; if(!dp)return;
   editBuf.date=dp.sel||'';
+  editBuf.endDate=(dp.sel&&dp.range&&dp.end&&dp.end>dp.sel)?dp.end:'';
   editBuf.time=dp.sel?(dp.time||''):'';
   editBuf.repeat=(dp.sel&&dp.repeat&&dp.repeat.freq)?JSON.parse(JSON.stringify(dp.repeat)):null;
   const ret=dp.ret||'task'; datePicker=null; sheet={type:ret}; renderOverlay();
 }
-function dpClear(){ if(datePicker&&datePicker.target==='task'){ datePicker.sel=''; datePicker.time=''; datePicker.repeat=null; dpConfirmTask(); return; } dpPick(''); }
+function dpClear(){ if(datePicker&&datePicker.target==='task'){ datePicker.sel=''; datePicker.end=''; datePicker.time=''; datePicker.repeat=null; dpConfirmTask(); return; } if(datePicker){ datePicker.sel=''; datePicker.end=''; } dpConfirmDate(); }
 function dpClose(){ const dp=datePicker; datePicker=null; if(dp&&(dp.target==='task'||dp.target==='reminder')){ sheet={type:(dp.ret||'task')}; renderOverlay(); } else { closeSheet(); } }
 // --- Heure + règle de répétition (façon Google Agenda) ---
 function dpTime(v){ if(datePicker) datePicker.time=v; }
@@ -3644,6 +3681,12 @@ function renderTimerPill(){
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && _tmrRun){ tmrTick(); } });
 window.addEventListener('focus',()=>{ if(_tmrRun) tmrTick(); });
 function dpSetMode(m){ datePicker.mode=m; renderOverlay(); }
+function _dpDayCls(dp,iso,isOut){
+  if(dp.sel===iso || (dp.range&&dp.end&&dp.end===iso)) return ' sel';
+  if(dp.range && dp.sel && dp.end && iso>dp.sel && iso<dp.end) return ' rng';
+  if(iso===todayKey() && !isOut) return ' today';
+  return '';
+}
 function datePickSheet(){
   const dp=datePicker;
   const a=new Date((dp.anchor||todayKey())+'T12:00:00');
@@ -3659,8 +3702,8 @@ function datePickSheet(){
     for(let i=lead;i>0;i--){ const d=new Date(y,mo,1-i); grid.push({g:d,out:true}); }
     for(let dnum=1;dnum<=last.getDate();dnum++){ grid.push({g:new Date(y,mo,dnum),out:false}); }
     let nx=1; while(grid.length%7!==0){ grid.push({g:new Date(y,mo+1,nx++),out:true}); }
-    grid.forEach(cellObj=>{ const dy=cellObj.g; const iso=todayKey(dy); const seld=dp.sel===iso; const isTd=iso===todayKey(); const hp=hebParts(dy);
-      cells+='<div class="dp-day'+(cellObj.out?' out':'')+(seld?' sel':(isTd&&!cellObj.out?' today':''))+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.getDate()+'</div><div class="dp-h">'+hp.day+'</div></div>';
+    grid.forEach(cellObj=>{ const dy=cellObj.g; const iso=todayKey(dy); const hp=hebParts(dy);
+      cells+='<div class="dp-day'+(cellObj.out?' out':'')+_dpDayCls(dp,iso,cellObj.out)+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.getDate()+'</div><div class="dp-h">'+hp.day+'</div></div>';
     });
   } else {
     // \u2014 Vue h\u00e9bra\u00efque : mois h\u00e9bra\u00efque complet \u2014
@@ -3673,8 +3716,8 @@ function datePickSheet(){
     secHdr=g1.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' \u2013 '+g2.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
     const startW=days[0].g.getDay();
     for(let i=0;i<startW;i++) cells+='<div></div>';
-    days.forEach(dy=>{ const iso=todayKey(dy.g); const seld=dp.sel===iso; const isTd=iso===todayKey();
-      cells+='<div class="dp-day'+(seld?' sel':(isTd?' today':''))+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.hd+'</div><div class="dp-h">'+(dy.g.getDate()+'/'+(dy.g.getMonth()+1))+'</div></div>';
+    days.forEach(dy=>{ const iso=todayKey(dy.g);
+      cells+='<div class="dp-day'+_dpDayCls(dp,iso,false)+'" data-act="dpPick(\''+iso+'\')"><div class="dp-g">'+dy.hd+'</div><div class="dp-h">'+(dy.g.getDate()+'/'+(dy.g.getMonth()+1))+'</div></div>';
     });
   }
   const wd=['D','L','M','M','J','V','S'];
@@ -3723,7 +3766,14 @@ function datePickSheet(){
     : `<div style="display:flex;gap:9px;margin-top:14px">
         <button class="btn btn-soft btn-block" data-act="dpToday()">Aujourd'hui</button>
         <button class="btn btn-ghost btn-block" data-act="dpClear()">Effacer</button>
-      </div>`;
+      </div>
+      ${dp.range?`<button class="btn btn-primary btn-block" style="margin-top:9px" data-act="dpConfirmDate()">OK</button>`:''}`;
+  const rangeUI = `
+    <div class="toggle-group" style="margin-bottom:10px">
+      <button class="toggle-opt ${!dp.range?'active':''}" data-act="dpSetRange(false)">📅 ${t('Un jour','יום אחד','One day')}</button>
+      <button class="toggle-opt ${dp.range?'active':''}" data-act="dpSetRange(true)">↔️ ${t('Une période','טווח','A range')}</button>
+    </div>
+    ${dp.range?`<div style="text-align:center;font-size:12.5px;font-weight:600;color:var(--primary);margin:-2px 0 10px">${dp.sel?('📅 '+fmtDate(dp.sel)+(dp.end?(' → '+fmtDate(dp.end)):(' → <span style="color:var(--ink-soft);font-weight:500">'+t('touche le jour de fin','בחר יום סיום','tap the end day')+'</span>'))):('<span style="color:var(--ink-soft);font-weight:500">'+t('Touche le jour de début','בחר יום התחלה','Tap the start day')+'</span>')}</div>`:''}`;
   return `<div class="sheet-head"><div class="sheet-title">🕎 Choisir une date</div><button class="sheet-close" data-act="dpClose()">✕</button></div>
   <div class="sheet-body">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -3735,6 +3785,7 @@ function datePickSheet(){
       <button class="toggle-opt ${dp.mode==='he'?'active':''}" data-act="dpSetMode('he')">🕎 Hébreu</button>
       <button class="toggle-opt ${dp.mode==='fr'?'active':''}" data-act="dpSetMode('fr')">📅 Grégorien</button>
     </div>
+    ${rangeUI}
     <div class="dp-grid${dp.mode==='fr'?'':' rtl'}">${wd.map(w=>`<div class="dp-wdh">${w}</div>`).join('')}</div>
     <div class="dp-grid${dp.mode==='fr'?'':' rtl'}" style="margin-top:4px">${cells}</div>
     ${taskExtra}
@@ -4254,7 +4305,8 @@ function _dayComplete(t,jKey){ const subs=t.subtasks||[]; if(!subs.length) retur
 function jTaskCard(t,where,eff,opt){ opt=opt||{};
   const st=stOf(t.status); const late=eff&&eff<todayKey()&&t.status!=='done';
   const remTag=opt.reminder?`<span class="tag" style="background:var(--gold-soft);color:var(--gold)">🔔 ${remLabel(opt.reminder)}</span>`:'';
-  const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ ':'📅 '}${fmtDate(eff)}</span>`:'';
+  const _rngTxt=(t.endDate&&eff&&t.endDate>eff)?(' → '+fmtDate(t.endDate)):'';
+  const dateTag=eff?`<span class="tag" style="${late?'background:var(--red-soft);color:var(--red)':'background:var(--primary-soft);color:var(--primary)'}">${late?'⏰ ':'📅 '}${fmtDate(eff)}${_rngTxt}</span>`:'';
   const prio=t.priority==='haute'?`<span class="tag" style="background:var(--red-soft);color:var(--red)">🔴 ${TT('Prioritaire','דחוף','Priority')}</span>`:'';
   // En vue « Ma journée » (opt.jKey), on masque les sous-tâches datées PLUS TARD et non faites :
   // elles apparaissent à leur date prévue, pas dans la liste du jour. Les sous-tâches faites restent visibles.
@@ -4345,6 +4397,7 @@ function renderJournal(c){
       if(t.priority==='haute'){ open.push({t,where,eff,pinned:true}); return; }
       if(Array.isArray(t.reminders)){ let rem=null; t.reminders.forEach(n=>{ const ri=remIso(eff,n); if(ri&&ri===jKey) rem=n; }); if(rem!=null){ open.push({t,where,eff,reminder:rem}); return; } }
       if(t.pinDay){ open.push({t,where,eff}); return; }
+      if(t.endDate && eff && jKey>=eff && jKey<=t.endDate){ open.push({t,where,eff,span:(jKey!==eff)}); return; }
       if(!eff){ if(isJToday) noDate.push({t,where,eff:''}); return; }
       if(eff===jKey || (eff<realToday)){ open.push({t,where,eff}); return; }
       if(_subMatch(t,jKey,jKey)) open.push({t,where,eff,auto:true});
@@ -4529,7 +4582,8 @@ function dossierById(id){ return (D.dossiers||[]).find(x=>x.id===id); }
 function dossierEvents(dId){ const out=[]; Object.entries(D.months||{}).forEach(([mId,m])=>(m.fetes||[]).forEach(f=>(f.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,mId,fId:f.id}); }))); (D.programs||[]).forEach(p=>(p.events||[]).forEach(e=>{ if((e.dossierId||e.themeId)===dId) out.push({e,pId:p.id,isProgram:true}); })); return out; }
 function dossSetColor(cl){ const d=dossierById(nav.dossierId); if(d){ d.color=(d.color===cl?null:cl); save(); render(); } }
 function dossSetIcon(){ const d=dossierById(nav.dossierId); if(!d)return; const v=prompt('Icône du dossier (emoji) :',d.icon||'🗂️'); if(v===null)return; d.icon=(v.trim()||'🗂️'); save(); render(); }
-function dossSetDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.date=val||''; save(); render(); }
+function dossSetDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.date=val||''; if(d.endDate&&d.endDate<=d.date) d.endDate=''; save(); render(); }
+function dossSetEndDate(val){ const d=dossierById(nav.dossierId); if(!d)return; d.endDate=(val&&d.date&&val>d.date)?val:''; save(); render(); }
 function dossToggleRecurring(){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!d.recurring; save(); render(); }
 function dossSetRecurring(v){ const d=dossierById(nav.dossierId); if(!d)return; d.recurring=!!v; save(); render(); }
 // Tri des dossiers : A→Z par défaut ; si l'utilisateur a réordonné manuellement (champ .ord), on respecte cet ordre.
@@ -4797,7 +4851,8 @@ function renderDossier(c){
         <button class="dd-item" data-act="closeDD();dossSetIcon()">✏️ ${t("Changer l'emoji",'שנה אמוji','Change emoji')}</button>
       </div>`:''}
     </span>
-    <label class="cbtn" title="${t('Date','תאריך','Date')}" style="position:relative;overflow:hidden;cursor:pointer;${d.date?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">📅<input type="date" value="${d.date||''}" onchange="dossSetDate(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0"></label>
+    <label class="cbtn" title="${t('Date (début)','תאריך (התחלה)','Date (start)')}" style="position:relative;overflow:hidden;cursor:pointer;${d.date?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">📅<input type="date" value="${d.date||''}" onchange="dossSetDate(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0"></label>
+    ${d.date?`<label class="cbtn" title="${t('Date de fin (période)','תאריך סיום (טווח)','End date (range)')}" style="position:relative;overflow:hidden;cursor:pointer;${d.endDate?'border-color:var(--gold);color:var(--gold);background:var(--gold-soft)':''}">↦<input type="date" value="${d.endDate||''}" min="${d.date}" onchange="dossSetEndDate(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0"></label>`:''}
     <span class="dd" style="position:relative;display:inline-block">
       <button class="cbtn" data-act="toggleDD('dossrec')" title="${t('Récurrence','חזרתיות','Recurrence')}" style="${d.recurring?'border-color:var(--gold);background:var(--gold-soft)':''}">${d.recurring?'🔄':'1️⃣'}</button>
       ${openDD==='dossrec'?`<div class="dd-menu">
@@ -4827,6 +4882,7 @@ function renderDossier(c){
     ${dossAddMenu({root:true,round:true})}
   </div>`;
   html+=`${d.public?`<div style="margin:-4px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px">🎯 ${esc(d.public)}</span></div>`:''}`;
+  if(d.date){ html+=`<div style="margin:-4px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px">📅 ${(d.endDate&&d.endDate>d.date)?(t('Du','מ־','From')+' '+fmtDate(d.date)+' '+t('au','עד','to')+' '+fmtDate(d.endDate)):fmtDate(d.date)}</span></div>`; }
   const items=d.items||[];
   const firstTitle=items.findIndex(x=>x.kind==='title');
   const hasTitles=firstTitle>=0;
@@ -5055,7 +5111,7 @@ function computeRange(mode){
   notes.sort((a,b)=>a.date<b.date?1:-1);
   // compteurs de tâches (missions) sur la plage
   let taskTotal=0, taskDone=0;
-  datedAll().forEach(x=>{ if(x.kind==='reminder'||x.kind==='rdv'||!x.t)return; const iso=x.iso; if(iso&&iso>=from&&iso<=to){ taskTotal++; if(x.t.status==='done') taskDone++; } });
+  datedAll().forEach(x=>{ if(x.kind==='reminder'||x.kind==='rdv'||x.span||!x.t)return; const iso=x.iso; if(iso&&iso>=from&&iso<=to){ taskTotal++; if(x.t.status==='done') taskDone++; } });
   return {from,to,label,totals,notes,days,taskTotal,taskDone};
 }
 function fmtDate(k){ try{return new Date(k).toLocaleDateString(_jLocale(),{day:'numeric',month:'short'});}catch(e){return k;} }
@@ -5899,7 +5955,7 @@ function commitDragOrder(kind){
  dossAddSub,dossMoveOpen,dossMoveTo,dossMoveNavTo,dossDupTo,dossMoveToMonth,dossDupToMonth,dossToggle,dossEditTitle,dossTitleCommit,dossMoveTitle,dossTitleToTask,_dossTitleToTaskOnly,_dossTitleToTaskDeep,dossTitleToRdv,dossTitleToReminder,dossTitleToDossier,dossTaskToTitle,qaReminder,eventThemeToggle,eventLinkTheme,thSetName,thSetIcon,thSetColor,cleanupThemes,dossSetColor,dossSetIcon,dossSetDate,dossToggleRecurring,dossSetRecurring,dossResetCycle,dossAnnToggle,dossAnnSet,dossSetPublic,dossSetPublicI,convertMonthToDossiers,convertAllToDossiers,dossSaveAsTemplate,dossInsertTemplateMenu,dossApplyTemplate,dossDelTemplate,dossRenameTemplate,dossDuplicate,openSearch,searchUpdate,searchGo,doUndo,doRedo,dossierEvents,setDossLayout,dossierTileHTML,dossierListHTML,dossLayoutToggleHTML,
  newBddCat,delBddCat,bddAddItem,bddEditItem,bddAddSub,delBddSub,openBddCat,openBddSub,openBddAdd,ensureBddCat,bddHome,bddGoCat,bddQuickCat,bddAddSheet,openTemplateEditor,
  ebTogglePrio,ebToggleDur,ebToggleMore,ebToggleMove,ebToggleExport,ebReveal,ebRemoveField,ebAttachNote,ebAttachImage,ebAttachCamera,ebAttachVideo,ebAttachFile,ebAttachLink,ebRmMedia,ebMediaNoteSet,ebDurSelect,ebDurMode,ebDurPick,ebDurManual,ebDeleteTask,ebContactSync,ebContactRefresh,ebContactPickByName,ebContactEdit,ebContactDone,contactCall,contactWA,taskExport,expWA,setMenuHidden,
- addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
+ addSupplier,editSupplier,openSupplier,spRename,spSetInfo,spAddPrestation,spDelPrestation,spDelSupplier,provOpenFolder,provOpen,provNewProv,provNewFolder,provRenameFolder,provDelFolder,provSet,provDelete,_dial,_waLink,provToggleMore,provAddNote,provAttachImage,provAttachCamera,provAttachVideo,provAttachFile,provAttachLink,provMediaNoteSet,provRmMedia,openProvPick,provPickNav,provPickChoose,ebAttachProv,dossPickProv,exportData,importData,openExport,expRun,expImportFile,resetData,setContainerDate,setEventDate,setEventDesc,evShowDesc,setContainerRecurring,setEventRecurring,setShopRange,ebMoveTo,ebDuplicateTo,mvOpen,mvOpenDup,mvClose,mvOpenMonths,mvOpenDossiers,mvDoss,mvUp,mvMonth,mvProgram,mvFete,mvTheme,mvSec,mvMove,mvDup,mvCreateEvent,mvCreateFete,mvCreateProgram,openDatePicker,dpHebShift,dpToday,dpPick,dpClear,dpSetMode,dpClose,dpConfirmTask,dpConfirmDate,dpSetRange,dpTime,dpRepeatToggle,dpRepFreq,dpRepInterval,dpRepDay,dpRepEnd,dpRepEndDate,dpRepCount,repeatLabel,openTimer,tmrStart,tmrPause,tmrReset,tmrClose,tmrMinimize,tmrReopen,tmrStop,setLabel,selStart,selStop,selToggle,selClear,selAllEvent,bulkStatus,bulkDelete,bulkMoveOpen,bulkMoveTo,openDebrief,dbSave,dbClose
 ].forEach(fn=>{ if(typeof fn==='function') window[fn.name]=fn; });
 
 function migrateMaterials(){
