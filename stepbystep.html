@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a52">
+<meta name="app-build" content="b-2026-08-28-a53">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1161,14 +1161,16 @@ async function gateRespClaim(){ // déjà connecté, il a juste un code à saisi
 // ============================================================
 //  IMPORT D'IMAGE (invitation, liste de tâches, idée…) + OCR sur l'appareil
 // ============================================================
-let _importImg=null, _importStep='choose', _importBusy=false, _importFields=null;
+let _importImg=null, _importStep='choose', _importBusy=false, _importFields=null, _importDoss=null;
 function openImport(){ toggleDrawer(false);
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
   inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; _ebCompressImage(f,(m)=>{ _importImg={data:m.data,name:m.name||'image.jpg'}; _importStep='choose'; _importBusy=false; _importFields=null; sheet={type:'import'}; renderOverlay(); }); };
   inp.click();
 }
 function importClose(){ _importImg=null; _importStep='choose'; _importBusy=false; _importFields=null; closeSheet(); }
-function importStep(s){ _importStep=s; renderOverlay(); }
+function importStep(s){ _importStep=s; if(s==='dossier')_importDoss=null; renderOverlay(); }
+function importDossNav(id){ _importDoss=id; renderOverlay(); }
+function importDossBack(){ const c=_importDoss?dossierById(_importDoss):null; _importDoss=(c&&c.parentId)?c.parentId:null; renderOverlay(); }
 function importSheet(){
   if(!_importImg) return `<div class="sheet-head"><div class="sheet-title">📥 ${t('Importer','ייבוא','Import')}</div><button class="sheet-close" data-act="importClose()">✕</button></div><div class="sheet-body"><div class="hint">${t('Aucune image.','אין תמונה.','No image.')}</div></div>`;
   const thumb=`<img src="${_importImg.data}" style="max-width:100%;max-height:180px;border-radius:10px;display:block;margin:0 auto 14px;box-shadow:var(--sh)">`;
@@ -1177,12 +1179,22 @@ function importSheet(){
     <div class="sheet-body" style="text-align:center">${thumb}<div style="color:var(--ink-soft);font-size:14px;padding:10px 0">⟳ ${t('Lecture du texte en cours… (quelques secondes)','קורא טקסט…','Reading text… (a few seconds)')}</div></div>`;
   }
   if(_importStep==='dossier'){
-    const list=(D.dossiers||[]).filter(d=>d.type!=='prov');
-    return `<div class="sheet-head"><div class="sheet-title">🗂️ ${t('Dans quel dossier ?','לאיזו תיקייה?','Into which folder?')}</div><button class="sheet-close" data-act="importClose()">✕</button></div>
-    <div class="sheet-body">${thumb}
-      ${list.length?list.map(d=>`<button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:7px" data-act="importPickDossier('${d.id}')">${esc((d.icon||'🗂️')+' '+d.name)}</button>`).join(''):`<div class="hint">${t('Aucun dossier. Crée-en un d\'abord.','אין תיקיות.','No folder yet.')}</div>`}
-      <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="importStep('choose')">← ${t('Retour','חזרה','Back')}</button>
-    </div>`;
+    const cur=_importDoss?dossierById(_importDoss):null;
+    const subs=cur?dossierChildren(cur.id):(D.dossiers||[]).filter(d=>!d.parentId && d.type!=='prov');
+    const titles=cur?((cur.items||[]).filter(x=>x.kind==='title')):[];
+    let crumb='';
+    if(cur){ const path=[]; let p=cur; while(p){ path.unshift(p); p=p.parentId?dossierById(p.parentId):null; }
+      crumb='<div class="bc" style="margin-bottom:8px"><span class="bc-item" data-act="importDossNav(\'\')">🗂️</span>'+path.map((x,i)=>'<span class="bc-sep">▸</span>'+(i===path.length-1?('<span class="bc-item active">'+esc(x.name)+'</span>'):('<span class="bc-item" data-act="importDossNav(\''+x.id+'\')">'+esc(x.name)+'</span>'))).join('')+'</div>';
+    }
+    const hereBtn = cur?`<button class="btn btn-primary btn-block" style="margin-bottom:10px" data-act="importPickDossier('${cur.id}','')">✓ ${t('Déposer ici (dans','שמור כאן (ב','Drop here (in')} ${esc(cur.name)})</button>`:'';
+    let subsHtml='';
+    if(subs.length){ subsHtml=`<div class="section-label">📁 ${cur?t('Sous-dossiers','תת-תיקיות','Subfolders'):t('Dossiers','תיקיות','Folders')}</div>`+subs.map(d=>`<button class="btn btn-soft btn-block" style="justify-content:space-between;margin-bottom:7px" data-act="importDossNav('${d.id}')"><span>${esc((d.icon||'🗂️')+' '+d.name)}</span><span style="opacity:.6">›</span></button>`).join(''); }
+    else if(!cur){ subsHtml=`<div class="hint">${t('Aucun dossier. Crée-en un d\'abord.','אין תיקיות.','No folder yet.')}</div>`; }
+    let titlesHtml='';
+    if(cur && titles.length){ titlesHtml=`<div class="section-label" style="margin-top:12px">🏷️ ${t('Sous un titre précis','תחת כותרת','Under a specific title')}</div>`+titles.map(ti=>`<button class="btn btn-ghost btn-block" style="justify-content:flex-start;margin-bottom:6px" data-act="importPickDossier('${cur.id}','${ti.id}')">▸ ${esc(ti.text||'—')}</button>`).join(''); }
+    const backBtn = `<button class="btn btn-ghost btn-block" style="margin-top:10px" data-act="${cur?'importDossBack()':"importStep('choose')"}">← ${t('Retour','חזרה','Back')}</button>`;
+    return `<div class="sheet-head"><div class="sheet-title">🗂️ ${t('Où exactement ?','היכן בדיוק?','Where exactly?')}</div><button class="sheet-close" data-act="importClose()">✕</button></div>
+    <div class="sheet-body">${thumb}${crumb}${hereBtn}${subsHtml}${titlesHtml}${backBtn}</div>`;
   }
   return `<div class="sheet-head"><div class="sheet-title">📥 ${t('Où ranger cette image ?','לאן לשמור?','Where to put this image?')}</div><button class="sheet-close" data-act="importClose()">✕</button></div>
   <div class="sheet-body">${thumb}
@@ -1234,10 +1246,13 @@ function importTo(dest){
     return;
   }
 }
-function importPickDossier(did){
+function importPickDossier(did,titleId){
   const d=dossierById(did); if(!d){ importClose(); return; }
-  _importBusy=true; _importStep='choose'; renderOverlay();
-  _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(p.date)tk.date=p.date; if(!Array.isArray(d.items))d.items=[]; d.items.push(tk); save(); _importImg=null; _importBusy=false; nav={...nav,view:'dossier',dossierId:did}; sheet=null; render(); toast(t('Ajouté au dossier ✓','נוסף לתיקייה ✓','Added to folder ✓')); });
+  _importBusy=true; renderOverlay();
+  _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(p.date)tk.date=p.date;
+    if(!Array.isArray(d.items))d.items=[];
+    if(titleId){ const idx=d.items.findIndex(x=>x.id===titleId); if(idx>=0){ d.items.splice(idx+1,0,tk); } else d.items.push(tk); } else d.items.push(tk);
+    save(); _importImg=null; _importBusy=false; _importDoss=null; _importStep='choose'; nav={...nav,view:'dossier',dossierId:did}; sheet=null; render(); toast(t('Ajouté au dossier ✓','נוסף לתיקייה ✓','Added to folder ✓')); });
 }
 
 // ---- Panneau Association / Collaborateurs / Admin (superposition) ----
@@ -5386,7 +5401,7 @@ function renderBDD(c){
 // ============================================================
 //  DVAR TORAH — arborescence de contenus (dossiers, sous-dossiers, fiches note + image)
 // ============================================================
-let dvarNav=null, _dvarEntry=null;
+let dvarNav=null, _dvarEntry=null, _dvarMore=false;
 function dvarById(id){ return (D.dvar||[]).find(x=>x.id===id); }
 function dvarChildren(pid){ return (D.dvar||[]).filter(x=>x.parentId===(pid||null)); }
 function dvarPath(id){ const out=[]; let cur=dvarById(id); while(cur){ out.unshift(cur); cur=cur.parentId?dvarById(cur.parentId):null; } return out; }
@@ -5394,16 +5409,33 @@ function louvahDvar(){ drawerOpen=false; dvarNav=null; setView('dvar'); }
 function dvarOpen(id){ dvarNav=id; render(); }
 function dvarBack(){ const cur=dvarNav?dvarById(dvarNav):null; dvarNav=(cur&&cur.parentId)?cur.parentId:null; render(); }
 function dvarAddFolder(){ const n=prompt(t('Nom du dossier :','שם התיקייה:','Folder name:'),''); if(n===null)return; const f={id:uid(),kind:'folder',name:(n||'').trim()||t('Dossier','תיקייה','Folder'),parentId:dvarNav||null,created:todayKey()}; if(!Array.isArray(D.dvar))D.dvar=[]; D.dvar.push(f); save(); render(); }
-function dvarAddEntry(){ const e={id:uid(),kind:'entry',title:'',note:'',media:[],parentId:dvarNav||null,created:todayKey()}; if(!Array.isArray(D.dvar))D.dvar=[]; D.dvar.push(e); save(); _dvarEntry=e.id; sheet={type:'dvarEntry'}; renderOverlay(); setTimeout(()=>{const el=$('dvar-title');if(el)el.focus();},60); }
+function dvarAddEntry(){ const e={id:uid(),kind:'entry',title:'',note:'',media:[],parentId:dvarNav||null,created:todayKey()}; if(!Array.isArray(D.dvar))D.dvar=[]; D.dvar.push(e); save(); _dvarEntry=e.id; _dvarMore=false; sheet={type:'dvarEntry'}; renderOverlay(); setTimeout(()=>{const el=$('dvar-title');if(el)el.focus();},60); }
 function dvarRenameFolder(id){ const f=dvarById(id); if(!f)return; const n=prompt(t('Renommer :','שנה שם:','Rename:'),f.name||''); if(n===null)return; f.name=(n||'').trim()||f.name; save(); render(); }
 function dvarDelFolder(id){ const f=dvarById(id); if(!f)return; const kids=[...dvarDescIds(id)]; if(!confirm(t('Supprimer ce dossier et tout son contenu ?','למחוק תיקייה זו וכל תוכנה?','Delete this folder and all its content?'))) return; D.dvar=(D.dvar||[]).filter(x=>!kids.includes(x.id)); save(); render(); }
 function dvarDescIds(id){ const out=new Set([id]); let add=true; while(add){ add=false; (D.dvar||[]).forEach(x=>{ if(x.parentId && out.has(x.parentId) && !out.has(x.id)){ out.add(x.id); add=true; } }); } return out; }
-function dvarOpenEntry(id){ _dvarEntry=id; sheet={type:'dvarEntry'}; renderOverlay(); }
+function dvarOpenEntry(id){ _dvarEntry=id; _dvarMore=false; sheet={type:'dvarEntry'}; renderOverlay(); }
 function dvarSetTitle(v){ const e=dvarById(_dvarEntry); if(e){ e.title=v; save(); } }
 function dvarSetNote(v){ const e=dvarById(_dvarEntry); if(e){ e.note=v; save(); } }
 function dvarDelEntry(){ const e=dvarById(_dvarEntry); if(!e)return; if(!confirm(t('Supprimer cette fiche ?','למחוק כרטיס זה?','Delete this entry?'))) return; D.dvar=(D.dvar||[]).filter(x=>x.id!==e.id); _dvarEntry=null; save(); closeSheet(); render(); }
-function dvarAttachImage(){ const e=dvarById(_dvarEntry); if(!e)return; const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return; _ebCompressImage(f,(m)=>{ if(!Array.isArray(e.media))e.media=[]; e.media.push({id:uid(),kind:'media',mtype:'image',data:m.data,name:m.name}); save(); renderOverlay(); toast(t('Image ajoutée ✓','תמונה נוספה ✓','Image added ✓')); }); }; inp.click(); }
+function dvarSyncFields(){ const e=dvarById(_dvarEntry); if(!e)return; const ti=$('dvar-title'); if(ti)e.title=ti.value; const no=$('dvar-note'); if(no)e.note=no.value; }
+function dvarToggleMore(){ dvarSyncFields(); _dvarMore=!_dvarMore; renderOverlay(); }
+function _dvarAddMedia(m){ const e=dvarById(_dvarEntry); if(!e)return; if(!Array.isArray(e.media))e.media=[]; m.id=uid(); m.kind=m.kind||'media'; e.media.push(m); _dvarMore=false; save(); renderOverlay(); toast(t('Ajouté ✓','נוסף ✓','Added ✓')); }
+function dvarAddNote(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e)return; if(!Array.isArray(e.media))e.media=[]; e.media.push({id:uid(),kind:'note',text:''}); _dvarMore=false; save(); renderOverlay(); }
+function dvarAttachImage(){ dvarSyncFields(); const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(f)_ebCompressImage(f,_dvarAddMedia); }; inp.click(); }
+function dvarAttachCamera(){ dvarSyncFields(); const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(f)_ebCompressImage(f,_dvarAddMedia); }; inp.click(); }
+function dvarAttachVideo(){ dvarSyncFields(); const inp=document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return; if(f.size>2.5*1024*1024){ toast(t('Vidéo trop lourde (max ~2,5 Mo). Ajoute plutôt un lien.','וידאו כבד מדי','Video too large')); return; } const rd=new FileReader(); rd.onload=()=>_dvarAddMedia({mtype:'video',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function dvarAttachFile(){ dvarSyncFields(); const inp=document.createElement('input'); inp.type='file'; inp.accept='.pdf,.doc,.docx,.txt,.csv,image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return; if(f.size>2*1024*1024){ toast(t('Fichier trop lourd (max 2 Mo). Utilise plutôt un lien.','קובץ כבד מדי','File too large')); return; } const rd=new FileReader(); rd.onload=()=>_dvarAddMedia({mtype:'file',data:rd.result,name:f.name,ftype:f.type}); rd.readAsDataURL(f); }; inp.click(); }
+function dvarAttachLink(){ dvarSyncFields(); const url=prompt(t('Colle le lien (https://…) :','הדבק קישור:','Paste the link (https://…):'),''); if(url===null||!url.trim())return; let u=url.trim(); if(!/^https?:\/\//i.test(u)&&!/^mailto:|^tel:/i.test(u)) u='https://'+u; const nm=prompt(t('Nom du lien (optionnel) :','שם הקישור:','Link name (optional):'),'')||''; _dvarAddMedia({mtype:'link',url:u,name:nm.trim()}); }
+function dvarMediaNoteSet(mid,v){ const e=dvarById(_dvarEntry); if(!e)return; const m=(e.media||[]).find(x=>x.id===mid); if(m){ m.text=v; save(); } }
 function dvarRmMedia(mid){ const e=dvarById(_dvarEntry); if(!e)return; e.media=(e.media||[]).filter(x=>x.id!==mid); save(); renderOverlay(); }
+function dvarMediaHTML(m){ let inner='';
+  if(m.kind==='note'){ inner=`<textarea class="textarea" onchange="dvarMediaNoteSet('${m.id}',this.value)" placeholder="${t('Note, texte libre…','הערה…','Note…')}" style="min-height:60px;width:100%">${esc(m.text||'')}</textarea>`; }
+  else if(m.mtype==='image'){ inner=`<img src="${m.data}" style="max-width:100%;border-radius:8px;display:block">`; }
+  else if(m.mtype==='video'){ inner=`<video src="${m.data}" controls playsinline style="max-width:100%;border-radius:8px"></video>`; }
+  else if(m.mtype==='link'){ inner=`<a href="${esc(m.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;font-weight:600">🔗 ${esc(m.name||m.url)}</a>`; }
+  else { inner=`<a href="${m.data}" download="${esc(m.name||'fichier')}" style="color:var(--primary);font-weight:600">📎 ${esc(m.name||'Fichier')}</a>`; }
+  return `<div class="card" style="padding:9px 11px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0">${inner}</div><span data-act="dvarRmMedia('${m.id}')" style="cursor:pointer;color:var(--red);font-size:13px;flex:none">🗑</span></div></div>`;
+}
 function renderDvar(c){
   const cur=dvarNav?dvarById(dvarNav):null;
   const folders=dvarChildren(dvarNav).filter(x=>x.kind==='folder');
@@ -5435,8 +5467,18 @@ function dvarEntrySheet(){
     <div class="field"><label class="field-label">📝 ${t('Note','הערה','Note')}</label>
       <textarea class="textarea" id="dvar-note" placeholder="${t('Écris ton Dvar Torah, tes idées, ton texte…','כתוב כאן…','Write your text here…')}" style="min-height:230px;line-height:1.5" onchange="dvarSetNote(this.value)">${esc(e.note||'')}</textarea>
     </div>
-    <button class="btn btn-soft btn-block" data-act="dvarAttachImage()" style="margin-bottom:10px">＋ 🖼️ ${t('Ajouter une image','הוסף תמונה','Add an image')}</button>
-    ${media.length?media.map(m=>`<div class="card" style="padding:8px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><img src="${m.data}" style="max-width:100%;border-radius:8px;display:block"></div><span data-act="dvarRmMedia('${m.id}')" style="cursor:pointer;color:var(--red);font-size:13px">🗑</span></div></div>`).join(''):''}
+    ${media.length?`<div class="section-label">📎 ${t('Contenu','תוכן','Content')}</div>${media.map(m=>dvarMediaHTML(m)).join('')}`:''}
+    <div class="dd" style="margin:8px 0 4px">
+      <button class="dd-btn" data-act="dvarToggleMore()">＋ ${t('Ajouter','הוספה','Add')} ▾</button>
+      ${_dvarMore?`<div class="dd-menu">
+        <button class="dd-item" data-act="dvarAddNote()">📝 ${t('Note','הערה','Note')}</button>
+        <button class="dd-item" data-act="dvarAttachImage()">🖼️ ${t('Image','תמונה','Image')}</button>
+        <button class="dd-item" data-act="dvarAttachCamera()">📷 ${t('Caméra','מצלמה','Camera')}</button>
+        <button class="dd-item" data-act="dvarAttachVideo()">🎬 ${t('Vidéo','וידאו','Video')}</button>
+        <button class="dd-item" data-act="dvarAttachFile()">📎 ${t('Fichier','קובץ','File')}</button>
+        <button class="dd-item" data-act="dvarAttachLink()">🔗 ${t('Lien','קישור','Link')}</button>
+      </div>`:''}
+    </div>
     <button class="btn btn-ghost btn-block" style="color:var(--red);margin-top:6px" data-act="dvarDelEntry()">🗑 ${t('Supprimer la fiche','מחק כרטיס','Delete entry')}</button>
   </div>`;
 }
@@ -6391,8 +6433,9 @@ function commitDragOrder(kind){
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
- openImport,importClose,importStep,importTo,importPickDossier,
+ openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,
  louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
+ dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
