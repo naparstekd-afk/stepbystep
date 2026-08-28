@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a49">
+<meta name="app-build" content="b-2026-08-28-a50">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1158,6 +1158,88 @@ async function gateRespClaim(){ // déjà connecté, il a juste un code à saisi
   catch(e){ _gateBusy=false; _gateMsg(/code_invalide/.test(e.message)?t('Code invalide.','קוד שגוי.','Invalid code.'):(e.message||'Erreur')); }
 }
 
+// ============================================================
+//  IMPORT D'IMAGE (invitation, liste de tâches, idée…) + OCR sur l'appareil
+// ============================================================
+let _importImg=null, _importStep='choose', _importBusy=false, _importFields=null;
+function openImport(){ toggleDrawer(false);
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; _ebCompressImage(f,(m)=>{ _importImg={data:m.data,name:m.name||'image.jpg'}; _importStep='choose'; _importBusy=false; _importFields=null; sheet={type:'import'}; renderOverlay(); }); };
+  inp.click();
+}
+function importClose(){ _importImg=null; _importStep='choose'; _importBusy=false; _importFields=null; closeSheet(); }
+function importStep(s){ _importStep=s; renderOverlay(); }
+function importSheet(){
+  if(!_importImg) return `<div class="sheet-head"><div class="sheet-title">📥 ${t('Importer','ייבוא','Import')}</div><button class="sheet-close" data-act="importClose()">✕</button></div><div class="sheet-body"><div class="hint">${t('Aucune image.','אין תמונה.','No image.')}</div></div>`;
+  const thumb=`<img src="${_importImg.data}" style="max-width:100%;max-height:180px;border-radius:10px;display:block;margin:0 auto 14px;box-shadow:var(--sh)">`;
+  if(_importBusy){
+    return `<div class="sheet-head"><div class="sheet-title">🔎 ${t('Analyse de l\'image…','מנתח…','Reading image…')}</div></div>
+    <div class="sheet-body" style="text-align:center">${thumb}<div style="color:var(--ink-soft);font-size:14px;padding:10px 0">⟳ ${t('Lecture du texte en cours… (quelques secondes)','קורא טקסט…','Reading text… (a few seconds)')}</div></div>`;
+  }
+  if(_importStep==='dossier'){
+    const list=(D.dossiers||[]).filter(d=>d.type!=='prov');
+    return `<div class="sheet-head"><div class="sheet-title">🗂️ ${t('Dans quel dossier ?','לאיזו תיקייה?','Into which folder?')}</div><button class="sheet-close" data-act="importClose()">✕</button></div>
+    <div class="sheet-body">${thumb}
+      ${list.length?list.map(d=>`<button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:7px" data-act="importPickDossier('${d.id}')">${esc((d.icon||'🗂️')+' '+d.name)}</button>`).join(''):`<div class="hint">${t('Aucun dossier. Crée-en un d\'abord.','אין תיקיות.','No folder yet.')}</div>`}
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" data-act="importStep('choose')">← ${t('Retour','חזרה','Back')}</button>
+    </div>`;
+  }
+  return `<div class="sheet-head"><div class="sheet-title">📥 ${t('Où ranger cette image ?','לאן לשמור?','Where to put this image?')}</div><button class="sheet-close" data-act="importClose()">✕</button></div>
+  <div class="sheet-body">${thumb}
+    <div class="hint" style="margin-bottom:12px">${t('Choisis la destination. Pour un rappel, je lis la date, l\'heure et l\'adresse sur l\'image (à vérifier).','בחר יעד. עבור תזכורת אקרא תאריך/שעה/כתובת.','Pick a destination. For a reminder I read the date, time and address from the image (please check).')}</div>
+    <button class="btn btn-primary btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importTo('rappel')">🔔 ${t('Rappel (invitation : date, lieu…)','תזכורת','Reminder (invitation: date, place…)')}</button>
+    <button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importTo('journal')">📅 ${t('Ma Journée (tâche aujourd\'hui)','היום שלי','My Day (task today)')}</button>
+    <button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importTo('task')">✅ ${t('Tâche (à planifier)','משימה','Task (to plan)')}</button>
+    <button class="btn btn-soft btn-block" style="justify-content:flex-start;margin-bottom:8px" data-act="importStep('dossier')">🗂️ ${t('Dans un dossier','לתיקייה','Into a folder')}</button>
+    <button class="btn btn-soft btn-block" style="justify-content:flex-start" data-act="importTo('idea')">💡 ${t('Idée','רעיון','Idea')}</button>
+  </div>`;
+}
+function _importMedia(){ return {id:uid(),kind:'media',mtype:'image',data:_importImg.data,name:_importImg.name}; }
+// OCR sur l'appareil (Tesseract.js) — chargé à la demande.
+function _loadTesseract(cb){ if(window.Tesseract){ cb(true); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js'; s.onload=()=>cb(!!window.Tesseract); s.onerror=()=>cb(false); document.head.appendChild(s); }
+function _ocrImage(dataUrl,cb){
+  _loadTesseract(ok=>{ if(!ok||!window.Tesseract){ cb(''); return; }
+    try{ window.Tesseract.recognize(dataUrl,'fra+heb').then(r=>cb((r&&r.data&&r.data.text)||'')).catch(()=>cb('')); }
+    catch(e){ cb(''); }
+  });
+}
+function _parseInvite(txt){
+  txt=String(txt||''); const lines=txt.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  const res={title:'',date:'',time:'',place:'',phone:''};
+  const ph=txt.match(/\+?\d[\d .()\-]{7,}\d/); if(ph) res.phone=ph[0].trim();
+  const tm=txt.match(/\b(\d{1,2})\s*[h:]\s*(\d{2})\b/i); if(tm){ res.time=('0'+tm[1]).slice(-2)+':'+tm[2]; }
+  let d=txt.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
+  if(d){ const yy=d[3].length===2?('20'+d[3]):d[3]; res.date=yy+'-'+('0'+d[2]).slice(-2)+'-'+('0'+d[1]).slice(-2); }
+  else { const MO={janvier:1,'février':2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,'août':8,aout:8,septembre:9,octobre:10,novembre:11,'décembre':12,decembre:12};
+    const dm=txt.toLowerCase().match(/\b(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})\b/);
+    if(dm){ res.date=dm[3]+'-'+('0'+MO[dm[2]]).slice(-2)+'-'+('0'+dm[1]).slice(-2); }
+  }
+  const addr=lines.find(l=>/\b(rue|avenue|av\.|bd|boulevard|impasse|chemin|place|all[ée]e|route)\b/i.test(l) || /\b\d{5}\b/.test(l));
+  if(addr) res.place=addr.slice(0,90);
+  const kw=lines.find(l=>/(mariage|bar.?mitsva|bat.?mitsva|brit|farb|hillou?la|soir[ée]e|f[êe]te|invitation|חתונה|בר מצווה)/i.test(l));
+  res.title=(kw || lines.filter(l=>l.length>=4 && l!==addr).sort((a,b)=>b.length-a.length)[0] || t('Invitation','הזמנה','Invitation')).slice(0,80);
+  return res;
+}
+function importTo(dest){
+  if(!_importImg) return;
+  if(dest==='idea'){ const idn={id:uid(),title:'',text:'',attachments:[],media:[_importMedia()],created:todayKey()}; if(!Array.isArray(D.ideas))D.ideas=[]; D.ideas.push(idn); save(); _ideaBuf=JSON.parse(JSON.stringify(idn)); _importImg=null; sheet={type:'idea'}; renderOverlay(); setTimeout(()=>{const e=$('idea-title');if(e)e.focus();},60); toast(t('Idée créée ✓','רעיון נוצר ✓','Idea created ✓')); return; }
+  if(dest==='task'||dest==='journal'){
+    _importBusy=true; renderOverlay();
+    _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(dest==='journal') tk.date=todayKey(); if(!Array.isArray(D.inbox))D.inbox=[]; D.inbox.push(tk); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(tk)); sheet={type:'task'}; renderOverlay(); toast(t('Tâche créée ✓','משימה נוצרה ✓','Task created ✓')); });
+    return;
+  }
+  if(dest==='rappel'){
+    _importBusy=true; renderOverlay();
+    _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const r=mkRdv(p.title||t('Invitation','הזמנה','Invitation')); r.date=p.date||''; r.time=p.time||''; r.place=p.place||''; if(p.phone)r.notes=(t('Tél. :','טל:','Tel:')+' '+p.phone); r.media=[_importMedia()]; if(!Array.isArray(D.rdv))D.rdv=[]; D.rdv.push(r); save(); _importImg=null; _importBusy=false; editBuf=JSON.parse(JSON.stringify(r)); sheet={type:'task'}; renderOverlay(); toast(t('Rappel créé ✓ — vérifie les champs','תזכורת נוצרה ✓','Reminder created ✓ — check the fields')); });
+    return;
+  }
+}
+function importPickDossier(did){
+  const d=dossierById(did); if(!d){ importClose(); return; }
+  _importBusy=true; _importStep='choose'; renderOverlay();
+  _ocrImage(_importImg.data,(txt)=>{ const p=_parseInvite(txt); const tk=mkTask(p.title||t('Image importée','תמונה','Imported image')); tk.media=[_importMedia()]; if(p.date)tk.date=p.date; if(!Array.isArray(d.items))d.items=[]; d.items.push(tk); save(); _importImg=null; _importBusy=false; nav={...nav,view:'dossier',dossierId:did}; sheet=null; render(); toast(t('Ajouté au dossier ✓','נוסף לתיקייה ✓','Added to folder ✓')); });
+}
+
 // ---- Panneau Association / Collaborateurs / Admin (superposition) ----
 function _closeOrgPanel(){ const el=document.getElementById('org-panel'); if(el) el.remove(); }
 async function openOrgPanel(){
@@ -1593,6 +1675,7 @@ function headerHTML(){
   return `<div class="hdr">
     <div class="hdr-logo" data-act="openOrgPanel()"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">${esc((_org&&_org.name)||'')}</span></span></div>
     <div class="hdr-spacer"></div>
+    <button class="hdr-menu-btn" data-act="openImport()" title="${t('Importer une image','ייבא תמונה','Import an image')}" style="margin-inline-end:6px">📥</button>
     <button class="hdr-menu-btn" data-act="openSearch()" title="${t('Rechercher','חיפוש','Search')}" style="margin-inline-end:6px">🔍</button>
     <button class="hdr-year" data-act="openYearMenu()">${D.year}</button>
     <button class="hdr-menu-btn" data-act="toggleDrawer(true)">☰</button>
@@ -2326,17 +2409,18 @@ function drawerHTML(){
       ['_soon','👥',t('Collaboration temps réel','שיתוף בזמן אמת','Real-time Collaboration'),'SaaS'],
     ]],
     [t('SYSTÈME','מערכת','SYSTEM'),[
+      ['_import','📥',t('Importer une image','ייבא תמונה','Import an image'),null],
       ['_backups','🛟',t('Sauvegardes & sécurité','גיבויים','Backups & Safety'),null],
       ['settings','⚙️',t('Réglages','הגדרות','Settings'),null],
     ]],
   ];
   let body='';
   items.forEach(([sec,list])=>{
-    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_soon'||v==='templates'||v==='hevents'||menuVisible(v));
+    const vis=list.filter(([v])=>v==='journal'||v==='settings'||v==='_backups'||v==='_import'||v==='_soon'||v==='templates'||v==='hevents'||menuVisible(v));
     if(!vis.length) return;
     if(sec) body+=`<div class="drawer-sec">${sec}</div>`; else body+=`<div style="height:10px"></div>`;
     vis.forEach(([v,ic,label,badge])=>{
-      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
+      const act = v==='_soon' ? `toast('Disponible dans la version complète de stepbystep')` : v==='_backups' ? `toggleDrawer(false);openBackups()` : v==='_import' ? `openImport()` : v==='coach' ? `toggleDrawer(false);openCoach()` : v==='templates' ? `toggleDrawer(false);openTemplates()` : `navDrawer('${v}')`;
       const col=MENU_COL[v]||_palColor(v+label);
       body+=`<button class="drawer-item" data-act="${act}"><span class="ic-badge" style="background:${col}">${ic}</span>${label}${badge?`<span class="badge">${badge}</span>`:''}</button>`;
     });
@@ -3295,6 +3379,7 @@ function sheetHTML(){
   else if(sheet.type==='backups') inner=backupSheet();
   else if(sheet.type==='respAdmin') inner=respAdminSheet();
   else if(sheet.type==='hevOrg') inner=hevOrgSheet();
+  else if(sheet.type==='import') inner=importSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -6247,6 +6332,7 @@ function commitDragOrder(kind){
  renderGate,gateLogin,gateSignup,gateCreateOrg,gateJoinOrg,gatePickOrg,authLogout,orgSwitch,openOrgPanel,orgCopyCode,orgRemoveMember,orgLeave,
  respAdminOpen,respCreateInvite,respRevokeInvite,respCopyCode,respToggleTask,gateRespSignup,gateRespClaim,
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
+ openImport,importClose,importStep,importTo,importPickDossier,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
  newTheme,openTheme,themesHome,renameTheme,delTheme,addActivityToTheme,themeAddTask,themeAssignTo,themeAssignSync,
