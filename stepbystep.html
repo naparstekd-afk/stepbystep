@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a50">
+<meta name="app-build" content="b-2026-08-28-a51">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -1675,7 +1675,6 @@ function headerHTML(){
   return `<div class="hdr">
     <div class="hdr-logo" data-act="openOrgPanel()"><span class="stars">✦</span><span class="hdr-brand">stepbystep<span class="hdr-brand-sub">${esc((_org&&_org.name)||'')}</span></span></div>
     <div class="hdr-spacer"></div>
-    <button class="hdr-menu-btn" data-act="openImport()" title="${t('Importer une image','ייבא תמונה','Import an image')}" style="margin-inline-end:6px">📥</button>
     <button class="hdr-menu-btn" data-act="openSearch()" title="${t('Rechercher','חיפוש','Search')}" style="margin-inline-end:6px">🔍</button>
     <button class="hdr-year" data-act="openYearMenu()">${D.year}</button>
     <button class="hdr-menu-btn" data-act="toggleDrawer(true)">☰</button>
