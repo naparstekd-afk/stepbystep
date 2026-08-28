@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-28-a64">
+<meta name="app-build" content="b-2026-08-28-a65">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -752,6 +752,7 @@ function _dataScore(o){ if(!o||typeof o!=='object') return -1; let n=0;
     (o.dvar||[]).forEach(x=>{ n+=1; if(Array.isArray(x.media)) n+=x.media.length; });   // Dvar Torah (fiches + pièces jointes)
     n+=(o.checks||[]).length;                                                            // Vérifications
     (o.dossierTemplates||[]).forEach(tp=>{ n+=1+((tp.items||[]).length); });             // modèles de dossier
+    (o.dvarTemplates||[]).forEach(tp=>{ n+=1+((tp.media||[]).length); });                 // modèles de fiche Dvar Torah
   }catch(e){}
   return n;
 }
@@ -3156,7 +3157,7 @@ function annWhatsApp(){ const el=$('ann-text'); if(!el)return; window.open('http
 function annExport(fmt){ const el=$('ann-text'); const txt=el?el.value:''; const sh=annAnchor||nextShabbat(); const name='Annonces_Chabbat_'+sh;
   if(fmt==='txt'){ dlFile(name+'.txt','text/plain;charset=utf-8',txt); toast('Texte téléchargé'); return; }
   if(fmt==='csv'){ const lines=txt.split(/\r?\n/).map(l=>'"'+l.replace(/"/g,'""')+'"'); dlFile(name+'.csv','text/csv;charset=utf-8','﻿'+lines.join('\r\n')); toast('Excel (CSV) téléchargé'); return; }
-  const htmlDoc='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;white-space:pre-wrap;font-size:13px">'+esc(txt)+'</body></html>';
+  const htmlDoc='<html><head><meta charset="utf-8"><style>@page{margin:2cm}body{font-family:Calibri,Arial,Helvetica,sans-serif;white-space:pre-wrap;font-size:12pt;line-height:1.5;color:#000;margin:0}</style></head><body>'+esc(txt)+'</body></html>';
   if(fmt==='doc'){ dlFile(name+'.doc','application/msword','﻿'+htmlDoc); toast('Word téléchargé'); return; }
   if(fmt==='pdf'){ const ifr=document.createElement('iframe'); ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(ifr); const d=ifr.contentWindow.document; d.open(); d.write(htmlDoc); d.close(); setTimeout(()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){} setTimeout(()=>{try{ifr.remove();}catch(e){}},60000);},400); toast('Impression → PDF'); }
 }
@@ -3463,6 +3464,7 @@ function sheetHTML(){
   else if(sheet.type==='import') inner=importSheet();
   else if(sheet.type==='dvarEntry') inner=dvarEntrySheet();
   else if(sheet.type==='dvarMove') inner=dvarMoveSheet();
+  else if(sheet.type==='dvarTplPick') inner=dvarTplPickSheet();
   const _top = sheet && sheet.type==='search';
   return `<div class="overlay${_top?' overlay-top':''}" data-act="sheetBackdrop()"><div class="sheet${_top?' sheet-top':''}" data-act="event.stopPropagation()"><div class="sheet-grip"></div>${inner}</div></div>`;
 }
@@ -5561,13 +5563,16 @@ function dvarEntrySheet(){
     ${media.length?`<div class="section-label">📎 ${t('Contenu','תוכן','Content')}</div>${media.map(m=>dvarMediaHTML(m)).join('')}`:''}
     <div class="dd" style="margin:8px 0 4px">
       <button class="dd-btn" data-act="dvarToggleMore()">＋ ${t('Ajouter','הוספה','Add')} ▾</button>
-      ${_dvarMore?`<div class="dd-menu">
+      ${_dvarMore?`<div class="dd-scrim" data-act="dvarCloseMore()"></div><div class="dd-menu">
         <button class="dd-item" data-act="dvarAddNote()">📝 ${t('Note','הערה','Note')}</button>
         <button class="dd-item" data-act="dvarAttachImage()">🖼️ ${t('Image','תמונה','Image')}</button>
         <button class="dd-item" data-act="dvarAttachCamera()">📷 ${t('Caméra','מצלמה','Camera')}</button>
         <button class="dd-item" data-act="dvarAttachVideo()">🎬 ${t('Vidéo','וידאו','Video')}</button>
         <button class="dd-item" data-act="dvarAttachFile()">📎 ${t('Fichier','קובץ','File')}</button>
         <button class="dd-item" data-act="dvarAttachLink()">🔗 ${t('Lien','קישור','Link')}</button>
+        <div style="height:1px;background:var(--line-soft);margin:4px 0"></div>
+        <button class="dd-item" data-act="dvarSaveAsTemplate()">📋 ${t('Enregistrer comme modèle','שמור כתבנית','Save as template')}</button>
+        <button class="dd-item" data-act="dvarInsertTemplateMenu()">📥 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</button>
       </div>`:''}
     </div>
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -5579,7 +5584,8 @@ function dvarEntrySheet(){
   </div>`;
 }
 // Enregistrement explicite : synchronise les champs (titre/note) et sauvegarde tout de suite.
-function dvarSaveEntry(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; } save(); try{ if(_cloudReady) cloudPush(); }catch(_){} toast(t('Enregistré ✓','נשמר ✓','Saved ✓')); }
+function dvarCloseMore(){ _dvarMore=false; renderOverlay(); }
+function dvarSaveEntry(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; } _dvarMore=false; save(); try{ if(_cloudReady) cloudPush(); }catch(_){} closeSheet(); render(); toast(t('Enregistré ✓','נשמר ✓','Saved ✓')); }
 // Déplacer la fiche vers un autre dossier Dvar Torah.
 function dvarMoveEntry(){ dvarSyncFields(); if(!dvarById(_dvarEntry)){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; } sheet={type:'dvarMove'}; renderOverlay(); }
 function dvarMoveTo(fid){ const e=dvarById(_dvarEntry); if(!e)return; e.parentId=(fid==='')?null:fid; save(); sheet={type:'dvarEntry'}; renderOverlay(); toast(t('Fiche déplacée ✓','הכרטיס הועבר ✓','Entry moved ✓')); }
@@ -5606,6 +5612,25 @@ function dvarExportEntry(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!
   txt=txt.trim()||t('(fiche vide)','(כרטיס ריק)','(empty entry)');
   try{ if(navigator.share){ navigator.share({title:(e.title||'Dvar Torah'),text:txt}); return; } }catch(_){}
   try{ const wa='https://wa.me/?text='+encodeURIComponent(txt); window.open(wa,'_blank'); }catch(_){ try{ navigator.clipboard.writeText(txt); toast(t('Copié ✓','הועתק ✓','Copied ✓')); }catch(e2){} }
+}
+// ---- Modèles de fiche Dvar Torah (réutilisables) ----
+function _freshDvarMedia(media){ return (media||[]).map(m=>{ const c=JSON.parse(JSON.stringify(m)); c.id=uid(); return c; }); }
+function dvarSaveAsTemplate(){ dvarSyncFields(); const e=dvarById(_dvarEntry); if(!e){ toast(t('Fiche introuvable','לא נמצא','Entry not found')); return; }
+  if(!Array.isArray(D.dvarTemplates))D.dvarTemplates=[];
+  D.dvarTemplates.push({id:uid(),name:((e.title||'').trim()||t('Modèle','תבנית','Template')),title:(e.title||''),note:(e.note||''),media:_freshDvarMedia(e.media)});
+  _dvarMore=false; save(); renderOverlay(); toast(t('Fiche enregistrée comme modèle ✓','נשמר כתבנית ✓','Saved as template ✓')); }
+function dvarInsertTemplateMenu(){ _dvarMore=false; if(!Array.isArray(D.dvarTemplates)||!D.dvarTemplates.length){ renderOverlay(); toast(t("Aucun modèle. Enregistre d'abord une fiche comme modèle.",'אין תבניות. שמור קודם כרטיס כתבנית.','No template yet. Save an entry as template first.')); return; } sheet={type:'dvarTplPick'}; renderOverlay(); }
+function dvarApplyTemplate(tid){ const e=dvarById(_dvarEntry); if(!e)return; const tp=(D.dvarTemplates||[]).find(x=>x.id===tid); if(!tp)return;
+  if(!(e.title||'').trim() && (tp.title||'').trim()) e.title=tp.title;
+  if((tp.note||'').trim()){ e.note=((e.note||'').trim()? (e.note.replace(/\s+$/,'')+'\n\n'+tp.note) : tp.note); }
+  if(!Array.isArray(e.media))e.media=[]; e.media=e.media.concat(_freshDvarMedia(tp.media));
+  save(); sheet={type:'dvarEntry'}; renderOverlay(); toast(t('Modèle inséré ✓','התבנית הוכנסה ✓','Template inserted ✓')); }
+function dvarDelTemplate(tid){ D.dvarTemplates=(D.dvarTemplates||[]).filter(x=>x.id!==tid); save(); renderOverlay(); }
+function dvarTplPickSheet(){ const tpls=D.dvarTemplates||[];
+  const rows=tpls.map(tp=>{ const nMed=(tp.media||[]).length; const meta=[(tp.note||'').trim()?t('note','הערה','note'):'', nMed?nMed+' '+t('pièce(s)','פריטים','item(s)'):''].filter(Boolean).join(' · ');
+    return `<div class="card" style="padding:10px 12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">📋 ${esc(tp.name||t('Modèle','תבנית','Template'))}</div>${meta?`<div style="font-size:12px;color:var(--ink-soft)">${esc(meta)}</div>`:''}</div><button class="btn btn-primary btn-sm" data-act="dvarApplyTemplate('${tp.id}')">📥 ${t('Insérer','הכנס','Insert')}</button><button class="mini-btn danger" data-act="dvarDelTemplate('${tp.id}')" title="${t('Supprimer','מחק','Delete')}">🗑</button></div></div>`; }).join('');
+  return `<div class="sheet-head"><div class="sheet-title">📋 ${t('Insérer un modèle','הכנס תבנית','Insert a template')}</div><button class="sheet-close" data-act="dvarMoveClose()">✕</button></div>
+  <div class="sheet-body"><div class="hint" style="margin-bottom:10px">${t('Le modèle ajoute son texte et ses pièces jointes à la fiche.','התבנית מוסיפה את הטקסט והקבצים לכרטיס.','The template adds its text and attachments to the entry.')}</div>${rows||('<div class="hint">'+t('Aucun modèle.','אין תבניות.','No template.')+'</div>')}</div>`;
 }
 
 // ============================================================
@@ -6600,7 +6625,7 @@ function commitDragOrder(kind){
  orgSetName,orgSetType,orgNewType,orgSetMode,orgSetDossier,orgSetTpl,hevOrgConfirm,dossSetType,dossNewType,
  openImport,importClose,importStep,importTo,importPickDossier,importDossNav,importDossBack,geminiSetKey,geminiClear,
  louvahDvar,dvarOpen,dvarBack,dvarAddFolder,dvarAddEntry,dvarRenameFolder,dvarDelFolder,dvarOpenEntry,dvarSetTitle,dvarSetNote,dvarDelEntry,dvarAttachImage,dvarRmMedia,
- dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,dvarSaveEntry,dvarMoveEntry,dvarMoveTo,dvarMoveClose,dvarExportEntry,
+ dvarToggleMore,dvarAddNote,dvarAttachCamera,dvarAttachVideo,dvarAttachFile,dvarAttachLink,dvarMediaNoteSet,dvarSaveEntry,dvarMoveEntry,dvarMoveTo,dvarMoveClose,dvarExportEntry,dvarSaveAsTemplate,dvarInsertTemplateMenu,dvarApplyTemplate,dvarDelTemplate,dvarCloseMore,
  checksOpen,checksAdd,checksSet,checksToggle,checksDel,checksShare,
  openBackups,restoreBackup,restoreGuard,backupDownload,backupImportFile,snapshotBackup,
  agToggleTheme,agShowAllThemes,renderCalGrid,setJournalDeskMode,gcalOpen,gcalSync,gcalSaveUrl,gcalToggleAuto,gcalCopyCode,_closeGcal,
