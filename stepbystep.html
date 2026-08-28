@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="stepbystep">
-<meta name="app-build" content="b-2026-08-27-a30">
+<meta name="app-build" content="b-2026-08-27-a31">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
@@ -2317,11 +2317,13 @@ function ideaAttrExplorerHTML(){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
     H.push(backBar((mm?mm.emoji+' '+mName(mm):t('Mois','חודש','Month')),"mvOpenMonths()"));
     H.push(dropBtn(t('Mettre directement dans','שים ישירות ב','Put directly in')+' '+(mm?mName(mm):t('ce mois','חודש זה','this month')),'monthtasks|'+moveNav.mId));
+    const mdoss=dossiersFor('month',moveNav.mId);
+    if(mdoss.length){ H.push(hint(t('Dans un dossier de ce mois :','בתיקייה של חודש זה:','In a folder of this month:'))); mdoss.forEach(d=>H.push(drillRow(d.icon||'🗂️',d.name||'Sans nom',_mvDossMeta(d),"mvDoss('"+d.id+"')"))); }
     const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
     if(real.length){ H.push(hint(t('Ou ouvrir une fête :','או פתח חג:','Or open a holiday:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
   } else if(moveNav && moveNav.dId){
     const d=dossierById(moveNav.dId);
-    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):"mvOpenDossiers()";
+    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):((d&&d.anchor&&d.anchor.kind==='month')?("mvMonth('"+d.anchor.id+"')"):"mvOpenDossiers()");
     H.push(backBar((d?(d.icon||'🗂️')+' '+(d.name||'Dossier'):'Dossier'),backAct));
     if(d){
       H.push(dropBtn(t('Mettre dans','שים ב','Put in')+' « '+(d.name||t('ce dossier','תיקייה זו','this folder'))+' »','dossier|'+d.id));
@@ -2828,11 +2830,13 @@ function impExplorerHTML(){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
     H.push(backBar((mm?mm.emoji+' '+mName(mm):t('Mois','חודש','Month')),"mvOpenMonths()"));
     H.push(dropBtn(t('Mettre directement dans','שים ישירות ב','Put directly in')+' '+(mm?mName(mm):t('ce mois','חודש זה','this month')),'monthtasks|'+moveNav.mId));
+    const mdoss=dossiersFor('month',moveNav.mId);
+    if(mdoss.length){ H.push(hint(t('Dans un dossier de ce mois :','בתיקייה של חודש זה:','In a folder of this month:'))); mdoss.forEach(d=>H.push(drillRow(d.icon||'🗂️',d.name||'Sans nom',_mvDossMeta(d),"mvDoss('"+d.id+"')"))); }
     const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
     if(real.length){ H.push(hint(t('Ou ouvrir une fête :','או פתח חג:','Or open a holiday:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
   } else if(moveNav && moveNav.dId){
     const d=dossierById(moveNav.dId);
-    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):"mvOpenDossiers()";
+    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):((d&&d.anchor&&d.anchor.kind==='month')?("mvMonth('"+d.anchor.id+"')"):"mvOpenDossiers()");
     H.push(backBar((d?(d.icon||'🗂️')+' '+(d.name||'Dossier'):'Dossier'),backAct));
     if(d){
       H.push(dropBtn(t('Mettre dans','שים ב','Put in')+' « '+(d.name||t('ce dossier','תיקייה זו','this folder'))+' »','dossier|'+d.id));
@@ -3606,12 +3610,13 @@ function moveExplorerHTML(){
     const m=D.months[moveNav.mId]; const mm=MONTHS.find(x=>x.id===moveNav.mId);
     H.push(backBar((mm?mm.emoji+' '+mName(mm):t('Mois','חודש','Month')),"mvOpenMonths()"));
     H.push(dropBtn(t('Mettre directement dans','שים ישירות ב','Put directly in')+' '+(mm?mName(mm):t('ce mois','חודש זה','this month')),'monthtasks|'+moveNav.mId));
+    const mdoss=dossiersFor('month',moveNav.mId);
+    if(mdoss.length){ H.push(hint(t('Dans un dossier de ce mois :','בתיקייה של חודש זה:','In a folder of this month:'))); mdoss.forEach(d=>H.push(drillRow(d.icon||'🗂️',d.name||'Sans nom',_mvDossMeta(d),"mvDoss('"+d.id+"')"))); }
     const real=(m?m.fetes:[]).filter(f=>!f._monthGeneral);
     if(real.length){ H.push(hint(t('Ou ouvrir une fête pour aller plus loin :','או פתח חג כדי להמשיך:','Or open a holiday to go further:'))); real.forEach(f=>H.push(drillRow('🎉',f.name,nEvents(f.events.length),"mvFete('"+f.id+"')"))); }
-    H.push('<button class="btn btn-ghost btn-sm btn-block" style="margin-top:4px" data-act="mvCreateFete()">➕ Créer une nouvelle fête ici</button>');
   } else if(moveNav && moveNav.dId){
     const d=dossierById(moveNav.dId);
-    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):"mvOpenDossiers()";
+    const backAct=(d&&d.parentId&&dossierById(d.parentId))?("mvDoss('"+d.parentId+"')"):((d&&d.anchor&&d.anchor.kind==='month')?("mvMonth('"+d.anchor.id+"')"):"mvOpenDossiers()");
     H.push(backBar((d?(d.icon||'🗂️')+' '+(d.name||'Dossier'):'Dossier'),backAct));
     if(d){
       H.push(dropBtn('Mettre dans « '+(d.name||'ce dossier')+' »','dossier|'+d.id));
